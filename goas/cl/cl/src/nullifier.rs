@@ -51,6 +51,10 @@ impl NullifierSecret {
         let commit_bytes: [u8; 32] = hasher.finalize().into();
         NullifierCommitment(commit_bytes)
     }
+
+    pub fn from_bytes(bytes: [u8; 16]) -> Self {
+        Self(bytes)
+    }
 }
 
 impl NullifierCommitment {
@@ -73,6 +77,10 @@ impl NullifierNonce {
     pub fn as_bytes(&self) -> &[u8; 16] {
         &self.0
     }
+
+    pub fn from_bytes(bytes: [u8; 16]) -> Self {
+        Self(bytes)
+    }
 }
 
 impl Nullifier {
@@ -86,7 +94,7 @@ impl Nullifier {
         Self(nf_bytes)
     }
 
-    pub(crate) fn as_bytes(&self) -> &[u8; 32] {
+    pub fn as_bytes(&self) -> &[u8; 32] {
         &self.0
     }
 }
