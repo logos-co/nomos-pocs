@@ -14,7 +14,7 @@ serde = { version = "1.0", features = ["derive"] }
 bincode = "1"
 common = { path = "../../common" }
 cl = { path = "../../../cl/cl" }
-proof_statements = { path = "../../../cl/proof_statements" }
+proof_statements = { path = "../../proof_statements", package = "goas_proof_statements" }
 
 [patch.crates-io]
 # Placing these patch statement in the workspace Cargo.toml will add RISC Zero SHA-256 and bigint
