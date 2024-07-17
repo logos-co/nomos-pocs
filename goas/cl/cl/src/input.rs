@@ -51,8 +51,8 @@ impl InputWitness {
 }
 
 impl Input {
-    pub fn to_bytes(&self) -> [u8; 64] {
-        let mut bytes = [0u8; 64];
+    pub fn to_bytes(&self) -> [u8; 96] {
+        let mut bytes = [0u8; 96];
         bytes[..32].copy_from_slice(self.nullifier.as_bytes());
         bytes[32..64].copy_from_slice(&self.balance.to_bytes());
         bytes[64..96].copy_from_slice(&self.death_cm.0);

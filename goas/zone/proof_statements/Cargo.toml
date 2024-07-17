@@ -1,0 +1,9 @@
+[package]
+name = "goas_proof_statements"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cl = { path = "../../cl/cl" }
+proof_statements = { path = "../../cl/proof_statements" }
+serde = { version = "1.0", features = ["derive"] }
