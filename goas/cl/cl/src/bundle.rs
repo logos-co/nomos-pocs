@@ -15,7 +15,7 @@ pub struct Bundle {
 
 #[derive(Debug, Clone)]
 pub struct BundleWitness {
-    pub balance: BalanceWitness,
+    pub balance_blinding: BalanceWitness,
 }
 
 impl Bundle {
@@ -62,7 +62,7 @@ mod test {
         };
 
         let bundle_witness = BundleWitness {
-            balance: BalanceWitness::new(
+            balance_blinding: BalanceWitness::new(
                 crv_4840_out.balance_blinding.0
                     - nmo_10_in.balance_blinding.0
                     - eth_23_in.balance_blinding.0,
@@ -73,7 +73,7 @@ mod test {
             partials: vec![PartialTx::from_witness(ptx_unbalanced)],
         };
 
-        assert!(!bundle.is_balanced(bundle_witness.balance));
+        assert!(!bundle.is_balanced(bundle_witness.balance_blinding));
         assert_eq!(
             bundle.balance(),
             crate::balance::balance(4840, hash_to_curve(b"CRV"), crv_4840_out.balance_blinding.0)
@@ -108,7 +108,7 @@ mod test {
             }));
 
         let witness = BundleWitness {
-            balance: BalanceWitness::new(
+            balance_blinding: BalanceWitness::new(
                 -nmo_10_in.balance_blinding.0 - eth_23_in.balance_blinding.0
                     + crv_4840_out.balance_blinding.0
                     - crv_4840_in.balance_blinding.0
@@ -122,10 +122,10 @@ mod test {
             crate::balance::balance(
                 0,
                 curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT,
-                witness.balance.0
+                witness.balance_blinding.0
             )
         );
 
-        assert!(bundle.is_balanced(witness.balance));
+        assert!(bundle.is_balanced(witness.balance_blinding));
     }
 }
