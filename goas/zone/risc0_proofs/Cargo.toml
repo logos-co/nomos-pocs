@@ -1,5 +1,5 @@
 [package]
-name = "nomos_cl_risc0_proofs"
+name = "goas_risc0_proofs"
 version = "0.1.0"
 edition = "2021"
 

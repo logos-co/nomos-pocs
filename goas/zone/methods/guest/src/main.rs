@@ -12,8 +12,8 @@ fn withdraw(mut state: StateWitness, withdraw: Withdraw) -> StateWitness {
         nf,
     } = withdraw;
 
-    let from = state.balances.entry(from).or_insert(0);
-    *from = from.checked_sub(amount).unwrap();
+    let from_balance = state.balances.entry(from).or_insert(0);
+    *from_balance = from.checked_sub(amount).expect("insufficient funds in account");
     let spend_auth = Spend {
         amount: amount.into(),
         to,

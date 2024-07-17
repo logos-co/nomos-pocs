@@ -5,4 +5,5 @@ edition = "2021"
 
 [dependencies]
 cl = { path = "../../cl/cl" }
+proof_statements = { path = "../../cl/proof_statements" }
 serde = { version = "1.0", features = ["derive"] }
