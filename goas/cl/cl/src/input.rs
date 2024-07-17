@@ -6,8 +6,9 @@ use crate::{
     balance::Balance,
     note::{DeathCommitment, NoteWitness},
     nullifier::{Nullifier, NullifierNonce, NullifierSecret},
+    BalanceWitness,
 };
-use rand_core::RngCore;
+use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -20,30 +21,44 @@ pub struct Input {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InputWitness {
     pub note: NoteWitness,
+    pub utxo_balance: BalanceWitness,
+    pub balance: BalanceWitness,
     pub nf_sk: NullifierSecret,
     pub nonce: NullifierNonce,
 }
 
 impl InputWitness {
-    pub fn random(note: NoteWitness, mut rng: impl RngCore) -> Self {
+    pub fn random(
+        output: crate::OutputWitness,
+        nf_sk: NullifierSecret,
+        mut rng: impl CryptoRngCore,
+    ) -> Self {
+        assert_eq!(nf_sk.commit(), output.nf_pk);
         Self {
-            note,
-            nf_sk: NullifierSecret::random(&mut rng),
-            nonce: NullifierNonce::random(&mut rng),
+            note: output.note,
+            utxo_balance: output.balance,
+            balance: BalanceWitness::random(&mut rng),
+            nf_sk,
+            nonce: output.nonce,
         }
+    }
+
+    pub fn nullifier(&self) -> Nullifier {
+        Nullifier::new(self.nf_sk, self.nonce)
     }
 
     pub fn commit(&self) -> Input {
         Input {
-            nullifier: Nullifier::new(self.nf_sk, self.nonce),
-            balance: self.note.balance(),
+            nullifier: self.nullifier(),
+            balance: self.balance.commit(&self.note),
             death_cm: self.note.death_commitment(),
         }
     }
 
-    pub fn to_output_witness(&self) -> crate::OutputWitness {
+    pub fn to_output(&self) -> crate::OutputWitness {
         crate::OutputWitness {
-            note: self.note.clone(),
+            note: self.note,
+            balance: self.utxo_balance,
             nf_pk: self.nf_sk.commit(),
             nonce: self.nonce,
         }

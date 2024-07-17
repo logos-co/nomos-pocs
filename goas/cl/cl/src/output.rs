@@ -1,4 +1,4 @@
-use rand_core::RngCore;
+use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -6,6 +6,7 @@ use crate::{
     error::Error,
     note::{NoteCommitment, NoteWitness},
     nullifier::{NullifierCommitment, NullifierNonce},
+    BalanceWitness,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -14,17 +15,23 @@ pub struct Output {
     pub balance: Balance,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OutputWitness {
     pub note: NoteWitness,
+    pub balance: BalanceWitness,
     pub nf_pk: NullifierCommitment,
     pub nonce: NullifierNonce,
 }
 
 impl OutputWitness {
-    pub fn random(note: NoteWitness, owner: NullifierCommitment, mut rng: impl RngCore) -> Self {
+    pub fn random(
+        note: NoteWitness,
+        owner: NullifierCommitment,
+        mut rng: impl CryptoRngCore,
+    ) -> Self {
         Self {
             note,
+            balance: BalanceWitness::random(&mut rng),
             nf_pk: owner,
             nonce: NullifierNonce::random(&mut rng),
         }
@@ -34,10 +41,14 @@ impl OutputWitness {
         self.note.commit(self.nf_pk, self.nonce)
     }
 
+    pub fn commit_balance(&self) -> Balance {
+        self.balance.commit(&self.note)
+    }
+
     pub fn commit(&self) -> Output {
         Output {
             note_comm: self.commit_note(),
-            balance: self.note.balance(),
+            balance: self.commit_balance(),
         }
     }
 }
@@ -61,8 +72,7 @@ impl Output {
         // - balance == v * hash_to_curve(Unit) + blinding * H
         let witness = &proof.0;
 
-        self.note_comm == witness.note.commit(witness.nf_pk, witness.nonce)
-            && self.balance == witness.note.balance()
+        self.note_comm == witness.commit_note() && self.balance == witness.commit_balance()
     }
 
     pub fn to_bytes(&self) -> [u8; 64] {
@@ -82,11 +92,12 @@ mod test {
     fn test_output_proof() {
         let mut rng = rand::thread_rng();
 
-        let note = NoteWitness::new(10, "NMO", [0u8; 32], &mut rng);
-        let nf_pk = NullifierSecret::random(&mut rng).commit();
-        let nonce = NullifierNonce::random(&mut rng);
-
-        let witness = OutputWitness { note, nf_pk, nonce };
+        let witness = OutputWitness {
+            note: NoteWitness::basic(10, "NMO"),
+            balance: BalanceWitness::random(&mut rng),
+            nf_pk: NullifierSecret::random(&mut rng).commit(),
+            nonce: NullifierNonce::random(&mut rng),
+        };
 
         let output = witness.commit();
         let proof = output.prove(&witness).unwrap();
@@ -95,11 +106,15 @@ mod test {
 
         let wrong_witnesses = [
             OutputWitness {
-                note: NoteWitness::new(11, "NMO", [0u8; 32], &mut rng),
+                note: NoteWitness::basic(11, "NMO"),
                 ..witness.clone()
             },
             OutputWitness {
-                note: NoteWitness::new(10, "ETH", [0u8; 32], &mut rng),
+                note: NoteWitness::basic(10, "ETH"),
+                ..witness.clone()
+            },
+            OutputWitness {
+                balance: BalanceWitness::random(&mut rng),
                 ..witness.clone()
             },
             OutputWitness {

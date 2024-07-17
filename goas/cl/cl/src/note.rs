@@ -1,11 +1,8 @@
-use rand_core::CryptoRngCore;
+use curve25519_dalek::RistrettoPoint;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{
-    balance::{Balance, BalanceWitness},
-    nullifier::{NullifierCommitment, NullifierNonce},
-};
+use crate::nullifier::{NullifierCommitment, NullifierNonce};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct DeathCommitment(pub [u8; 32]);
@@ -17,6 +14,10 @@ pub fn death_commitment(death_constraint: &[u8]) -> DeathCommitment {
     let death_cm: [u8; 32] = hasher.finalize().into();
 
     DeathCommitment(death_cm)
+}
+
+pub fn unit_point(unit: &str) -> RistrettoPoint {
+    crate::crypto::hash_to_curve(unit.as_bytes())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -32,22 +33,28 @@ impl NoteCommitment {
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct NoteWitness {
-    pub balance: BalanceWitness,
+    pub value: u64,
+    pub unit: RistrettoPoint,
     pub death_constraint: [u8; 32], // death constraint verification key
     pub state: [u8; 32],
 }
 
 impl NoteWitness {
-    pub fn new(
-        value: u64,
-        unit: impl Into<String>,
-        state: [u8; 32],
-        rng: impl CryptoRngCore,
-    ) -> Self {
+    pub fn new(value: u64, unit: impl Into<String>, state: [u8; 32]) -> Self {
         Self {
-            balance: BalanceWitness::random(value, unit, rng),
+            value,
+            unit: unit_point(&unit.into()),
             death_constraint: [0u8; 32],
             state,
+        }
+    }
+
+    pub fn basic(value: u64, unit: impl Into<String>) -> Self {
+        Self {
+            value,
+            unit: unit_point(&unit.into()),
+            death_constraint: [0u8; 32],
+            state: [0u8; 32],
         }
     }
 
@@ -56,8 +63,8 @@ impl NoteWitness {
         hasher.update(b"NOMOS_CL_NOTE_COMMIT");
 
         // COMMIT TO BALANCE
-        hasher.update(self.balance.value.to_le_bytes());
-        hasher.update(self.balance.unit.compress().to_bytes());
+        hasher.update(self.value.to_le_bytes());
+        hasher.update(self.unit.compress().to_bytes());
         // Important! we don't commit to the balance blinding factor as that may make the notes linkable.
 
         // COMMIT TO STATE
@@ -74,10 +81,6 @@ impl NoteWitness {
         NoteCommitment(commit_bytes)
     }
 
-    pub fn balance(&self) -> Balance {
-        self.balance.commit()
-    }
-
     pub fn death_commitment(&self) -> DeathCommitment {
         death_commitment(&self.death_constraint)
     }
@@ -90,18 +93,57 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_note_commitments_dont_commit_to_balance_blinding() {
+    fn test_note_commit_permutations() {
         let mut rng = rand::thread_rng();
-        let n1 = NoteWitness::new(12, "NMO", [0u8; 32], &mut rng);
-        let n2 = NoteWitness::new(12, "NMO", [0u8; 32], &mut rng);
 
         let nf_pk = NullifierSecret::random(&mut rng).commit();
-        let nonce = NullifierNonce::random(&mut rng);
+        let nf_nonce = NullifierNonce::random(&mut rng);
 
-        // Balance blinding factors are different.
-        assert_ne!(n1.balance.blinding, n2.balance.blinding);
+        let reference_note = NoteWitness::new(32, "NMO", [0u8; 32]);
 
-        // But their commitments are the same.
-        assert_eq!(n1.commit(nf_pk, nonce), n2.commit(nf_pk, nonce));
+        // different notes under same nullifier produce different commitments
+        let mutation_tests = [
+            NoteWitness {
+                value: 12,
+                ..reference_note
+            },
+            NoteWitness {
+                unit: unit_point("ETH"),
+                ..reference_note
+            },
+            NoteWitness {
+                death_constraint: [1u8; 32],
+                ..reference_note
+            },
+            NoteWitness {
+                state: [1u8; 32],
+                ..reference_note
+            },
+        ];
+
+        for n in mutation_tests {
+            assert_ne!(
+                n.commit(nf_pk, nf_nonce),
+                reference_note.commit(nf_pk, nf_nonce)
+            );
+        }
+
+        // commitment to same note with different nullifiers produce different commitments
+
+        let other_nf_pk = NullifierSecret::random(&mut rng).commit();
+        let other_nf_nonce = NullifierNonce::random(&mut rng);
+
+        assert_ne!(
+            reference_note.commit(nf_pk, nf_nonce),
+            reference_note.commit(other_nf_pk, nf_nonce)
+        );
+        assert_ne!(
+            reference_note.commit(nf_pk, nf_nonce),
+            reference_note.commit(nf_pk, other_nf_nonce)
+        );
+        assert_ne!(
+            reference_note.commit(nf_pk, nf_nonce),
+            reference_note.commit(other_nf_pk, other_nf_nonce)
+        );
     }
 }

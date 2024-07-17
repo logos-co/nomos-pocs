@@ -1,6 +1,5 @@
-use rand_core::RngCore;
-// use risc0_groth16::ProofJson;
 use curve25519_dalek::ristretto::RistrettoPoint;
+use rand_core::RngCore;
 use serde::{Deserialize, Serialize};
 
 use crate::input::{Input, InputWitness};
@@ -115,15 +114,20 @@ mod test {
     fn test_partial_tx_balance() {
         let mut rng = rand::thread_rng();
 
-        let nmo_10 =
-            InputWitness::random(NoteWitness::new(10, "NMO", [0u8; 32], &mut rng), &mut rng);
-        let eth_23 =
-            InputWitness::random(NoteWitness::new(23, "ETH", [0u8; 32], &mut rng), &mut rng);
-        let crv_4840 = OutputWitness::random(
-            NoteWitness::new(4840, "CRV", [0u8; 32], &mut rng),
-            NullifierSecret::random(&mut rng).commit(), // transferring to a random owner
-            &mut rng,
-        );
+        let nf_a = NullifierSecret::random(&mut rng);
+        let nf_b = NullifierSecret::random(&mut rng);
+        let nf_c = NullifierSecret::random(&mut rng);
+
+        let nmo_10_utxo =
+            OutputWitness::random(NoteWitness::basic(10, "NMO"), nf_a.commit(), &mut rng);
+        let nmo_10 = InputWitness::random(nmo_10_utxo, nf_a, &mut rng);
+
+        let eth_23_utxo =
+            OutputWitness::random(NoteWitness::basic(23, "ETH"), nf_b.commit(), &mut rng);
+        let eth_23 = InputWitness::random(eth_23_utxo, nf_b, &mut rng);
+
+        let crv_4840 =
+            OutputWitness::random(NoteWitness::basic(4840, "CRV"), nf_c.commit(), &mut rng);
 
         let ptx_witness = PartialTxWitness {
             inputs: vec![nmo_10.clone(), eth_23.clone()],
@@ -134,16 +138,9 @@ mod test {
 
         assert_eq!(
             ptx.balance(),
-            crate::balance::balance(4840, hash_to_curve(b"CRV"), crv_4840.note.balance.blinding)
-                - (crate::balance::balance(
-                    10,
-                    hash_to_curve(b"NMO"),
-                    nmo_10.note.balance.blinding
-                ) + crate::balance::balance(
-                    23,
-                    hash_to_curve(b"ETH"),
-                    eth_23.note.balance.blinding
-                ))
+            crate::balance::balance(4840, hash_to_curve(b"CRV"), crv_4840.balance.0)
+                - (crate::balance::balance(10, hash_to_curve(b"NMO"), nmo_10.balance.0)
+                    + crate::balance::balance(23, hash_to_curve(b"ETH"), eth_23.balance.0))
         );
     }
 }
