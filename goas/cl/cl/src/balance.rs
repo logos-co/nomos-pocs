@@ -118,8 +118,8 @@ mod test {
 
         // Values of same unit are homomorphic
         assert_eq!(
-            (b1.commit(&ten).0 - b1.commit(&eight).0).compress(),
-            b_zero.commit(&two).0.compress()
+            (b1.commit(&ten).0 - b1.commit(&eight).0),
+            b_zero.commit(&two).0
         );
 
         // Blinding factors are also homomorphic.
