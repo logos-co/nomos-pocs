@@ -25,7 +25,7 @@ impl InputProof {
 }
 
 pub fn prove_input(input: cl::InputWitness, note_commitments: &[cl::NoteCommitment]) -> InputProof {
-    let output_cm = input.to_output_witness().commit_note();
+    let output_cm = input.to_output().commit_note();
 
     let cm_leaves = note_commitment_leaves(note_commitments);
     let cm_idx = note_commitments
@@ -80,17 +80,16 @@ mod test {
     #[test]
     fn test_input_nullifier_prover() {
         let mut rng = thread_rng();
+
         let input = cl::InputWitness {
-            note: cl::NoteWitness {
-                balance: cl::BalanceWitness::random(32, "NMO", &mut rng),
-                death_constraint: [0u8; 32],
-                state: [0u8; 32],
-            },
+            note: cl::NoteWitness::basic(32, "NMO"),
+            utxo_balance_blinding: cl::BalanceWitness::random(&mut rng),
+            balance_blinding: cl::BalanceWitness::random(&mut rng),
             nf_sk: cl::NullifierSecret::random(&mut rng),
             nonce: cl::NullifierNonce::random(&mut rng),
         };
 
-        let notes = vec![input.to_output_witness().commit_note()];
+        let notes = vec![input.to_output().commit_note()];
 
         let proof = prove_input(input, &notes);
 
@@ -125,7 +124,8 @@ mod test {
             },
             InputPublic {
                 input: cl::Input {
-                    balance: cl::BalanceWitness::random(32, "NMO", &mut rng).commit(),
+                    balance: cl::BalanceWitness::random(&mut rng)
+                        .commit(&cl::NoteWitness::basic(32, "NMO")),
                     ..expected_public_inputs.input
                 },
                 ..expected_public_inputs

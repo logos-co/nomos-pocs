@@ -63,7 +63,9 @@ mod test {
 
         let bundle_witness = BundleWitness {
             balance: BalanceWitness::new(
-                crv_4840_out.balance.0 - nmo_10_in.balance.0 - eth_23_in.balance.0,
+                crv_4840_out.balance_blinding.0
+                    - nmo_10_in.balance_blinding.0
+                    - eth_23_in.balance_blinding.0,
             ),
         };
 
@@ -74,9 +76,16 @@ mod test {
         assert!(!bundle.is_balanced(bundle_witness.balance));
         assert_eq!(
             bundle.balance(),
-            crate::balance::balance(4840, hash_to_curve(b"CRV"), crv_4840_out.balance.0)
-                - (crate::balance::balance(10, hash_to_curve(b"NMO"), nmo_10_in.balance.0)
-                    + crate::balance::balance(23, hash_to_curve(b"ETH"), eth_23_in.balance.0))
+            crate::balance::balance(4840, hash_to_curve(b"CRV"), crv_4840_out.balance_blinding.0)
+                - (crate::balance::balance(
+                    10,
+                    hash_to_curve(b"NMO"),
+                    nmo_10_in.balance_blinding.0
+                ) + crate::balance::balance(
+                    23,
+                    hash_to_curve(b"ETH"),
+                    eth_23_in.balance_blinding.0
+                ))
         );
 
         let crv_4840_in = InputWitness::random(crv_4840_out, nf_c, &mut rng);
@@ -100,10 +109,11 @@ mod test {
 
         let witness = BundleWitness {
             balance: BalanceWitness::new(
-                -nmo_10_in.balance.0 - eth_23_in.balance.0 + crv_4840_out.balance.0
-                    - crv_4840_in.balance.0
-                    + nmo_10_out.balance.0
-                    + eth_23_out.balance.0,
+                -nmo_10_in.balance_blinding.0 - eth_23_in.balance_blinding.0
+                    + crv_4840_out.balance_blinding.0
+                    - crv_4840_in.balance_blinding.0
+                    + nmo_10_out.balance_blinding.0
+                    + eth_23_out.balance_blinding.0,
             ),
         };
 

@@ -138,9 +138,13 @@ mod test {
 
         assert_eq!(
             ptx.balance(),
-            crate::balance::balance(4840, hash_to_curve(b"CRV"), crv_4840.balance.0)
-                - (crate::balance::balance(10, hash_to_curve(b"NMO"), nmo_10.balance.0)
-                    + crate::balance::balance(23, hash_to_curve(b"ETH"), eth_23.balance.0))
+            crate::balance::balance(4840, hash_to_curve(b"CRV"), crv_4840.balance_blinding.0)
+                - (crate::balance::balance(10, hash_to_curve(b"NMO"), nmo_10.balance_blinding.0)
+                    + crate::balance::balance(
+                        23,
+                        hash_to_curve(b"ETH"),
+                        eth_23.balance_blinding.0
+                    ))
         );
     }
 }

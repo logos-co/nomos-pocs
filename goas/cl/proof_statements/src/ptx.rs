@@ -15,7 +15,7 @@ impl PartialTxInputPrivate {
     }
 
     pub fn cm_root(&self) -> [u8; 32] {
-        let leaf = merkle::leaf(self.input.to_output_witness().commit_note().as_bytes());
+        let leaf = merkle::leaf(self.input.to_output().commit_note().as_bytes());
         merkle::path_root(leaf, &self.cm_path)
     }
 }

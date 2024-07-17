@@ -18,7 +18,7 @@ pub struct Output {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OutputWitness {
     pub note: NoteWitness,
-    pub balance: BalanceWitness,
+    pub balance_blinding: BalanceWitness,
     pub nf_pk: NullifierCommitment,
     pub nonce: NullifierNonce,
 }
@@ -31,7 +31,7 @@ impl OutputWitness {
     ) -> Self {
         Self {
             note,
-            balance: BalanceWitness::random(&mut rng),
+            balance_blinding: BalanceWitness::random(&mut rng),
             nf_pk: owner,
             nonce: NullifierNonce::random(&mut rng),
         }
@@ -42,7 +42,7 @@ impl OutputWitness {
     }
 
     pub fn commit_balance(&self) -> Balance {
-        self.balance.commit(&self.note)
+        self.balance_blinding.commit(&self.note)
     }
 
     pub fn commit(&self) -> Output {
@@ -60,7 +60,7 @@ pub struct OutputProof(OutputWitness);
 impl Output {
     pub fn prove(&self, w: &OutputWitness) -> Result<OutputProof, Error> {
         if &w.commit() == self {
-            Ok(OutputProof(w.clone()))
+            Ok(OutputProof(*w))
         } else {
             Err(Error::ProofFailed)
         }
@@ -94,7 +94,7 @@ mod test {
 
         let witness = OutputWitness {
             note: NoteWitness::basic(10, "NMO"),
-            balance: BalanceWitness::random(&mut rng),
+            balance_blinding: BalanceWitness::random(&mut rng),
             nf_pk: NullifierSecret::random(&mut rng).commit(),
             nonce: NullifierNonce::random(&mut rng),
         };
@@ -114,7 +114,7 @@ mod test {
                 ..witness.clone()
             },
             OutputWitness {
-                balance: BalanceWitness::random(&mut rng),
+                balance_blinding: BalanceWitness::random(&mut rng),
                 ..witness.clone()
             },
             OutputWitness {
