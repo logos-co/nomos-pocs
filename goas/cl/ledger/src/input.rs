@@ -96,7 +96,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_input_nullifier_prover() {
+    fn test_input_prover() {
         let mut rng = thread_rng();
 
         let input = cl::InputWitness {
