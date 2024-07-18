@@ -10,6 +10,54 @@ pub struct ProvedInput {
 }
 
 impl ProvedInput {
+    pub fn prove(input: cl::InputWitness, note_commitments: &[cl::NoteCommitment]) -> Self {
+        let output_cm = input.to_output().commit_note();
+
+        let cm_leaves = note_commitment_leaves(note_commitments);
+        let cm_idx = note_commitments
+            .iter()
+            .position(|c| c == &output_cm)
+            .unwrap();
+        let cm_path = cl::merkle::path(cm_leaves, cm_idx);
+
+        let secrets = InputPrivate { input, cm_path };
+
+        let env = risc0_zkvm::ExecutorEnv::builder()
+            .write(&secrets)
+            .unwrap()
+            .build()
+            .unwrap();
+
+        // Obtain the default prover.
+        let prover = risc0_zkvm::default_prover();
+
+        use std::time::Instant;
+        let start_t = Instant::now();
+
+        // Proof information by proving the specified ELF binary.
+        // This struct contains the receipt along with statistics about execution of the guest
+        let opts = risc0_zkvm::ProverOpts::succinct();
+        let prove_info = prover
+            .prove_with_opts(env, nomos_cl_risc0_proofs::INPUT_ELF, &opts)
+            .unwrap();
+
+        println!(
+            "STARK prover time: {:.2?}, total_cycles: {}",
+            start_t.elapsed(),
+            prove_info.stats.total_cycles
+        );
+        // extract the receipt.
+        let receipt = prove_info.receipt;
+
+        Self {
+            input: InputPublic {
+                cm_root: cl::merkle::root(cm_leaves),
+                input: input.commit(),
+            },
+            proof: InputProof { receipt },
+        }
+    }
+
     pub fn verify(&self) -> bool {
         self.proof.verify(&self.input)
     }
@@ -32,57 +80,6 @@ impl InputProof {
 
         &public_inputs == expected_public_inputs
             && self.receipt.verify(nomos_cl_risc0_proofs::INPUT_ID).is_ok()
-    }
-}
-
-pub fn prove_input(
-    input: cl::InputWitness,
-    note_commitments: &[cl::NoteCommitment],
-) -> ProvedInput {
-    let output_cm = input.to_output().commit_note();
-
-    let cm_leaves = note_commitment_leaves(note_commitments);
-    let cm_idx = note_commitments
-        .iter()
-        .position(|c| c == &output_cm)
-        .unwrap();
-    let cm_path = cl::merkle::path(cm_leaves, cm_idx);
-
-    let secrets = InputPrivate { input, cm_path };
-
-    let env = risc0_zkvm::ExecutorEnv::builder()
-        .write(&secrets)
-        .unwrap()
-        .build()
-        .unwrap();
-
-    // Obtain the default prover.
-    let prover = risc0_zkvm::default_prover();
-
-    use std::time::Instant;
-    let start_t = Instant::now();
-
-    // Proof information by proving the specified ELF binary.
-    // This struct contains the receipt along with statistics about execution of the guest
-    let opts = risc0_zkvm::ProverOpts::succinct();
-    let prove_info = prover
-        .prove_with_opts(env, nomos_cl_risc0_proofs::INPUT_ELF, &opts)
-        .unwrap();
-
-    println!(
-        "STARK prover time: {:.2?}, total_cycles: {}",
-        start_t.elapsed(),
-        prove_info.stats.total_cycles
-    );
-    // extract the receipt.
-    let receipt = prove_info.receipt;
-
-    ProvedInput {
-        input: InputPublic {
-            cm_root: cl::merkle::root(cm_leaves),
-            input: input.commit(),
-        },
-        proof: InputProof { receipt },
     }
 }
 
@@ -112,7 +109,7 @@ mod test {
 
         let notes = vec![input.to_output().commit_note()];
 
-        let proved_input = prove_input(input, &notes);
+        let proved_input = ProvedInput::prove(input, &notes);
 
         let expected_public_inputs = InputPublic {
             cm_root: cl::merkle::root(note_commitment_leaves(&notes)),
