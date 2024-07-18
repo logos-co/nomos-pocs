@@ -361,7 +361,7 @@ template partial_round_16_to_1(round_number) {
 	for(var i=1; i<16; i++){
 		matrix.in[i] <== in[i];
 	}
-	for(var i=1; i<16; i++){
+	for(var i=0; i<16; i++){
 		out[i] <== matrix.out[i];
 	}
 }
