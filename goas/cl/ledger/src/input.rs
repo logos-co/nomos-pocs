@@ -4,6 +4,17 @@ use crate::error::Result;
 
 const MAX_NOTE_COMMS: usize = 2usize.pow(8);
 
+pub struct ProvedInput {
+    pub input: InputPublic,
+    pub proof: InputProof,
+}
+
+impl ProvedInput {
+    pub fn verify(&self) -> bool {
+        self.proof.verify(&self.input)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct InputProof {
     receipt: risc0_zkvm::Receipt,
@@ -24,7 +35,10 @@ impl InputProof {
     }
 }
 
-pub fn prove_input(input: cl::InputWitness, note_commitments: &[cl::NoteCommitment]) -> InputProof {
+pub fn prove_input(
+    input: cl::InputWitness,
+    note_commitments: &[cl::NoteCommitment],
+) -> ProvedInput {
     let output_cm = input.to_output().commit_note();
 
     let cm_leaves = note_commitment_leaves(note_commitments);
@@ -62,7 +76,14 @@ pub fn prove_input(input: cl::InputWitness, note_commitments: &[cl::NoteCommitme
     );
     // extract the receipt.
     let receipt = prove_info.receipt;
-    InputProof { receipt }
+
+    ProvedInput {
+        input: InputPublic {
+            cm_root: cl::merkle::root(cm_leaves),
+            input: input.commit(),
+        },
+        proof: InputProof { receipt },
+    }
 }
 
 fn note_commitment_leaves(note_commitments: &[cl::NoteCommitment]) -> [[u8; 32]; MAX_NOTE_COMMS] {
@@ -91,14 +112,15 @@ mod test {
 
         let notes = vec![input.to_output().commit_note()];
 
-        let proof = prove_input(input, &notes);
+        let proved_input = prove_input(input, &notes);
 
         let expected_public_inputs = InputPublic {
             cm_root: cl::merkle::root(note_commitment_leaves(&notes)),
             input: input.commit(),
         };
 
-        assert!(proof.verify(&expected_public_inputs));
+        assert_eq!(proved_input.input, expected_public_inputs);
+        assert!(proved_input.verify());
 
         let wrong_public_inputs = [
             InputPublic {
@@ -133,7 +155,7 @@ mod test {
         ];
 
         for wrong_input in wrong_public_inputs {
-            assert!(!proof.verify(&wrong_input));
+            assert!(!proved_input.proof.verify(&wrong_input));
         }
     }
 
