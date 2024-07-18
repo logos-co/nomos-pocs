@@ -1,0 +1,35 @@
+[ req ]
+default_bits       = 2048
+distinguished_name = req_distinguished_name
+req_extensions     = req_ext
+x509_extensions    = v3_ca
+
+[ req_distinguished_name ]
+countryName                 = Country Name
+countryName_default         = US
+stateOrProvinceName         = State or Province Name
+stateOrProvinceName_default = California
+localityName                = Locality Name
+localityName_default        = San Francisco
+organizationName            = Organization Name
+organizationName_default    = My Company
+organizationalUnitName      = Organizational Unit Name
+organizationalUnitName_default = IT Department
+commonName                  = Common Name
+commonName_default          = localhost
+
+[ req_ext ]
+subjectAltName = @alt_names
+
+[ v3_ca ]
+subjectAltName = @alt_names
+authorityKeyIdentifier=keyid,issuer
+basicConstraints = CA:TRUE
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+
+[ alt_names ]
+DNS.1   = bacv.org
+DNS.2   = localhost
+IP.1    = 145.239.92.79
+IP.2    = 127.0.0.1
