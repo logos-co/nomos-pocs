@@ -17,6 +17,15 @@ pub struct Balance(pub RistrettoPoint);
 pub struct BalanceWitness(pub Scalar);
 
 impl Balance {
+    /// A commitment to zero, blinded by the provided balance witness
+    pub fn zero(blinding: BalanceWitness) -> Self {
+        Self(balance(
+            0,
+            curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT,
+            blinding.0,
+        ))
+    }
+
     pub fn to_bytes(&self) -> [u8; 32] {
         self.0.compress().to_bytes()
     }
