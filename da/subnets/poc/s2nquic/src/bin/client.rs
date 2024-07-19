@@ -51,13 +51,13 @@ async fn spawn_client(
 
         let start = Instant::now();
         if let Err(e) = send_stream.write_all(&message).await {
-            eprintln!("Failed to send message: {:?}", e);
+            println!("Failed to send message: {:?}", e);
             break;
         }
 
         let mut buf = vec![0; message.len()];
         if let Err(e) = receive_stream.read_exact(&mut buf).await {
-            eprintln!("Failed to receive echo: {:?}", e);
+            println!("Failed to receive echo: {:?}", e);
             break;
         }
 
@@ -128,7 +128,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             tokio::spawn(async move {
                 let r = spawn_client(tx, id, connection_counter).await;
                 if let Err(e) = r {
-                    eprintln!("{e}");
+                    println!("{e}");
                 }
             });
         });

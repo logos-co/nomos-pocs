@@ -20,11 +20,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tokio::spawn(async move {
         loop {
             tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-            eprintln!(
+            println!(
                 "Total connections: {}",
                 connection_counter_a.load(Ordering::SeqCst)
             );
-            eprintln!(
+            println!(
                 "Total bytes received: {}",
                 byte_counter_b.load(Ordering::SeqCst)
             );
@@ -56,4 +56,3 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
-
