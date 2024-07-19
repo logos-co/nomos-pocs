@@ -215,7 +215,7 @@ template membership_checker(){
 
 }
 
-template anemoi_proof_of_leadership(){
+template poseidon_proof_of_leadership(){
     signal input epoch_nonce;   //F_p (BLS12-381 scalar field)
     signal input slot_number;   //F_p (BLS12-381 scalar field)
     signal input t0;            // Precomputed threshold elements in F_p
@@ -298,4 +298,4 @@ template anemoi_proof_of_leadership(){
 }
 
 
-component main {public [epoch_nonce, slot_number, t0, t1, commitments_root]} = anemoi_proof_of_leadership();
+component main {public [epoch_nonce, slot_number, t0, t1, commitments_root]} = poseidon_proof_of_leadership();
