@@ -6,11 +6,11 @@ const MAX_NOTE_COMMS: usize = 2usize.pow(8);
 
 pub struct ProvedInput {
     pub input: InputPublic,
-    pub proof: InputProof,
+    pub risc0_receipt: risc0_zkvm::Receipt,
 }
 
 impl ProvedInput {
-    pub fn prove(input: cl::InputWitness, note_commitments: &[cl::NoteCommitment]) -> Self {
+    pub fn prove(input: &cl::InputWitness, note_commitments: &[cl::NoteCommitment]) -> Self {
         let output_cm = input.to_output().commit_note();
 
         let cm_leaves = note_commitment_leaves(note_commitments);
@@ -20,7 +20,10 @@ impl ProvedInput {
             .unwrap();
         let cm_path = cl::merkle::path(cm_leaves, cm_idx);
 
-        let secrets = InputPrivate { input, cm_path };
+        let secrets = InputPrivate {
+            input: *input,
+            cm_path,
+        };
 
         let env = risc0_zkvm::ExecutorEnv::builder()
             .write(&secrets)
@@ -31,8 +34,7 @@ impl ProvedInput {
         // Obtain the default prover.
         let prover = risc0_zkvm::default_prover();
 
-        use std::time::Instant;
-        let start_t = Instant::now();
+        let start_t = std::time::Instant::now();
 
         // Proof information by proving the specified ELF binary.
         // This struct contains the receipt along with statistics about execution of the guest
@@ -54,34 +56,31 @@ impl ProvedInput {
                 cm_root: cl::merkle::root(cm_leaves),
                 input: input.commit(),
             },
-            proof: InputProof { receipt },
+            risc0_receipt: receipt,
         }
     }
 
+    pub fn public(&self) -> Result<InputPublic> {
+        Ok(self.risc0_receipt.journal.decode()?)
+    }
+
     pub fn verify(&self) -> bool {
-        self.proof.verify(&self.input)
+        let Ok(proved_public_inputs) = self.public() else {
+            return false;
+        };
+
+        self.input == proved_public_inputs
+            && self
+                .risc0_receipt
+                .verify(nomos_cl_risc0_proofs::INPUT_ID)
+                .is_ok()
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct InputProof {
-    receipt: risc0_zkvm::Receipt,
-}
+pub struct InputProof {}
 
-impl InputProof {
-    pub fn public(&self) -> Result<InputPublic> {
-        Ok(self.receipt.journal.decode()?)
-    }
-
-    pub fn verify(&self, expected_public_inputs: &InputPublic) -> bool {
-        let Ok(public_inputs) = self.public() else {
-            return false;
-        };
-
-        &public_inputs == expected_public_inputs
-            && self.receipt.verify(nomos_cl_risc0_proofs::INPUT_ID).is_ok()
-    }
-}
+impl InputProof {}
 
 fn note_commitment_leaves(note_commitments: &[cl::NoteCommitment]) -> [[u8; 32]; MAX_NOTE_COMMS] {
     let note_comm_bytes = Vec::from_iter(note_commitments.iter().map(|c| c.as_bytes().to_vec()));
@@ -109,7 +108,7 @@ mod test {
 
         let notes = vec![input.to_output().commit_note()];
 
-        let proved_input = ProvedInput::prove(input, &notes);
+        let mut proved_input = ProvedInput::prove(&input, &notes);
 
         let expected_public_inputs = InputPublic {
             cm_root: cl::merkle::root(note_commitment_leaves(&notes)),
@@ -152,57 +151,12 @@ mod test {
         ];
 
         for wrong_input in wrong_public_inputs {
-            assert!(!proved_input.proof.verify(&wrong_input));
+            proved_input.input = wrong_input;
+            assert!(!proved_input.verify());
         }
     }
 
     // ----- The following tests still need to be built. -----
-    //
-    // #[test]
-    // fn test_input_proof() {
-    //     let mut rng = rand::thread_rng();
-
-    //     let ptx_root = cl::PtxRoot::default();
-
-    //     let note = cl::NoteWitness::new(10, "NMO", [0u8; 32], &mut rng);
-    //     let nf_sk = cl::NullifierSecret::random(&mut rng);
-    //     let nonce = cl::NullifierNonce::random(&mut rng);
-
-    //     let input_witness = cl::InputWitness { note, nf_sk, nonce };
-
-    //     let input = input_witness.commit();
-    //     let proof = input.prove(&input_witness, ptx_root, vec![]).unwrap();
-
-    //     assert!(input.verify(ptx_root, &proof));
-
-    //     let wrong_witnesses = [
-    //         cl::InputWitness {
-    //             note: cl::NoteWitness::new(11, "NMO", [0u8; 32], &mut rng),
-    //             ..input_witness.clone()
-    //         },
-    //         cl::InputWitness {
-    //             note: cl::NoteWitness::new(10, "ETH", [0u8; 32], &mut rng),
-    //             ..input_witness.clone()
-    //         },
-    //         cl::InputWitness {
-    //             nf_sk: cl::NullifierSecret::random(&mut rng),
-    //             ..input_witness.clone()
-    //         },
-    //         cl::InputWitness {
-    //             nonce: cl::NullifierNonce::random(&mut rng),
-    //             ..input_witness.clone()
-    //         },
-    //     ];
-
-    //     for wrong_witness in wrong_witnesses {
-    //         assert!(input.prove(&wrong_witness, ptx_root, vec![]).is_err());
-
-    //         let wrong_input = wrong_witness.commit();
-    //         let wrong_proof = wrong_input.prove(&wrong_witness, ptx_root, vec![]).unwrap();
-    //         assert!(!input.verify(ptx_root, &wrong_proof));
-    //     }
-    // }
-
     // #[test]
     // fn test_input_ptx_coupling() {
     //     let mut rng = rand::thread_rng();

@@ -1,5 +1,6 @@
 use cl::{merkle, InputWitness, OutputWitness, PtxRoot};
 use serde::{Deserialize, Serialize};
+
 /// An input to a partial transaction
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PartialTxInputPrivate {
