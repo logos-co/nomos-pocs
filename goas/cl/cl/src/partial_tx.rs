@@ -54,13 +54,6 @@ impl PartialTxWitness {
         }
     }
 
-    pub fn balance_delta(&self) -> i128 {
-        let in_sum: i128 = self.inputs.iter().map(|i| i.note.value as i128).sum();
-        let out_sum: i128 = self.outputs.iter().map(|o| o.note.value as i128).sum();
-
-        out_sum - in_sum
-    }
-
     pub fn balance_blinding(&self) -> BalanceWitness {
         let in_sum: Scalar = self.inputs.iter().map(|i| i.balance_blinding.0).sum();
         let out_sum: Scalar = self.outputs.iter().map(|o| o.balance_blinding.0).sum();

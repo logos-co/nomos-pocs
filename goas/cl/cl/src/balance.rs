@@ -19,6 +19,10 @@ pub struct BalanceWitness(pub Scalar);
 impl Balance {
     /// A commitment to zero, blinded by the provided balance witness
     pub fn zero(blinding: BalanceWitness) -> Self {
+	// Since, balance commitments are `value * UnitPoint + blinding * H`, when value=0, the commmitment is unitless.
+	// So we use the generator point as a stand in for the unit point.
+	//
+	// TAI: we can optimize this further from `0*G + r*H` to just `r*H` to save a point scalar mult + point addition.
         Self(balance(
             0,
             curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT,

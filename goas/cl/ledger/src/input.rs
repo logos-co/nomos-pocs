@@ -77,11 +77,6 @@ impl ProvedInput {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct InputProof {}
-
-impl InputProof {}
-
 fn note_commitment_leaves(note_commitments: &[cl::NoteCommitment]) -> [[u8; 32]; MAX_NOTE_COMMS] {
     let note_comm_bytes = Vec::from_iter(note_commitments.iter().map(|c| c.as_bytes().to_vec()));
     let cm_leaves = cl::merkle::padded_leaves::<MAX_NOTE_COMMS>(&note_comm_bytes);
