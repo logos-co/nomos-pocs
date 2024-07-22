@@ -23,11 +23,8 @@ impl Balance {
 	// So we use the generator point as a stand in for the unit point.
 	//
 	// TAI: we can optimize this further from `0*G + r*H` to just `r*H` to save a point scalar mult + point addition.
-        Self(balance(
-            0,
-            curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT,
-            blinding.0,
-        ))
+	let unit = curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
+        Self(balance(0, unit, blinding.0))
     }
 
     pub fn to_bytes(&self) -> [u8; 32] {
