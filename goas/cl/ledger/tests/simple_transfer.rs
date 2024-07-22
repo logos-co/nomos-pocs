@@ -62,6 +62,10 @@ fn test_simple_transfer() {
         partials: vec![ptx_witness.commit()],
     };
 
-    let proved_bundle = ProvedBundle::prove(&bundle, &ptx_witness.balance_blinding());
+    let bundle_witness = cl::BundleWitness {
+	balance_blinding: ptx_witness.balance_blinding(),
+    };
+
+    let proved_bundle = ProvedBundle::prove(&bundle, &bundle_witness);
     assert!(proved_bundle.verify()); // The bundle is balanced.
 }

@@ -11,7 +11,7 @@
 use risc0_zkvm::guest::env;
 
 fn main() {
-    let zero_witness: cl::BalanceWitness = env::read();
-    let zero_balance = cl::Balance::zero(zero_witness);
+    let bundle_witness: cl::BundleWitness = env::read();
+    let zero_balance = cl::Balance::zero(bundle_witness.balance_blinding);
     env::commit(&zero_balance);
 }

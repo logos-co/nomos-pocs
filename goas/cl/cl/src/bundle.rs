@@ -11,7 +11,7 @@ pub struct Bundle {
     pub partials: Vec<PartialTx>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BundleWitness {
     pub balance_blinding: BalanceWitness,
 }

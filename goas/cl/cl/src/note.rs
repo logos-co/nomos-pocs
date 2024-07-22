@@ -103,7 +103,7 @@ mod test {
         let nf_pk = NullifierSecret::random(&mut rng).commit();
         let nf_nonce = NullifierNonce::random(&mut rng);
 
-        let reference_note = NoteWitness::new(32, "NMO", [0u8; 32]);
+        let reference_note = NoteWitness::basic(32, "NMO");
 
         // different notes under same nullifier produce different commitments
         let mutation_tests = [

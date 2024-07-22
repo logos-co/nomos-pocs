@@ -6,12 +6,12 @@ pub struct ProvedBundle {
 }
 
 impl ProvedBundle {
-    pub fn prove(bundle: &cl::Bundle, balance_witness: &cl::BalanceWitness) -> Self {
+    pub fn prove(bundle: &cl::Bundle, bundle_witness: &cl::BundleWitness) -> Self {
         // need to show that bundle is balanced.
         // i.e. the sum of ptx balances is 0
 
         let env = risc0_zkvm::ExecutorEnv::builder()
-            .write(&balance_witness)
+            .write(&bundle_witness)
             .unwrap()
             .build()
             .unwrap();
