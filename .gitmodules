@@ -1,3 +1,3 @@
 [submodule "Proof of Leadership/circomlib"]
-	path = Proof of Leadership/circomlib
+	path = proof_of_leadership/circomlib
 	url = https://github.com/iden3/circomlib.git
