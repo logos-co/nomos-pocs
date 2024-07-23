@@ -11,7 +11,7 @@ pub struct ProvedInput {
 
 impl ProvedInput {
     pub fn prove(input: &cl::InputWitness, note_commitments: &[cl::NoteCommitment]) -> Self {
-        let output_cm = input.to_output().commit_note();
+        let output_cm = input.note_commitment();
 
         let cm_leaves = note_commitment_leaves(note_commitments);
         let cm_idx = note_commitments
@@ -95,13 +95,12 @@ mod test {
 
         let input = cl::InputWitness {
             note: cl::NoteWitness::basic(32, "NMO"),
-            utxo_balance_blinding: cl::BalanceWitness::random(&mut rng),
             balance_blinding: cl::BalanceWitness::random(&mut rng),
             nf_sk: cl::NullifierSecret::random(&mut rng),
             nonce: cl::NullifierNonce::random(&mut rng),
         };
 
-        let notes = vec![input.to_output().commit_note()];
+        let notes = vec![input.note_commitment()];
 
         let mut proved_input = ProvedInput::prove(&input, &notes);
 
