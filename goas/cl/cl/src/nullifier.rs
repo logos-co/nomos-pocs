@@ -17,7 +17,7 @@ use sha2::{Digest, Sha256};
 
 // Maintained privately by note holder
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NullifierSecret([u8; 16]);
+pub struct NullifierSecret(pub [u8; 16]);
 
 // Nullifier commitment is public information that
 // can be provided to anyone wishing to transfer
@@ -29,7 +29,7 @@ pub struct NullifierCommitment([u8; 32]);
 // provide a nonce to differentiate notes controlled by the same
 // secret. Each note is assigned a unique nullifier nonce.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NullifierNonce([u8; 16]);
+pub struct NullifierNonce([u8; 32]);
 
 // The nullifier attached to input notes to prove an input has not
 // already been spent.
@@ -69,17 +69,27 @@ impl NullifierCommitment {
 
 impl NullifierNonce {
     pub fn random(mut rng: impl RngCore) -> Self {
-        let mut nonce = [0u8; 16];
+        let mut nonce = [0u8; 32];
         rng.fill_bytes(&mut nonce);
         Self(nonce)
     }
 
-    pub fn as_bytes(&self) -> &[u8; 16] {
+    pub fn as_bytes(&self) -> &[u8; 32] {
         &self.0
     }
 
-    pub fn from_bytes(bytes: [u8; 16]) -> Self {
+    pub fn from_bytes(bytes: [u8; 32]) -> Self {
         Self(bytes)
+    }
+
+    pub fn evolve(&self, nf_sk: &NullifierSecret) -> Self {
+	let mut hasher = Sha256::new();
+	hasher.update(b"NOMOS_COIN_EVOLVE");
+	hasher.update(&self.0);
+	hasher.update(nf_sk.0);
+
+	let nonce_bytes: [u8; 32] = hasher.finalize().into();
+	Self(nonce_bytes)
     }
 }
 
