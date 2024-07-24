@@ -22,7 +22,6 @@ impl Spend {
     }
 }
 
-/// There are two kind of paths
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SpendFundsPrivate {
     /// The note we're spending

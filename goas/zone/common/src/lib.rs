@@ -1,4 +1,8 @@
-use cl::nullifier::{Nullifier, NullifierCommitment};
+use cl::{
+    merkle,
+    nullifier::{Nullifier, NullifierCommitment, NullifierNonce},
+    NoteWitness,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -10,6 +14,8 @@ pub const MAX_EVENTS: usize = 1 << 8;
 // state of the zone
 #[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct StateCommitment([u8; 32]);
+
+pub type AccountId = u32;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct StateWitness {
@@ -38,12 +44,8 @@ impl StateWitness {
     }
 
     fn included_txs_root(&self) -> [u8; 32] {
-        let tx_bytes = Vec::from_iter(
-            self.included_txs
-                .iter()
-                .map(Input::to_bytes)
-                .map(Vec::from_iter),
-        );
+        // this is a placeholder
+        let tx_bytes = [vec![0u8; 32]];
         let tx_merkle_leaves = cl::merkle::padded_leaves(&tx_bytes);
         cl::merkle::root::<MAX_TXS>(tx_merkle_leaves)
     }
@@ -62,8 +64,8 @@ impl StateWitness {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Withdraw {
-    pub from: u32,
-    pub amount: u32,
+    pub from: AccountId,
+    pub amount: AccountId,
     pub to: NullifierCommitment,
     pub nf: Nullifier,
 }
@@ -79,17 +81,25 @@ impl Withdraw {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum Input {
-    Withdraw(Withdraw),
+/// A deposit of funds into the zone
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Deposit {
+    /// Zone funds are public so we don't need to keep this private
+    /// The amount of funds being deposited and the account they are being deposited to
+    /// is derived from the note itself
+    pub deposit_note: NoteWitness,
+    /// The path to this ptx outputs
+    pub ptx_path: Vec<merkle::PathNode>,
+    /// Note nullifier
+    pub nf_pk: NullifierCommitment,
+    /// Note nonce
+    pub nonce: NullifierNonce,
 }
 
-impl Input {
-    pub fn to_bytes(&self) -> Vec<u8> {
-        match self {
-            Input::Withdraw(withdraw) => withdraw.to_bytes().to_vec(),
-        }
-    }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Input {
+    Withdraw(Withdraw),
+    Deposit(Deposit),
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
