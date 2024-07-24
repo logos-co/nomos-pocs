@@ -207,8 +207,8 @@ template membership_checker(){
     hash[0].in[1] <== node[0] - index[31] * (node[0] - leaf);
 
     for(var i=1; i<32; i++){
-        hash[i].in[0] <== hash[i-1].out - index[31] * (hash[i-1].out - node[i]);
-        hash[i].in[1] <== node[i] - index[31] * (node[i] - hash[i-1].out);
+        hash[i].in[0] <== hash[i-1].out - index[31-i] * (hash[i-1].out - node[i]);
+        hash[i].in[1] <== node[i] - index[31-i] * (node[i] - hash[i-1].out);
     }
 
     root === hash[31].out;
