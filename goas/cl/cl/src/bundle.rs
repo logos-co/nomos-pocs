@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use curve25519_dalek::{constants::RISTRETTO_BASEPOINT_POINT, ristretto::RistrettoPoint, Scalar};
-
-use crate::partial_tx::PartialTx;
+use crate::{partial_tx::PartialTx, Balance, BalanceWitness};
 
 /// The transaction bundle is a collection of partial transactions.
 /// The goal in bundling transactions is to produce a set of partial transactions
@@ -13,27 +11,26 @@ pub struct Bundle {
     pub partials: Vec<PartialTx>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BundleWitness {
-    pub balance_blinding: Scalar,
+    pub balance_blinding: BalanceWitness,
 }
 
 impl Bundle {
-    pub fn balance(&self) -> RistrettoPoint {
-        self.partials.iter().map(|ptx| ptx.balance()).sum()
+    pub fn balance(&self) -> Balance {
+        Balance(self.partials.iter().map(|ptx| ptx.balance().0).sum())
     }
 
-    pub fn is_balanced(&self, balance_blinding_witness: Scalar) -> bool {
-        self.balance()
-            == crate::balance::balance(0, RISTRETTO_BASEPOINT_POINT, balance_blinding_witness)
+    pub fn is_balanced(&self, witness: BalanceWitness) -> bool {
+        self.balance() == Balance::zero(witness)
     }
 }
 
 #[cfg(test)]
 mod test {
     use crate::{
-        crypto::hash_to_curve, input::InputWitness, note::NoteWitness, nullifier::NullifierSecret,
-        output::OutputWitness, partial_tx::PartialTxWitness,
+        input::InputWitness, note::NoteWitness, nullifier::NullifierSecret, output::OutputWitness,
+        partial_tx::PartialTxWitness,
     };
 
     use super::*;
@@ -42,85 +39,74 @@ mod test {
     fn test_bundle_balance() {
         let mut rng = rand::thread_rng();
 
-        let nmo_10_in =
-            InputWitness::random(NoteWitness::new(10, "NMO", [0u8; 32], &mut rng), &mut rng);
-        let eth_23_in =
-            InputWitness::random(NoteWitness::new(23, "ETH", [0u8; 32], &mut rng), &mut rng);
-        let crv_4840_out = OutputWitness::random(
-            NoteWitness::new(4840, "CRV", [0u8; 32], &mut rng),
-            NullifierSecret::random(&mut rng).commit(), // transferring to a random owner
-            &mut rng,
-        );
+        let nf_a = NullifierSecret::random(&mut rng);
+        let nf_b = NullifierSecret::random(&mut rng);
+        let nf_c = NullifierSecret::random(&mut rng);
+
+        let nmo_10_utxo =
+            OutputWitness::random(NoteWitness::basic(10, "NMO"), nf_a.commit(), &mut rng);
+        let nmo_10_in = InputWitness::random(nmo_10_utxo, nf_a, &mut rng);
+
+        let eth_23_utxo =
+            OutputWitness::random(NoteWitness::basic(23, "ETH"), nf_b.commit(), &mut rng);
+        let eth_23_in = InputWitness::random(eth_23_utxo, nf_b, &mut rng);
+
+        let crv_4840_out =
+            OutputWitness::random(NoteWitness::basic(4840, "CRV"), nf_c.commit(), &mut rng);
 
         let ptx_unbalanced = PartialTxWitness {
-            inputs: vec![nmo_10_in.clone(), eth_23_in.clone()],
-            outputs: vec![crv_4840_out.clone()],
+            inputs: vec![nmo_10_in, eth_23_in],
+            outputs: vec![crv_4840_out],
         };
 
         let bundle_witness = BundleWitness {
-            balance_blinding: crv_4840_out.note.balance.blinding
-                - nmo_10_in.note.balance.blinding
-                - eth_23_in.note.balance.blinding,
+            balance_blinding: BalanceWitness::new(
+                crv_4840_out.balance_blinding.0
+                    - nmo_10_in.balance_blinding.0
+                    - eth_23_in.balance_blinding.0,
+            ),
         };
 
         let mut bundle = Bundle {
-            partials: vec![PartialTx::from_witness(ptx_unbalanced)],
+            partials: vec![ptx_unbalanced.commit()],
         };
 
         assert!(!bundle.is_balanced(bundle_witness.balance_blinding));
         assert_eq!(
-            bundle.balance(),
-            crate::balance::balance(
-                4840,
-                hash_to_curve(b"CRV"),
-                crv_4840_out.note.balance.blinding
-            ) - (crate::balance::balance(
-                10,
-                hash_to_curve(b"NMO"),
-                nmo_10_in.note.balance.blinding
-            ) + crate::balance::balance(
-                23,
-                hash_to_curve(b"ETH"),
-                eth_23_in.note.balance.blinding
-            ))
+            bundle.balance().0,
+            crv_4840_out.commit().balance.0
+                - (nmo_10_in.commit().balance.0 + eth_23_in.commit().balance.0)
         );
 
-        let crv_4840_in =
-            InputWitness::random(NoteWitness::new(4840, "CRV", [0u8; 32], &mut rng), &mut rng);
+        let crv_4840_in = InputWitness::random(crv_4840_out, nf_c, &mut rng);
         let nmo_10_out = OutputWitness::random(
-            NoteWitness::new(10, "NMO", [0u8; 32], &mut rng),
+            NoteWitness::basic(10, "NMO"),
             NullifierSecret::random(&mut rng).commit(), // transferring to a random owner
             &mut rng,
         );
         let eth_23_out = OutputWitness::random(
-            NoteWitness::new(23, "ETH", [0u8; 32], &mut rng),
+            NoteWitness::basic(23, "ETH"),
             NullifierSecret::random(&mut rng).commit(), // transferring to a random owner
             &mut rng,
         );
 
-        bundle
-            .partials
-            .push(PartialTx::from_witness(PartialTxWitness {
-                inputs: vec![crv_4840_in.clone()],
-                outputs: vec![nmo_10_out.clone(), eth_23_out.clone()],
-            }));
+        bundle.partials.push(
+            PartialTxWitness {
+                inputs: vec![crv_4840_in],
+                outputs: vec![nmo_10_out, eth_23_out],
+            }
+            .commit(),
+        );
 
         let witness = BundleWitness {
-            balance_blinding: -nmo_10_in.note.balance.blinding - eth_23_in.note.balance.blinding
-                + crv_4840_out.note.balance.blinding
-                - crv_4840_in.note.balance.blinding
-                + nmo_10_out.note.balance.blinding
-                + eth_23_out.note.balance.blinding,
+            balance_blinding: BalanceWitness::new(
+                -nmo_10_in.balance_blinding.0 - eth_23_in.balance_blinding.0
+                    + crv_4840_out.balance_blinding.0
+                    - crv_4840_in.balance_blinding.0
+                    + nmo_10_out.balance_blinding.0
+                    + eth_23_out.balance_blinding.0,
+            ),
         };
-
-        assert_eq!(
-            bundle.balance(),
-            crate::balance::balance(
-                0,
-                curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT,
-                witness.balance_blinding
-            )
-        );
 
         assert!(bundle.is_balanced(witness.balance_blinding));
     }

@@ -1,5 +1,6 @@
 use cl::{merkle, InputWitness, OutputWitness, PtxRoot};
 use serde::{Deserialize, Serialize};
+
 /// An input to a partial transaction
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PartialTxInputPrivate {
@@ -15,7 +16,7 @@ impl PartialTxInputPrivate {
     }
 
     pub fn cm_root(&self) -> [u8; 32] {
-        let leaf = merkle::leaf(self.input.to_output_witness().commit_note().as_bytes());
+        let leaf = merkle::leaf(self.input.note_commitment().as_bytes());
         merkle::path_root(leaf, &self.cm_path)
     }
 }

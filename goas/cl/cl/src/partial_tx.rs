@@ -1,8 +1,9 @@
-use rand_core::RngCore;
-// use risc0_groth16::ProofJson;
 use curve25519_dalek::ristretto::RistrettoPoint;
+use curve25519_dalek::Scalar;
+use rand_core::RngCore;
 use serde::{Deserialize, Serialize};
 
+use crate::balance::{Balance, BalanceWitness};
 use crate::input::{Input, InputWitness};
 use crate::merkle;
 use crate::output::{Output, OutputWitness};
@@ -45,14 +46,23 @@ pub struct PartialTxWitness {
     pub outputs: Vec<OutputWitness>,
 }
 
-impl PartialTx {
-    pub fn from_witness(w: PartialTxWitness) -> Self {
-        Self {
-            inputs: Vec::from_iter(w.inputs.iter().map(InputWitness::commit)),
-            outputs: Vec::from_iter(w.outputs.iter().map(OutputWitness::commit)),
+impl PartialTxWitness {
+    pub fn commit(&self) -> PartialTx {
+        PartialTx {
+            inputs: Vec::from_iter(self.inputs.iter().map(InputWitness::commit)),
+            outputs: Vec::from_iter(self.outputs.iter().map(OutputWitness::commit)),
         }
     }
 
+    pub fn balance_blinding(&self) -> BalanceWitness {
+        let in_sum: Scalar = self.inputs.iter().map(|i| i.balance_blinding.0).sum();
+        let out_sum: Scalar = self.outputs.iter().map(|o| o.balance_blinding.0).sum();
+
+        BalanceWitness(out_sum - in_sum)
+    }
+}
+
+impl PartialTx {
     pub fn input_root(&self) -> [u8; 32] {
         let input_bytes =
             Vec::from_iter(self.inputs.iter().map(Input::to_bytes).map(Vec::from_iter));
@@ -96,18 +106,18 @@ impl PartialTx {
         PtxRoot(root)
     }
 
-    pub fn balance(&self) -> RistrettoPoint {
+    pub fn balance(&self) -> Balance {
         let in_sum: RistrettoPoint = self.inputs.iter().map(|i| i.balance.0).sum();
         let out_sum: RistrettoPoint = self.outputs.iter().map(|o| o.balance.0).sum();
 
-        out_sum - in_sum
+        Balance(out_sum - in_sum)
     }
 }
 
 #[cfg(test)]
 mod test {
 
-    use crate::{crypto::hash_to_curve, note::NoteWitness, nullifier::NullifierSecret};
+    use crate::{note::NoteWitness, nullifier::NullifierSecret};
 
     use super::*;
 
@@ -115,35 +125,31 @@ mod test {
     fn test_partial_tx_balance() {
         let mut rng = rand::thread_rng();
 
-        let nmo_10 =
-            InputWitness::random(NoteWitness::new(10, "NMO", [0u8; 32], &mut rng), &mut rng);
-        let eth_23 =
-            InputWitness::random(NoteWitness::new(23, "ETH", [0u8; 32], &mut rng), &mut rng);
-        let crv_4840 = OutputWitness::random(
-            NoteWitness::new(4840, "CRV", [0u8; 32], &mut rng),
-            NullifierSecret::random(&mut rng).commit(), // transferring to a random owner
-            &mut rng,
-        );
+        let nf_a = NullifierSecret::random(&mut rng);
+        let nf_b = NullifierSecret::random(&mut rng);
+        let nf_c = NullifierSecret::random(&mut rng);
+
+        let nmo_10_utxo =
+            OutputWitness::random(NoteWitness::basic(10, "NMO"), nf_a.commit(), &mut rng);
+        let nmo_10 = InputWitness::random(nmo_10_utxo, nf_a, &mut rng);
+
+        let eth_23_utxo =
+            OutputWitness::random(NoteWitness::basic(23, "ETH"), nf_b.commit(), &mut rng);
+        let eth_23 = InputWitness::random(eth_23_utxo, nf_b, &mut rng);
+
+        let crv_4840 =
+            OutputWitness::random(NoteWitness::basic(4840, "CRV"), nf_c.commit(), &mut rng);
 
         let ptx_witness = PartialTxWitness {
-            inputs: vec![nmo_10.clone(), eth_23.clone()],
-            outputs: vec![crv_4840.clone()],
+            inputs: vec![nmo_10, eth_23],
+            outputs: vec![crv_4840],
         };
 
-        let ptx = PartialTx::from_witness(ptx_witness.clone());
+        let ptx = ptx_witness.commit();
 
         assert_eq!(
-            ptx.balance(),
-            crate::balance::balance(4840, hash_to_curve(b"CRV"), crv_4840.note.balance.blinding)
-                - (crate::balance::balance(
-                    10,
-                    hash_to_curve(b"NMO"),
-                    nmo_10.note.balance.blinding
-                ) + crate::balance::balance(
-                    23,
-                    hash_to_curve(b"ETH"),
-                    eth_23.note.balance.blinding
-                ))
+            ptx.balance().0,
+            crv_4840.commit().balance.0 - (nmo_10.commit().balance.0 + eth_23.commit().balance.0)
         );
     }
 }
