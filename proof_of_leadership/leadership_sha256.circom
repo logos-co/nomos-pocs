@@ -611,22 +611,22 @@ template sha_proof_of_leadership(){
 
 
         // Compute the note commitment
-    component note_commiter = commitment_computer();
+    component note_committer = commitment_computer();
     for(var i=0; i<256; i++){
-        note_commiter.note_nonce[i] <== note_nonce[i];
-        note_commiter.nullifier_public_key[i] <== nullifier_secret_key[i];      // TODO: reflect the nullifier public key computation later when defined
+        note_committer.note_nonce[i] <== note_nonce[i];
+        note_committer.nullifier_public_key[i] <== nullifier_secret_key[i];      // TODO: reflect the nullifier public key computation later when defined
     }
-    note_commiter.v[0] <== 0;
-    note_commiter.v[1] <== 0;
-    note_commiter.v[2] <== 0;
+    note_committer.v[0] <== 0;
+    note_committer.v[1] <== 0;
+    note_committer.v[2] <== 0;
     for(var i=0; i<253; i++){
-        note_commiter.v[i+3] <== v[i];
+        note_committer.v[i+3] <== v[i];
     }
 
         // Check the commitment membership
     component membership_checker = membership_checker();
     for(var i=0; i<256; i++){
-        membership_checker.commitment[i] <== note_commiter.commitment[i];
+        membership_checker.commitment[i] <== note_committer.commitment[i];
         membership_checker.commitments_root[i] <== commitments_root[i];
         for(var j=0; j<32; j++){
             if(i==0){
@@ -661,19 +661,19 @@ template sha_proof_of_leadership(){
     }
 
         // Compute the new note commitment
-    component updated_note_commiter = commitment_computer();
+    component updated_note_committer = commitment_computer();
     for(var i=0; i<256; i++){
-        updated_note_commiter.note_nonce[i] <== nonce_updater.updated_nonce[i];
-        updated_note_commiter.nullifier_public_key[i] <== nullifier_secret_key[i];      // TODO: reflect the nullifier public key computation later when defined
+        updated_note_committer.note_nonce[i] <== nonce_updater.updated_nonce[i];
+        updated_note_committer.nullifier_public_key[i] <== nullifier_secret_key[i];      // TODO: reflect the nullifier public key computation later when defined
     }
-    updated_note_commiter.v[0] <== 0;
-    updated_note_commiter.v[1] <== 0;
-    updated_note_commiter.v[2] <== 0;
+    updated_note_committer.v[0] <== 0;
+    updated_note_committer.v[1] <== 0;
+    updated_note_committer.v[2] <== 0;
     for(var i=0; i<253; i++){
-        updated_note_commiter.v[i+3] <== v[i];
+        updated_note_committer.v[i+3] <== v[i];
     }
     for(var i =0; i<256; i++){
-        updated_commiment[i] <== updated_note_commiter.commitment[i];
+        updated_commiment[i] <== updated_note_committer.commitment[i];
     }
 
     

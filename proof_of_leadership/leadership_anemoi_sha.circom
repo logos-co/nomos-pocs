@@ -275,14 +275,14 @@ template anemoi_sha_proof_of_leadership(){
 
 
         // Compute the note commitment
-    component note_commiter = commitment_computer();
-    note_commiter.note_nonce <== note_nonce;
-    note_commiter.nullifier_public_key <== nullifier_secret_key;        // TODO: reflect the nullifier public key computation later when defined
-    note_commiter.value <== value;
+    component note_committer = commitment_computer();
+    note_committer.note_nonce <== note_nonce;
+    note_committer.nullifier_public_key <== nullifier_secret_key;        // TODO: reflect the nullifier public key computation later when defined
+    note_committer.value <== value;
 
         // Check the commitment membership
     component membership_checker = membership_checker();
-    membership_checker.leaf <== note_commiter.commitment;
+    membership_checker.leaf <== note_committer.commitment;
     membership_checker.root <== commitments_root;
     for(var i =0; i<32; i++){
         membership_checker.index[i] <== index[i];
@@ -305,11 +305,11 @@ template anemoi_sha_proof_of_leadership(){
 
 
         // Compute the new note commitment
-    component updated_note_commiter = commitment_computer();
-    updated_note_commiter.note_nonce <== nonce_updater.updated_nonce;
-    updated_note_commiter.nullifier_public_key <== nullifier_secret_key;    // TODO: reflect the nullifier public key computation later when defined
-    updated_note_commiter.value <== value;
-    updated_commiment <== updated_note_commiter.commitment;
+    component updated_note_committer = commitment_computer();
+    updated_note_committer.note_nonce <== nonce_updater.updated_nonce;
+    updated_note_committer.nullifier_public_key <== nullifier_secret_key;    // TODO: reflect the nullifier public key computation later when defined
+    updated_note_committer.value <== value;
+    updated_commiment <== updated_note_committer.commitment;
     
 }
 
