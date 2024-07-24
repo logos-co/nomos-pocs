@@ -1,8 +1,10 @@
 use cl::{
-    merkle,
+    balance::Unit,
+    crypto, merkle,
     nullifier::{Nullifier, NullifierCommitment, NullifierNonce},
     NoteWitness,
 };
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -16,6 +18,11 @@ pub const MAX_EVENTS: usize = 1 << 8;
 pub struct StateCommitment([u8; 32]);
 
 pub type AccountId = u32;
+
+// PLACEHOLDER: replace with the death constraint vk of the zone funds
+pub const ZONE_FUNDS_VK: [u8; 32] = [0; 32];
+// PLACEHOLDER: this is probably going to be NOM?
+pub static ZONE_CL_FUNDS_UNIT: Lazy<Unit> = Lazy::new(|| crypto::hash_to_curve(b"NOM"));
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct StateWitness {

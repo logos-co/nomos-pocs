@@ -33,7 +33,9 @@ fn deposit(
     deposit: Deposit,
     pub_inputs: DeathConstraintPublic,
 ) -> StateWitness {
-    // check the note witness was indeed included in this transaction
+    // check the note witness was indeed included in this transaction,
+    // can be spent by the zone (has the correct death constraints) and is of the
+    // expected unit
     let leaf = merkle::leaf(
         deposit
             .deposit_note
@@ -45,6 +47,8 @@ fn deposit(
         pub_inputs.ptx_root,
         "deposit note not included in ptx"
     );
+    assert_eq!(deposit.deposit_note.death_constraint, ZONE_FUNDS_VK);
+    assert_eq!(deposit.deposit_note.balance.unit, *ZONE_CL_FUNDS_UNIT);
 
     let amount = deposit.deposit_note.balance.value as u32;
     let to =

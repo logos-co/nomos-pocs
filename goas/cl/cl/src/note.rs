@@ -1,8 +1,10 @@
-use curve25519_dalek::RistrettoPoint;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::nullifier::{NullifierCommitment, NullifierNonce};
+use crate::{
+    balance::Unit,
+    nullifier::{NullifierCommitment, NullifierNonce},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct DeathCommitment(pub [u8; 32]);
@@ -16,7 +18,7 @@ pub fn death_commitment(death_constraint: &[u8]) -> DeathCommitment {
     DeathCommitment(death_cm)
 }
 
-pub fn unit_point(unit: &str) -> RistrettoPoint {
+pub fn unit_point(unit: &str) -> Unit {
     crate::crypto::hash_to_curve(unit.as_bytes())
 }
 
@@ -34,7 +36,7 @@ impl NoteCommitment {
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct NoteWitness {
     pub value: u64,
-    pub unit: RistrettoPoint,
+    pub unit: Unit,
     pub death_constraint: [u8; 32], // death constraint verification key
     pub state: [u8; 32],
 }
