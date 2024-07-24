@@ -40,22 +40,26 @@ pub struct NoteWitness {
 }
 
 impl NoteWitness {
-    pub fn new(value: u64, unit: impl Into<String>, state: [u8; 32]) -> Self {
+    pub fn new(
+        value: u64,
+        unit: impl Into<String>,
+        death_constraint: [u8; 32],
+        state: [u8; 32],
+    ) -> Self {
         Self {
             value,
             unit: unit_point(&unit.into()),
-            death_constraint: [0u8; 32],
+            death_constraint,
             state,
         }
     }
 
     pub fn basic(value: u64, unit: impl Into<String>) -> Self {
-        Self {
-            value,
-            unit: unit_point(&unit.into()),
-            death_constraint: [0u8; 32],
-            state: [0u8; 32],
-        }
+        Self::new(value, unit, [0u8; 32], [0u8; 32])
+    }
+
+    pub fn stateless(value: u64, unit: impl Into<String>, death_constraint: [u8; 32]) -> Self {
+        Self::new(value, unit, death_constraint, [0u8; 32])
     }
 
     pub fn commit(&self, nf_pk: NullifierCommitment, nonce: NullifierNonce) -> NoteCommitment {
@@ -99,7 +103,7 @@ mod test {
         let nf_pk = NullifierSecret::random(&mut rng).commit();
         let nf_nonce = NullifierNonce::random(&mut rng);
 
-        let reference_note = NoteWitness::new(32, "NMO", [0u8; 32]);
+        let reference_note = NoteWitness::basic(32, "NMO");
 
         // different notes under same nullifier produce different commitments
         let mutation_tests = [

@@ -18,7 +18,6 @@ fn main() {
         spend_event_state_path,
     } = env::read();
 
-    let cm_root = in_zone_funds.cm_root();
     let ptx_root = in_zone_funds.ptx_root();
     let nf = Nullifier::new(in_zone_funds.input.nf_sk, in_zone_funds.input.nonce);
     // check the zone funds note is the one in the spend event
@@ -78,7 +77,6 @@ fn main() {
     assert_eq!(spent_note.output.nf_pk, spend_event.to);
 
     env::commit(&DeathConstraintPublic {
-        cm_root,
         ptx_root,
         nf,
     });

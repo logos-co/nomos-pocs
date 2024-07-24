@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use curve25519_dalek::{constants::RISTRETTO_BASEPOINT_POINT, ristretto::RistrettoPoint};
-
-use crate::{partial_tx::PartialTx, BalanceWitness};
+use crate::{partial_tx::PartialTx, Balance, BalanceWitness};
 
 /// The transaction bundle is a collection of partial transactions.
 /// The goal in bundling transactions is to produce a set of partial transactions
@@ -13,26 +11,26 @@ pub struct Bundle {
     pub partials: Vec<PartialTx>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BundleWitness {
     pub balance_blinding: BalanceWitness,
 }
 
 impl Bundle {
-    pub fn balance(&self) -> RistrettoPoint {
-        self.partials.iter().map(|ptx| ptx.balance()).sum()
+    pub fn balance(&self) -> Balance {
+        Balance(self.partials.iter().map(|ptx| ptx.balance().0).sum())
     }
 
     pub fn is_balanced(&self, witness: BalanceWitness) -> bool {
-        self.balance() == crate::balance::balance(0, RISTRETTO_BASEPOINT_POINT, witness.0)
+        self.balance() == Balance::zero(witness)
     }
 }
 
 #[cfg(test)]
 mod test {
     use crate::{
-        crypto::hash_to_curve, input::InputWitness, note::NoteWitness, nullifier::NullifierSecret,
-        output::OutputWitness, partial_tx::PartialTxWitness,
+        input::InputWitness, note::NoteWitness, nullifier::NullifierSecret, output::OutputWitness,
+        partial_tx::PartialTxWitness,
     };
 
     use super::*;
@@ -57,8 +55,8 @@ mod test {
             OutputWitness::random(NoteWitness::basic(4840, "CRV"), nf_c.commit(), &mut rng);
 
         let ptx_unbalanced = PartialTxWitness {
-            inputs: vec![nmo_10_in.clone(), eth_23_in.clone()],
-            outputs: vec![crv_4840_out.clone()],
+            inputs: vec![nmo_10_in, eth_23_in],
+            outputs: vec![crv_4840_out],
         };
 
         let bundle_witness = BundleWitness {
@@ -70,22 +68,14 @@ mod test {
         };
 
         let mut bundle = Bundle {
-            partials: vec![PartialTx::from_witness(ptx_unbalanced)],
+            partials: vec![ptx_unbalanced.commit()],
         };
 
         assert!(!bundle.is_balanced(bundle_witness.balance_blinding));
         assert_eq!(
-            bundle.balance(),
-            crate::balance::balance(4840, hash_to_curve(b"CRV"), crv_4840_out.balance_blinding.0)
-                - (crate::balance::balance(
-                    10,
-                    hash_to_curve(b"NMO"),
-                    nmo_10_in.balance_blinding.0
-                ) + crate::balance::balance(
-                    23,
-                    hash_to_curve(b"ETH"),
-                    eth_23_in.balance_blinding.0
-                ))
+            bundle.balance().0,
+            crv_4840_out.commit().balance.0
+                - (nmo_10_in.commit().balance.0 + eth_23_in.commit().balance.0)
         );
 
         let crv_4840_in = InputWitness::random(crv_4840_out, nf_c, &mut rng);
@@ -100,12 +90,13 @@ mod test {
             &mut rng,
         );
 
-        bundle
-            .partials
-            .push(PartialTx::from_witness(PartialTxWitness {
-                inputs: vec![crv_4840_in.clone()],
-                outputs: vec![nmo_10_out.clone(), eth_23_out.clone()],
-            }));
+        bundle.partials.push(
+            PartialTxWitness {
+                inputs: vec![crv_4840_in],
+                outputs: vec![nmo_10_out, eth_23_out],
+            }
+            .commit(),
+        );
 
         let witness = BundleWitness {
             balance_blinding: BalanceWitness::new(
@@ -116,15 +107,6 @@ mod test {
                     + eth_23_out.balance_blinding.0,
             ),
         };
-
-        assert_eq!(
-            bundle.balance(),
-            crate::balance::balance(
-                0,
-                curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT,
-                witness.balance_blinding.0
-            )
-        );
 
         assert!(bundle.is_balanced(witness.balance_blinding));
     }

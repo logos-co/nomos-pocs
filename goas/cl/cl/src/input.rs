@@ -21,7 +21,6 @@ pub struct Input {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InputWitness {
     pub note: NoteWitness,
-    pub utxo_balance_blinding: BalanceWitness,
     pub balance_blinding: BalanceWitness,
     pub nf_sk: NullifierSecret,
     pub nonce: NullifierNonce,
@@ -36,7 +35,6 @@ impl InputWitness {
         assert_eq!(nf_sk.commit(), output.nf_pk);
         Self {
             note: output.note,
-            utxo_balance_blinding: output.balance_blinding,
             balance_blinding: BalanceWitness::random(&mut rng),
             nf_sk,
             nonce: output.nonce,
@@ -55,13 +53,8 @@ impl InputWitness {
         }
     }
 
-    pub fn to_output(&self) -> crate::OutputWitness {
-        crate::OutputWitness {
-            note: self.note,
-            balance_blinding: self.utxo_balance_blinding,
-            nf_pk: self.nf_sk.commit(),
-            nonce: self.nonce,
-        }
+    pub fn note_commitment(&self) -> crate::NoteCommitment {
+	self.note.commit(self.nf_sk.commit(), self.nonce)
     }
 }
 

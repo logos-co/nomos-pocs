@@ -107,23 +107,23 @@ mod test {
         let wrong_witnesses = [
             OutputWitness {
                 note: NoteWitness::basic(11, "NMO"),
-                ..witness.clone()
+                ..witness
             },
             OutputWitness {
                 note: NoteWitness::basic(10, "ETH"),
-                ..witness.clone()
+                ..witness
             },
             OutputWitness {
                 balance_blinding: BalanceWitness::random(&mut rng),
-                ..witness.clone()
+                ..witness
             },
             OutputWitness {
                 nf_pk: NullifierSecret::random(&mut rng).commit(),
-                ..witness.clone()
+                ..witness
             },
             OutputWitness {
                 nonce: NullifierNonce::random(&mut rng),
-                ..witness.clone()
+                ..witness
             },
         ];
 
