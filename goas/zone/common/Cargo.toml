@@ -6,5 +6,6 @@ edition = "2021"
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 cl = { path = "../../cl/cl" }
-proof_statements = { path = "../proof_statements", package = "goas_proof_statements" }
+goas_proof_statements = { path = "../proof_statements" }
+proof_statements = { path = "../../cl/proof_statements" }
 once_cell = "1"

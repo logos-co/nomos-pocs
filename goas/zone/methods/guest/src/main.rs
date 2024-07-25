@@ -1,4 +1,4 @@
-use cl::{merkle, PtxRoot};
+use cl::{merkle, partial_tx::MAX_OUTPUTS, PtxRoot};
 use common::*;
 use goas_proof_statements::zone_funds::Spend;
 use proof_statements::death_constraint::DeathConstraintPublic;
@@ -36,28 +36,45 @@ fn deposit(
     // check the note witness was indeed included in this transaction,
     // can be spent by the zone (has the correct death constraints) and is of the
     // expected unit
-    let leaf = merkle::leaf(
-        deposit
-            .deposit_note
-            .commit(deposit.nf_pk, deposit.nonce)
-            .as_bytes(),
-    );
+
+    let input = &deposit.deposit.input.note;
+
     assert_eq!(
-        PtxRoot(merkle::path_root(leaf, &deposit.ptx_path)),
+        deposit.deposit.ptx_root(),
         pub_inputs.ptx_root,
         "deposit note not included in ptx"
     );
-    assert_eq!(deposit.deposit_note.death_constraint, ZONE_FUNDS_VK);
-    assert_eq!(deposit.deposit_note.balance.unit, *ZONE_CL_FUNDS_UNIT);
+    // the deposit note can't be already spendable by the zone
+    assert_ne!(input.death_constraint, ZONE_FUNDS_VK);
 
-    let amount = deposit.deposit_note.balance.value as u32;
-    let to =
-        AccountId::from_be_bytes(<[u8; 4]>::try_from(&deposit.deposit_note.state[0..4]).unwrap());
+    let amount = input.balance.value as u32;
+    let to = AccountId::from_be_bytes(<[u8; 4]>::try_from(&input.state[0..4]).unwrap());
 
     let to_balance = state.balances.entry(to).or_insert(0);
     *to_balance = to_balance
         .checked_add(amount)
         .expect("overflow when depositing");
+
+    // we also check there's no other output in the tx besides the zone note and the zone funds to avoid
+    // redirecting the deposit note value outside of the zone
+    let zone_note = &deposit.zone_note;
+    assert_eq!(zone_note.note.balance.unit, *ZONE_UNIT);
+    assert_eq!(zone_note.nf_pk, ZONE_NF_PK);
+    // TODO: should we check it's *this* note?
+    let zone_funds = &deposit.zone_funds;
+    assert_eq!(zone_funds.nf_pk, ZONE_NF_PK);
+    assert_eq!(zone_funds.note.balance.unit, *ZONE_CL_FUNDS_UNIT);
+    assert_eq!(zone_funds.note.death_constraint, ZONE_FUNDS_VK);
+
+    let leaves = merkle::padded_leaves::<MAX_OUTPUTS>(&[
+        zone_note.commit().to_bytes().into(),
+        zone_funds.commit().to_bytes().into(),
+    ]);
+    assert_eq!(
+        PtxRoot(merkle::root(leaves)),
+        pub_inputs.ptx_root,
+        "unexpected tx output, only zone funds and note allowed"
+    );
 
     state.included_txs.push(Input::Deposit(deposit));
     state

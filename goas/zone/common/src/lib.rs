@@ -1,10 +1,11 @@
 use cl::{
     balance::Unit,
-    crypto, merkle,
-    nullifier::{Nullifier, NullifierCommitment, NullifierNonce},
-    NoteWitness,
+    crypto,
+    nullifier::{Nullifier, NullifierCommitment},
+    output::OutputWitness,
 };
 use once_cell::sync::Lazy;
+use proof_statements::ptx::PartialTxInputPrivate;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -21,8 +22,12 @@ pub type AccountId = u32;
 
 // PLACEHOLDER: replace with the death constraint vk of the zone funds
 pub const ZONE_FUNDS_VK: [u8; 32] = [0; 32];
-// PLACEHOLDER: this is probably going to be NOM?
-pub static ZONE_CL_FUNDS_UNIT: Lazy<Unit> = Lazy::new(|| crypto::hash_to_curve(b"NOM"));
+// PLACEHOLDER: this is probably going to be NMO?
+pub static ZONE_CL_FUNDS_UNIT: Lazy<Unit> = Lazy::new(|| crypto::hash_to_curve(b"NMO"));
+// PLACEHOLDER
+pub const ZONE_UNIT: Lazy<Unit> = Lazy::new(|| crypto::hash_to_curve(b"ZONE_UNIT"));
+// PLACEHOLDER
+pub const ZONE_NF_PK: NullifierCommitment = NullifierCommitment::from_bytes([0; 32]);
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct StateWitness {
@@ -94,13 +99,9 @@ pub struct Deposit {
     /// Zone funds are public so we don't need to keep this private
     /// The amount of funds being deposited and the account they are being deposited to
     /// is derived from the note itself
-    pub deposit_note: NoteWitness,
-    /// The path to this ptx outputs
-    pub ptx_path: Vec<merkle::PathNode>,
-    /// Note nullifier
-    pub nf_pk: NullifierCommitment,
-    /// Note nonce
-    pub nonce: NullifierNonce,
+    pub deposit: PartialTxInputPrivate,
+    pub zone_note: OutputWitness,
+    pub zone_funds: OutputWitness,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -111,7 +112,7 @@ pub enum Input {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Event {
-    Spend(proof_statements::zone_funds::Spend),
+    Spend(goas_proof_statements::zone_funds::Spend),
 }
 
 impl Event {
