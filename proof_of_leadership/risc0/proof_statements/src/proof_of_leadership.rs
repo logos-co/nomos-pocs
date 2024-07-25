@@ -23,11 +23,6 @@ impl LeaderPublic {
 	updated_commitment: cl::NoteCommitment
     ) -> Self
     {
-
-	
-	// TODO: check in sage that these precision adjustments are valid.
-	//       also ensure that intermediate values going above the field
-	//       order don't mess the final result of the evaluation.
 	let total_stake_big = U256::from_u64(total_stake);
 	let total_stake_sq_big = total_stake_big.checked_mul(&total_stake_big).unwrap();
 	let double_total_stake_sq_big = total_stake_sq_big.checked_mul(&U256::from_u64(2)).unwrap();
@@ -60,7 +55,6 @@ impl LeaderPublic {
 
 
     pub fn check_winning(&self, input: &cl::InputWitness) -> bool {
-	// Lottery checks
 	let threshold = phi_approx(U256::from_u64(input.note.value), self.scaled_phi_approx);
 	let ticket = ticket(&input, self.epoch_nonce, self.slot);
 	ticket < threshold
