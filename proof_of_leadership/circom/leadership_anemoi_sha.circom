@@ -1,11 +1,11 @@
 //test
 pragma circom 2.1.9;
 
-include "anemoi/anemoi_2_to_1_Jubjub.circom";
-include "anemoi/anemoi_4_to_1_Jubjub.circom";
-include "anemoi/anemoi_16_to_1_Jubjub.circom";
-include "../../circomlib-master/circuits/bitify.circom";
-include "../../circomlib-master/circuits/sha256/sha256.circom";
+include "../../circom_circuits/hash/anemoi/anemoi_2_to_1_Jubjub.circom";
+include "../../circom_circuits/hash/anemoi/anemoi_4_to_1_Jubjub.circom";
+include "../../circom_circuits/hash/anemoi/anemoi_16_to_1_Jubjub.circom";
+include "../../circom_circuits/circomlib/circuits/bitify.circom";
+include "../../circom_circuits/circomlib/circuits/sha256/sha256.circom";
 
 template BLSLessThan(n) {
     assert(n <= 253);

@@ -1,8 +1,8 @@
 //test
 pragma circom 2.1.9;
 
-include "../../circomlib-master/circuits/sha256/sha256.circom";
-include "../../circomlib-master/circuits/bitify.circom";
+include "../../circom_circuits/circomlib/circuits/sha256/sha256.circom";
+include "../../circom_circuits/circomlib/circuits/bitify.circom";
 
 template BLSLessThan(n) {
     assert(n <= 253);
