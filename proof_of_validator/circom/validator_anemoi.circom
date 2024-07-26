@@ -77,7 +77,7 @@ template membership_checker(){
 
 }
 
-template anemoi_proof_of_validator(max_notes, minimum_stake){
+template anemoi_proof_of_validator(max_notes, minimum_stake){   //TODO: put minimum_stake in the input to change it dynamically
     signal input commitments_root;
 
         // Note variables
