@@ -158,7 +158,7 @@ template nullifier_computer(){
     nullifier <== hash.out;
 }
 
-template commitment_computer(){
+template commitment_computer(){     // TODO: ensure all field are hash
     signal input note_nonce;
     signal input nullifier_public_key;
     signal input value;

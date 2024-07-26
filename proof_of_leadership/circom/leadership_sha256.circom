@@ -236,7 +236,7 @@ template nullifier_computer(){
     }
 }
 
-template commitment_computer(){
+template commitment_computer(){     // TODO: ensure all field are hash
     signal input note_nonce[256];
     signal input nullifier_public_key[256];
     signal input v[256];
