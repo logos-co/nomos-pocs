@@ -1,4 +1,6 @@
-use ledger::{bundle::ProvedBundle, partial_tx::ProvedPartialTx};
+use std::collections::BTreeMap;
+
+use ledger::{bundle::ProvedBundle, death_constraint::DeathProof, partial_tx::ProvedPartialTx};
 use rand_core::CryptoRngCore;
 
 struct User(cl::NullifierSecret);
@@ -35,7 +37,11 @@ fn test_simple_transfer() {
     let bob = User::random(&mut rng);
 
     // Alice has an unspent note worth 10 NMO
-    let utxo = receive_utxo(cl::NoteWitness::basic(10, "NMO"), alice.pk(), &mut rng);
+    let utxo = receive_utxo(
+        cl::NoteWitness::stateless(10, "NMO", DeathProof::nop_constraint()),
+        alice.pk(),
+        &mut rng,
+    );
     let alices_input = cl::InputWitness::random(utxo, alice.sk(), &mut rng);
 
     // Alice wants to send 8 NMO to bob
@@ -52,9 +58,17 @@ fn test_simple_transfer() {
         outputs: vec![bobs_output, change_output],
     };
 
+    // Prove the death constraints for alices input (she uses the no-op death constraint)
+    let death_proofs = BTreeMap::from_iter(ptx_witness.inputs.iter().map(|i| {
+        (
+            i.nullifier(),
+            DeathProof::prove_nop(i.nullifier(), ptx_witness.commit().root()),
+        )
+    }));
+
     // assume we only have one note commitment on chain for now ...
     let note_commitments = vec![utxo.commit_note()];
-    let proved_ptx = ProvedPartialTx::prove(&ptx_witness, &note_commitments);
+    let proved_ptx = ProvedPartialTx::prove(&ptx_witness, death_proofs, &note_commitments);
 
     assert!(proved_ptx.verify()); // It's a valid ptx.
 
@@ -63,7 +77,7 @@ fn test_simple_transfer() {
     };
 
     let bundle_witness = cl::BundleWitness {
-	balance_blinding: ptx_witness.balance_blinding(),
+        balance_blinding: ptx_witness.balance_blinding(),
     };
 
     let proved_bundle = ProvedBundle::prove(&bundle, &bundle_witness);

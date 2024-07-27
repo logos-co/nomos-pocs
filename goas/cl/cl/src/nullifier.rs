@@ -33,7 +33,7 @@ pub struct NullifierNonce([u8; 32]);
 
 // The nullifier attached to input notes to prove an input has not
 // already been spent.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Nullifier([u8; 32]);
 
 impl NullifierSecret {
@@ -83,13 +83,13 @@ impl NullifierNonce {
     }
 
     pub fn evolve(&self, nf_sk: &NullifierSecret) -> Self {
-	let mut hasher = Sha256::new();
-	hasher.update(b"NOMOS_COIN_EVOLVE");
-	hasher.update(&self.0);
-	hasher.update(nf_sk.0);
+        let mut hasher = Sha256::new();
+        hasher.update(b"NOMOS_COIN_EVOLVE");
+        hasher.update(&self.0);
+        hasher.update(nf_sk.0);
 
-	let nonce_bytes: [u8; 32] = hasher.finalize().into();
-	Self(nonce_bytes)
+        let nonce_bytes: [u8; 32] = hasher.finalize().into();
+        Self(nonce_bytes)
     }
 }
 

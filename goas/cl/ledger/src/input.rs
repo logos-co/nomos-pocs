@@ -4,6 +4,7 @@ use crate::error::Result;
 
 const MAX_NOTE_COMMS: usize = 2usize.pow(8);
 
+#[derive(Debug, Clone)]
 pub struct ProvedInput {
     pub input: InputPublic,
     pub risc0_receipt: risc0_zkvm::Receipt,
