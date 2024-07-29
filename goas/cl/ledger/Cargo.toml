@@ -12,3 +12,4 @@ risc0-groth16 = { version = "1.0" }
 rand = "0.8.5"
 rand_core = "0.6.0"
 thiserror = "1.0.62"
+sha2 = "0.10"
