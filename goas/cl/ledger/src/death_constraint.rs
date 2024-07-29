@@ -67,7 +67,7 @@ impl DeathProof {
             .unwrap();
 
         println!(
-            "STARK prover time: {:.2?}, total_cycles: {}",
+            "STARK 'death-nop' prover time: {:.2?}, total_cycles: {}",
             start_t.elapsed(),
             prove_info.stats.total_cycles
         );

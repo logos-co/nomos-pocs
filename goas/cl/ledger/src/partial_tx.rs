@@ -14,7 +14,7 @@ impl PartialTxInput {
     fn verify(&self, ptx_root: cl::PtxRoot) -> bool {
         let nf = self.input.input.input.nullifier;
         self.input.input.input.death_cm == self.death.death_commitment() // ensure the death proof is actually for this input
-            && self.input.verify() // ensure the input proof is valie
+            && self.input.verify() // ensure the input proof is valid
             && self.death.verify(DeathConstraintPublic { nf, ptx_root }) // verify the death constraint was satisfied
     }
 }

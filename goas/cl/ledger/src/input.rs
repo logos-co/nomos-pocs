@@ -45,7 +45,7 @@ impl ProvedInput {
             .unwrap();
 
         println!(
-            "STARK prover time: {:.2?}, total_cycles: {}",
+            "STARK 'input' prover time: {:.2?}, total_cycles: {}",
             start_t.elapsed(),
             prove_info.stats.total_cycles
         );
