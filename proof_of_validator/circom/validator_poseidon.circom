@@ -52,6 +52,39 @@ template commitment_computer(){
     commitment <== hash.out;
 }
 
+template nullifier_computer(){
+    signal input note_nonce;
+    signal input nullifier_secret_key;
+    signal input value;
+    signal output nullifier;
+
+    component hash = hash_4_to_1();
+
+            //The b"coin-nullifier" Tag converted in F_p element (from bits with big endian order)
+    hash.in[0] <== 2016785505923014207119328528655730;
+    hash.in[1] <== note_nonce;
+    hash.in[2] <== nullifier_secret_key;
+    hash.in[3] <== value;
+
+    nullifier <== hash.out;
+}
+
+template nonce_updater(){
+    signal input note_nonce;
+    signal input nullifier_secret_key;
+    signal output updated_nonce;
+
+    component hash = hash_4_to_1();
+
+            //The b"coin-evolve" Tag converted in F_p element (from bits with big endian order)
+    hash.in[0] <== 120209783668687835891529317;
+    hash.in[1] <== note_nonce;
+    hash.in[2] <== nullifier_secret_key;
+    hash.in[3] <== 0;
+
+    updated_nonce <== hash.out;
+}
+
 template membership_checker(){
     signal input leaf;                      //The note commitment
     signal input root;                      //The root of the Merkle Tree (of depth 32)
@@ -91,6 +124,8 @@ template poseidon_proof_of_validator(max_notes, minimum_stake){     //TODO: put 
     signal input nodes[max_notes][32];     //Merkle proof of the commitment
 
     signal output identity;
+    signal output nullifiers[max_notes];
+    signal output updated_commiments[max_notes];
 
 
         // Check that index inputs are indeed bits
@@ -151,6 +186,39 @@ template poseidon_proof_of_validator(max_notes, minimum_stake){     //TODO: put 
     isLess.in[0] <== minimum_stake;
     isLess.in[1] <== sum[max_notes-2];
     isLess.out === 1;
+
+
+    // Compute the note nullifiers
+    component nullifier_computer[max_notes];
+    for(var i=0; i<max_notes; i++){
+        nullifier_computer[i] = nullifier_computer();
+        nullifier_computer[i].note_nonce <== note_nonce[i];
+        nullifier_computer[i].nullifier_secret_key <== nullifier_secret_key[i];
+        nullifier_computer[i].value <== value[i];
+        nullifiers[i] <== nullifier_computer[i].nullifier;
+    }
+
+        // Compute the evolved nonces
+    component nonce_updater[max_notes];
+    for(var i=0; i<max_notes; i++) {
+        nonce_updater[i] = nonce_updater();
+        nonce_updater[i].note_nonce <== note_nonce[i];
+        nonce_updater[i].nullifier_secret_key <== nullifier_secret_key[i];
+    } 
+
+
+        // Compute the new note commitments
+    component updated_note_committer[max_notes];
+    for(var i=0; i<max_notes; i++) {
+        updated_note_committer[i] = commitment_computer();
+        updated_note_committer[i].note_nonce <== nonce_updater[i].updated_nonce;
+        updated_note_committer[i].nullifier_public_key <== nullifier_secret_key[i];    // TODO: reflect the nullifier public key computation later when defined
+        updated_note_committer[i].value <== value[i];
+        updated_note_committer[i].constraints <== constraints[i];
+        updated_note_committer[i].unit <== unit[i];
+        updated_note_committer[i].state <== state[i];
+        updated_commiments[i] <== updated_note_committer[i].commitment;
+    }
 
 }
 
