@@ -25,7 +25,7 @@ pub const ZONE_FUNDS_VK: [u8; 32] = [0; 32];
 // PLACEHOLDER: this is probably going to be NMO?
 pub static ZONE_CL_FUNDS_UNIT: Lazy<Unit> = Lazy::new(|| crypto::hash_to_curve(b"NMO"));
 // PLACEHOLDER
-pub const ZONE_UNIT: Lazy<Unit> = Lazy::new(|| crypto::hash_to_curve(b"ZONE_UNIT"));
+pub static ZONE_UNIT: Lazy<Unit> = Lazy::new(|| crypto::hash_to_curve(b"ZONE_UNIT"));
 // PLACEHOLDER
 pub const ZONE_NF_PK: NullifierCommitment = NullifierCommitment::from_bytes([0; 32]);
 
@@ -100,6 +100,8 @@ pub struct Deposit {
     /// The amount of funds being deposited and the account they are being deposited to
     /// is derived from the note itself
     pub deposit: PartialTxInputPrivate,
+    /// Root of merkle tree over ptx inputs
+    pub inputs_root: [u8; 32],
     pub zone_note: OutputWitness,
     pub zone_funds: OutputWitness,
 }

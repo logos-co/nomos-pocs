@@ -33,10 +33,8 @@ fn deposit(
     deposit: Deposit,
     pub_inputs: DeathConstraintPublic,
 ) -> StateWitness {
-    // check the note witness was indeed included in this transaction,
-    // can be spent by the zone (has the correct death constraints) and is of the
-    // expected unit
-
+    // We do not need to check the deposit spending credentials here as they will be
+    // considered when evaluating that input
     let input = &deposit.deposit.input.note;
 
     assert_eq!(
@@ -59,6 +57,7 @@ fn deposit(
     // redirecting the deposit note value outside of the zone
     let zone_note = &deposit.zone_note;
     assert_eq!(zone_note.note.balance.unit, *ZONE_UNIT);
+    assert_eq!(zone_note.note.balance.value, 1); // prevent merging zone notes
     assert_eq!(zone_note.nf_pk, ZONE_NF_PK);
     // TODO: should we check it's *this* note?
     let zone_funds = &deposit.zone_funds;
@@ -70,8 +69,9 @@ fn deposit(
         zone_note.commit().to_bytes().into(),
         zone_funds.commit().to_bytes().into(),
     ]);
+    let outputs_root = merkle::root(leaves);
     assert_eq!(
-        PtxRoot(merkle::root(leaves)),
+        PtxRoot(merkle::node(deposit.inputs_root, outputs_root)),
         pub_inputs.ptx_root,
         "unexpected tx output, only zone funds and note allowed"
     );
