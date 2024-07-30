@@ -1,6 +1,6 @@
 use proof_statements::input::{InputPrivate, InputPublic};
 
-use crate::error::Result;
+use crate::error::{Error, Result};
 
 const MAX_NOTE_COMMS: usize = 2usize.pow(8);
 
@@ -11,7 +11,10 @@ pub struct ProvedInput {
 }
 
 impl ProvedInput {
-    pub fn prove(input: &cl::InputWitness, note_commitments: &[cl::NoteCommitment]) -> Self {
+    pub fn prove(
+        input: &cl::InputWitness,
+        note_commitments: &[cl::NoteCommitment],
+    ) -> Result<Self> {
         let output_cm = input.note_commitment();
 
         let cm_leaves = note_commitment_leaves(note_commitments);
@@ -42,7 +45,7 @@ impl ProvedInput {
         let opts = risc0_zkvm::ProverOpts::succinct();
         let prove_info = prover
             .prove_with_opts(env, nomos_cl_risc0_proofs::INPUT_ELF, &opts)
-            .unwrap();
+            .map_err(|_| Error::Risc0ProofFailed)?;
 
         println!(
             "STARK 'input' prover time: {:.2?}, total_cycles: {}",
@@ -52,13 +55,13 @@ impl ProvedInput {
         // extract the receipt.
         let receipt = prove_info.receipt;
 
-        Self {
+        Ok(Self {
             input: InputPublic {
                 cm_root: cl::merkle::root(cm_leaves),
                 input: input.commit(),
             },
             risc0_receipt: receipt,
-        }
+        })
     }
 
     pub fn public(&self) -> Result<InputPublic> {
@@ -103,7 +106,7 @@ mod test {
 
         let notes = vec![input.note_commitment()];
 
-        let mut proved_input = ProvedInput::prove(&input, &notes);
+        let mut proved_input = ProvedInput::prove(&input, &notes).unwrap();
 
         let expected_public_inputs = InputPublic {
             cm_root: cl::merkle::root(note_commitment_leaves(&notes)),

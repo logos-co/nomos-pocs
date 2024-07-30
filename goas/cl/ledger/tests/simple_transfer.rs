@@ -68,7 +68,7 @@ fn test_simple_transfer() {
 
     // assume we only have one note commitment on chain for now ...
     let note_commitments = vec![utxo.commit_note()];
-    let proved_ptx = ProvedPartialTx::prove(&ptx_witness, death_proofs, &note_commitments);
+    let proved_ptx = ProvedPartialTx::prove(&ptx_witness, death_proofs, &note_commitments).unwrap();
 
     assert!(proved_ptx.verify()); // It's a valid ptx.
 
@@ -80,6 +80,6 @@ fn test_simple_transfer() {
         balance_blinding: ptx_witness.balance_blinding(),
     };
 
-    let proved_bundle = ProvedBundle::prove(&bundle, &bundle_witness);
+    let proved_bundle = ProvedBundle::prove(&bundle, &bundle_witness).unwrap();
     assert!(proved_bundle.verify()); // The bundle is balanced.
 }

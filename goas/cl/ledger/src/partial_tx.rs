@@ -2,7 +2,9 @@ use std::collections::BTreeMap;
 
 use proof_statements::death_constraint::DeathConstraintPublic;
 
-use crate::{death_constraint::DeathProof, input::ProvedInput, output::ProvedOutput};
+use crate::{
+    death_constraint::DeathProof, error::Result, input::ProvedInput, output::ProvedOutput,
+};
 
 #[derive(Debug, Clone)]
 pub struct PartialTxInput {
@@ -29,18 +31,27 @@ impl ProvedPartialTx {
         ptx: &cl::PartialTxWitness,
         mut death_proofs: BTreeMap<cl::Nullifier, DeathProof>,
         note_commitments: &[cl::NoteCommitment],
-    ) -> ProvedPartialTx {
-        Self {
-            inputs: Vec::from_iter(ptx.inputs.iter().map(|i| {
-                PartialTxInput {
-                    input: ProvedInput::prove(i, note_commitments),
+    ) -> Result<ProvedPartialTx> {
+        let inputs = ptx
+            .inputs
+            .iter()
+            .map(|i| {
+                Ok(PartialTxInput {
+                    input: ProvedInput::prove(i, note_commitments)?,
                     death: death_proofs
                         .remove(&i.nullifier())
                         .expect("Input missing death proof"),
-                }
-            })),
-            outputs: Vec::from_iter(ptx.outputs.iter().map(ProvedOutput::prove)),
-        }
+                })
+            })
+            .collect::<Result<_>>()?;
+
+        let outputs = ptx
+            .outputs
+            .iter()
+            .map(ProvedOutput::prove)
+            .collect::<Result<_>>()?;
+
+        Ok(Self { inputs, outputs })
     }
 
     pub fn ptx(&self) -> cl::PartialTx {
