@@ -1,4 +1,4 @@
-use crate::error::Result;
+use crate::error::{Error, Result};
 
 pub struct ProvedBundle {
     pub bundle: cl::Bundle,
@@ -6,7 +6,7 @@ pub struct ProvedBundle {
 }
 
 impl ProvedBundle {
-    pub fn prove(bundle: &cl::Bundle, bundle_witness: &cl::BundleWitness) -> Self {
+    pub fn prove(bundle: &cl::Bundle, bundle_witness: &cl::BundleWitness) -> Result<Self> {
         // need to show that bundle is balanced.
         // i.e. the sum of ptx balances is 0
 
@@ -23,7 +23,7 @@ impl ProvedBundle {
         let opts = risc0_zkvm::ProverOpts::succinct();
         let prove_info = prover
             .prove_with_opts(env, nomos_cl_risc0_proofs::BUNDLE_ELF, &opts)
-            .unwrap();
+            .map_err(|_| Error::Risc0ProofFailed)?;
 
         println!(
             "STARK 'bundle' prover time: {:.2?}, total_cycles: {}",
@@ -33,10 +33,10 @@ impl ProvedBundle {
 
         let receipt = prove_info.receipt;
 
-        Self {
+        Ok(Self {
             bundle: bundle.clone(),
             risc0_receipt: receipt,
-        }
+        })
     }
 
     pub fn public(&self) -> Result<cl::Balance> {

@@ -1,4 +1,4 @@
-use crate::error::Result;
+use crate::error::{Error, Result};
 
 pub struct ProvedOutput {
     pub output: cl::Output,
@@ -6,7 +6,7 @@ pub struct ProvedOutput {
 }
 
 impl ProvedOutput {
-    pub fn prove(witness: &cl::OutputWitness) -> Self {
+    pub fn prove(witness: &cl::OutputWitness) -> Result<Self> {
         let env = risc0_zkvm::ExecutorEnv::builder()
             .write(&witness)
             .unwrap()
@@ -20,7 +20,7 @@ impl ProvedOutput {
         let opts = risc0_zkvm::ProverOpts::succinct();
         let prove_info = prover
             .prove_with_opts(env, nomos_cl_risc0_proofs::OUTPUT_ELF, &opts)
-            .unwrap();
+            .map_err(|_| Error::Risc0ProofFailed)?;
 
         println!(
             "STARK 'output' prover time: {:.2?}, total_cycles: {}",
@@ -30,10 +30,10 @@ impl ProvedOutput {
 
         let receipt = prove_info.receipt;
 
-        Self {
+        Ok(Self {
             output: witness.commit(),
             risc0_receipt: receipt,
-        }
+        })
     }
 
     pub fn public(&self) -> Result<cl::Output> {
@@ -70,7 +70,7 @@ mod test {
             nonce: cl::NullifierNonce::random(&mut rng),
         };
 
-        let mut proved_output = ProvedOutput::prove(&output);
+        let mut proved_output = ProvedOutput::prove(&output).unwrap();
 
         let expected_output_cm = output.commit();
 
@@ -99,5 +99,18 @@ mod test {
             proved_output.output = wrong_output_cm;
             assert!(!proved_output.verify());
         }
+    }
+
+    #[test]
+    fn test_zero_output_is_rejected() {
+        let mut rng = thread_rng();
+
+        let output = cl::OutputWitness::random(
+            cl::NoteWitness::basic(0, "NMO"),
+            cl::NullifierSecret::random(&mut rng).commit(),
+            &mut rng,
+        );
+
+        assert!(ProvedOutput::prove(&output).is_err());
     }
 }
