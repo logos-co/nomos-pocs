@@ -16,6 +16,7 @@ common = { path = "../../common" }
 cl = { path = "../../../cl/cl" }
 goas_proof_statements = { path = "../../proof_statements" }
 proof_statements = { path = "../../../cl/proof_statements" }
+sha2 = "0.10"
 
 [patch.crates-io]
 # Placing these patch statement in the workspace Cargo.toml will add RISC Zero SHA-256 and bigint

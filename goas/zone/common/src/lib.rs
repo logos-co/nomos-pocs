@@ -1,11 +1,11 @@
 use cl::{
     balance::Unit,
     crypto,
+    input::InputWitness,
     nullifier::{Nullifier, NullifierCommitment},
     output::OutputWitness,
 };
 use once_cell::sync::Lazy;
-use proof_statements::ptx::PartialTxInputPrivate;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -96,14 +96,16 @@ impl Withdraw {
 /// A deposit of funds into the zone
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Deposit {
-    /// Zone funds are public so we don't need to keep this private
-    /// The amount of funds being deposited and the account they are being deposited to
-    /// is derived from the note itself
-    pub deposit: PartialTxInputPrivate,
-    /// Root of merkle tree over ptx inputs
-    pub inputs_root: [u8; 32],
-    pub zone_note: OutputWitness,
-    pub zone_funds: OutputWitness,
+    /// The note that is used to deposit funds into the zone
+    pub deposit: InputWitness,
+
+    // This zone state note
+    pub zone_note_in: InputWitness,
+    pub zone_note_out: OutputWitness,
+
+    // The zone funds note
+    pub zone_funds_in: InputWitness,
+    pub zone_funds_out: OutputWitness,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
