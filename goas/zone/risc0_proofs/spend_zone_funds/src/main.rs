@@ -60,12 +60,9 @@ fn main() {
         out_zone_funds.output.balance_blinding,
         in_zone_funds.input.balance_blinding
     );
-    let mut evolved_nonce = [0; 16];
-    evolved_nonce[..16]
-        .copy_from_slice(&Sha256::digest(&out_zone_funds.output.nonce.as_bytes())[..16]);
     assert_eq!(
         out_zone_funds.output.nonce,
-        NullifierNonce::from_bytes(evolved_nonce)
+        NullifierNonce::from_bytes(Sha256::digest(&out_zone_funds.output.nonce.as_bytes()).into())
     );
 
     assert_eq!(ptx_root, spent_note.ptx_root());
@@ -76,8 +73,5 @@ fn main() {
     // check the correct recipient is being paid
     assert_eq!(spent_note.output.nf_pk, spend_event.to);
 
-    env::commit(&DeathConstraintPublic {
-        ptx_root,
-        nf,
-    });
+    env::commit(&DeathConstraintPublic { ptx_root, nf });
 }

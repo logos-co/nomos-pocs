@@ -65,6 +65,10 @@ impl NullifierCommitment {
     pub fn hex(&self) -> String {
         hex::encode(self.0)
     }
+
+    pub const fn from_bytes(bytes: [u8; 32]) -> Self {
+        Self(bytes)
+    }
 }
 
 impl NullifierNonce {

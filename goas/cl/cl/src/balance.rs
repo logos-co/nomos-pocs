@@ -13,17 +13,20 @@ lazy_static! {
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct Balance(pub RistrettoPoint);
 
+pub type Value = u64;
+pub type Unit = RistrettoPoint;
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct BalanceWitness(pub Scalar);
 
 impl Balance {
     /// A commitment to zero, blinded by the provided balance witness
     pub fn zero(blinding: BalanceWitness) -> Self {
-	// Since, balance commitments are `value * UnitPoint + blinding * H`, when value=0, the commmitment is unitless.
-	// So we use the generator point as a stand in for the unit point.
-	//
-	// TAI: we can optimize this further from `0*G + r*H` to just `r*H` to save a point scalar mult + point addition.
-	let unit = curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
+        // Since, balance commitments are `value * UnitPoint + blinding * H`, when value=0, the commmitment is unitless.
+        // So we use the generator point as a stand in for the unit point.
+        //
+        // TAI: we can optimize this further from `0*G + r*H` to just `r*H` to save a point scalar mult + point addition.
+        let unit = curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
         Self(balance(0, unit, blinding.0))
     }
 
@@ -46,7 +49,7 @@ impl BalanceWitness {
     }
 }
 
-pub fn balance(value: u64, unit: RistrettoPoint, blinding: Scalar) -> RistrettoPoint {
+pub fn balance(value: u64, unit: Unit, blinding: Scalar) -> Unit {
     let value_scalar = Scalar::from(value);
     // can vartime leak the number of cycles through the stark proof?
     RistrettoPoint::vartime_multiscalar_mul(

@@ -1,4 +1,11 @@
-use cl::nullifier::{Nullifier, NullifierCommitment};
+use cl::{
+    balance::Unit,
+    crypto,
+    input::InputWitness,
+    nullifier::{Nullifier, NullifierCommitment},
+    output::OutputWitness,
+};
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -10,6 +17,17 @@ pub const MAX_EVENTS: usize = 1 << 8;
 // state of the zone
 #[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct StateCommitment([u8; 32]);
+
+pub type AccountId = u32;
+
+// PLACEHOLDER: replace with the death constraint vk of the zone funds
+pub const ZONE_FUNDS_VK: [u8; 32] = [0; 32];
+// PLACEHOLDER: this is probably going to be NMO?
+pub static ZONE_CL_FUNDS_UNIT: Lazy<Unit> = Lazy::new(|| crypto::hash_to_curve(b"NMO"));
+// PLACEHOLDER
+pub static ZONE_UNIT: Lazy<Unit> = Lazy::new(|| crypto::hash_to_curve(b"ZONE_UNIT"));
+// PLACEHOLDER
+pub const ZONE_NF_PK: NullifierCommitment = NullifierCommitment::from_bytes([0; 32]);
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct StateWitness {
@@ -38,12 +56,8 @@ impl StateWitness {
     }
 
     fn included_txs_root(&self) -> [u8; 32] {
-        let tx_bytes = Vec::from_iter(
-            self.included_txs
-                .iter()
-                .map(Input::to_bytes)
-                .map(Vec::from_iter),
-        );
+        // this is a placeholder
+        let tx_bytes = [vec![0u8; 32]];
         let tx_merkle_leaves = cl::merkle::padded_leaves(&tx_bytes);
         cl::merkle::root::<MAX_TXS>(tx_merkle_leaves)
     }
@@ -62,8 +76,8 @@ impl StateWitness {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Withdraw {
-    pub from: u32,
-    pub amount: u32,
+    pub from: AccountId,
+    pub amount: AccountId,
     pub to: NullifierCommitment,
     pub nf: Nullifier,
 }
@@ -79,22 +93,30 @@ impl Withdraw {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum Input {
-    Withdraw(Withdraw),
+/// A deposit of funds into the zone
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Deposit {
+    /// The note that is used to deposit funds into the zone
+    pub deposit: InputWitness,
+
+    // This zone state note
+    pub zone_note_in: InputWitness,
+    pub zone_note_out: OutputWitness,
+
+    // The zone funds note
+    pub zone_funds_in: InputWitness,
+    pub zone_funds_out: OutputWitness,
 }
 
-impl Input {
-    pub fn to_bytes(&self) -> Vec<u8> {
-        match self {
-            Input::Withdraw(withdraw) => withdraw.to_bytes().to_vec(),
-        }
-    }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Input {
+    Withdraw(Withdraw),
+    Deposit(Deposit),
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Event {
-    Spend(proof_statements::zone_funds::Spend),
+    Spend(goas_proof_statements::zone_funds::Spend),
 }
 
 impl Event {
