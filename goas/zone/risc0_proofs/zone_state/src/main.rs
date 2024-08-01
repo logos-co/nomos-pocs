@@ -74,13 +74,13 @@ fn deposit(
 
     // 3) Check the ptx is balanced. This is not a requirement for standard ptxs, but we need it
     //    in deposits (at least in a first version) to ensure fund tracking
-    assert_eq!(deposit.note.balance.unit, *ZONE_UNIT);
-    assert_eq!(zone_funds_in.note.balance.unit, *ZONE_UNIT);
-    assert_eq!(zone_funds_out.note.balance.unit, *ZONE_UNIT);
+    assert_eq!(deposit.note.unit, *ZONE_UNIT);
+    assert_eq!(zone_funds_in.note.unit, *ZONE_UNIT);
+    assert_eq!(zone_funds_out.note.unit, *ZONE_UNIT);
 
-    let in_sum = deposit.note.balance.value + zone_funds_in.note.balance.value;
+    let in_sum = deposit.note.value + zone_funds_in.note.value;
 
-    let out_sum = zone_note_out.note.balance.value;
+    let out_sum = zone_note_out.note.value;
 
     assert_eq!(out_sum, in_sum, "deposit ptx is unbalanced");
 
@@ -90,11 +90,9 @@ fn deposit(
     assert_eq!(zone_funds_in.nf_sk, NullifierSecret::from_bytes([0; 16])); // there is no secret in the zone funds
     assert_eq!(zone_funds_out.nf_pk, zone_funds_in.nf_sk.commit()); // the sk is the same
                                                                     // nonce is correctly evolved
-    let mut evolved_nonce = [0; 16];
-    evolved_nonce[..16].copy_from_slice(&Sha256::digest(&zone_funds_in.nonce.as_bytes())[..16]);
     assert_eq!(
         zone_funds_out.nonce,
-        NullifierNonce::from_bytes(evolved_nonce)
+        NullifierNonce::from_bytes(Sha256::digest(&zone_funds_in.nonce.as_bytes()).into())
     );
 
     // 5) Check zone state notes are correctly created
@@ -104,28 +102,18 @@ fn deposit(
     );
     assert_eq!(zone_note_in.nf_sk, NullifierSecret::from_bytes([0; 16])); //// there is no secret in the zone state
     assert_eq!(zone_note_out.nf_pk, zone_note_in.nf_sk.commit()); // the sk is the same
-    assert_eq!(
-        zone_note_in.note.balance.unit,
-        zone_note_out.note.balance.unit
-    );
-    assert_eq!(
-        zone_note_in.note.balance.value,
-        zone_note_out.note.balance.value
-    );
+    assert_eq!(zone_note_in.note.unit, zone_note_out.note.unit);
+    assert_eq!(zone_note_in.note.value, zone_note_out.note.value);
     // nonce is correctly evolved
-    let mut evolved_nonce = [0; 16];
-    evolved_nonce[..16].copy_from_slice(&Sha256::digest(&zone_note_in.nonce.as_bytes())[..16]);
     assert_eq!(
         zone_note_out.nonce,
-        NullifierNonce::from_bytes(evolved_nonce)
+        NullifierNonce::from_bytes(Sha256::digest(&zone_note_in.nonce.as_bytes()).into())
     );
-
     let nullifier = Nullifier::new(zone_note_in.nf_sk, zone_note_in.nonce);
     assert_eq!(nullifier, pub_inputs.nf);
 
     // 6) We're now ready to do the deposit!
-
-    let amount = deposit.note.balance.value as u32;
+    let amount = deposit.note.value as u32;
     let to = AccountId::from_be_bytes(<[u8; 4]>::try_from(&deposit.note.state[0..4]).unwrap());
 
     let to_balance = state.balances.entry(to).or_insert(0);

@@ -36,7 +36,7 @@ fn stf_prove_stark(state: StateWitness, inputs: Vec<Input>) {
     // This struct contains the receipt along with statistics about execution of the guest
     let opts = risc0_zkvm::ProverOpts::succinct();
     let prove_info = prover
-        .prove_with_opts(env, methods::METHOD_ELF, &opts)
+        .prove_with_opts(env, goas_risc0_proofs::ZONE_STATE_ELF, &opts)
         .unwrap();
 
     println!("STARK prover time: {:.2?}", start_t.elapsed());
@@ -48,7 +48,7 @@ fn stf_prove_stark(state: StateWitness, inputs: Vec<Input>) {
     std::fs::write("proof.stark", bincode::serialize(&receipt).unwrap()).unwrap();
     // The receipt was verified at the end of proving, but the below code is an
     // example of how someone else could verify this receipt.
-    receipt.verify(methods::METHOD_ID).unwrap();
+    receipt.verify(goas_risc0_proofs::ZONE_STATE_ID).unwrap();
 }
 
 fn main() {
