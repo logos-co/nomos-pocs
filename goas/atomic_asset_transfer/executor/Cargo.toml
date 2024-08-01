@@ -1,8 +1,8 @@
 [package]
-name = "host"
+name = "executor"
 version = "0.1.0"
 edition = "2021"
-default-run = "host"
+default-run = "executor"
 
 [dependencies]
 goas_risc0_proofs = { path = "../risc0_proofs", package = "goas_risc0_proofs" }
