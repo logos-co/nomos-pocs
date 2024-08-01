@@ -15,7 +15,7 @@ pub const MAX_TXS: usize = 1 << 8;
 pub const MAX_EVENTS: usize = 1 << 8;
 
 // state of the zone
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct StateCommitment([u8; 32]);
 
 pub type AccountId = u32;
@@ -71,6 +71,12 @@ impl StateWitness {
         }));
         let balance_merkle_leaves = cl::merkle::padded_leaves(&balance_bytes);
         cl::merkle::root::<MAX_BALANCES>(balance_merkle_leaves)
+    }
+}
+
+impl From<StateCommitment> for [u8; 32] {
+    fn from(commitment: StateCommitment) -> [u8; 32] {
+        commitment.0
     }
 }
 

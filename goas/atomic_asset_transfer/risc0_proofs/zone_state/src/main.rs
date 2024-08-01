@@ -1,4 +1,5 @@
 use cl::{
+    input::InputWitness,
     merkle,
     nullifier::{Nullifier, NullifierNonce, NullifierSecret},
     partial_tx::{MAX_INPUTS, MAX_OUTPUTS},
@@ -7,7 +8,10 @@ use cl::{
 
 use common::*;
 use goas_proof_statements::zone_funds::Spend;
-use proof_statements::death_constraint::DeathConstraintPublic;
+use proof_statements::{
+    death_constraint::DeathConstraintPublic,
+    ptx::{PartialTxInputPrivate, PartialTxOutputPrivate},
+};
 use risc0_zkvm::guest::env;
 use sha2::{Digest, Sha256};
 
@@ -124,17 +128,57 @@ fn deposit(
     state
 }
 
+fn validate_zone_input(
+    input: &PartialTxInputPrivate,
+    state: &StateWitness,
+) -> (PtxRoot, Nullifier) {
+    let ptx_root = input.ptx_root();
+    let nf = Nullifier::new(input.input.nf_sk, input.input.nonce);
+
+    assert_eq!(input.input.note.state, <[u8; 32]>::from(state.commit()));
+
+    (ptx_root, nf)
+}
+
+fn validate_zone_output(
+    ptx: PtxRoot,
+    input: InputWitness,
+    output: PartialTxOutputPrivate,
+    state: &StateWitness,
+) {
+    assert_eq!(ptx, output.ptx_root()); // the ptx root is the same as in the input
+    let output = output.output;
+    assert_eq!(output.note.state, <[u8; 32]>::from(state.commit())); // the state in the output is as calculated by this function
+    assert_eq!(output.note.death_constraint, input.note.death_constraint); // the death constraint is the same as the on in the input
+    assert_eq!(output.nf_pk, NullifierSecret::from_bytes([0; 16]).commit()); // the nullifier secret is public
+    assert_eq!(output.balance_blinding, input.balance_blinding); // the balance blinding is the same as in the input
+    assert_eq!(output.note.unit, input.note.unit); // the balance unit is the same as in the input
+
+    // the nonce is correctly evolved
+    assert_eq!(
+        output.nonce,
+        NullifierNonce::from_bytes(Sha256::digest(&input.nonce.as_bytes()).into())
+    );
+}
+
 fn main() {
-    let public_inputs: DeathConstraintPublic = env::read();
-    let inputs: Vec<Input> = env::read();
+    let zone_in: PartialTxInputPrivate = env::read();
     let mut state: StateWitness = env::read();
+    let zone_out: PartialTxOutputPrivate = env::read();
+
+    let (ptx_root, nf) = validate_zone_input(&zone_in, &state);
+
+    let pub_inputs = DeathConstraintPublic { ptx_root, nf };
+
+    let inputs: Vec<Input> = env::read();
 
     for input in inputs {
         match input {
             Input::Withdraw(input) => state = withdraw(state, input),
-            Input::Deposit(input) => state = deposit(state, input, public_inputs),
+            Input::Deposit(input) => state = deposit(state, input, pub_inputs),
         }
     }
 
-    env::commit(&state.commit());
+    validate_zone_output(ptx_root, zone_in.input, zone_out, &state);
+    env::commit(&pub_inputs);
 }
