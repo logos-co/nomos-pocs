@@ -75,10 +75,7 @@ fn main() {
     );
     assert_eq!(
         out_zone_funds.output.nonce,
-        in_zone_funds
-            .input
-            .nonce
-            .evolve(&NullifierSecret::from_bytes([0; 16]))
+        in_zone_funds.input.evolved_nonce()
     );
     // the state is propagated
     assert_eq!(

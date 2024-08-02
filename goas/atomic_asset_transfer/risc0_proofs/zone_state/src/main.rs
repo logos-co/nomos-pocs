@@ -97,12 +97,7 @@ fn deposit(
     assert_eq!(zone_funds_in.nf_sk, NullifierSecret::from_bytes([0; 16])); // there is no secret in the zone funds
     assert_eq!(zone_funds_out.nf_pk, zone_funds_in.nf_sk.commit()); // the sk is the same
                                                                     // nonce is correctly evolved
-    assert_eq!(
-        zone_funds_out.nonce,
-        zone_funds_in
-            .nonce
-            .evolve(&NullifierSecret::from_bytes([0; 16]))
-    );
+    assert_eq!(zone_funds_out.nonce, zone_funds_in.evolved_nonce());
 
     // 5) Check zone state notes are correctly created
     assert_eq!(
@@ -114,12 +109,7 @@ fn deposit(
     assert_eq!(zone_note_in.note.unit, zone_note_out.note.unit);
     assert_eq!(zone_note_in.note.value, zone_note_out.note.value);
     // nonce is correctly evolved
-    assert_eq!(
-        zone_note_out.nonce,
-        zone_note_in
-            .nonce
-            .evolve(&NullifierSecret::from_bytes([0; 16]))
-    );
+    assert_eq!(zone_note_out.nonce, zone_note_in.evolved_nonce());
     let nullifier = Nullifier::new(zone_note_in.nf_sk, zone_note_in.nonce);
     assert_eq!(nullifier, pub_inputs.nf);
 
@@ -167,10 +157,7 @@ fn validate_zone_output(
     assert_eq!(output.note.unit, state.zone_metadata.unit); // the balance unit is the same as in the input
 
     // the nonce is correctly evolved
-    assert_eq!(
-        output.nonce,
-        input.nonce.evolve(&NullifierSecret::from_bytes([0; 16]))
-    );
+    assert_eq!(output.nonce, input.evolved_nonce());
 }
 
 fn main() {

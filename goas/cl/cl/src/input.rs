@@ -41,13 +41,17 @@ impl InputWitness {
         }
     }
 
+    pub fn evolved_nonce(&self) -> NullifierNonce {
+        self.nonce.evolve(&self.nf_sk)
+    }
+
     pub fn evolve_output(&self, balance_blinding: BalanceWitness) -> crate::OutputWitness {
-	crate::OutputWitness {
-	    note: self.note,
-	    balance_blinding,
-	    nf_pk: self.nf_sk.commit(),
-	    nonce: self.nonce.evolve(&self.nf_sk),
-	}
+        crate::OutputWitness {
+            note: self.note,
+            balance_blinding,
+            nf_pk: self.nf_sk.commit(),
+            nonce: self.evolved_nonce(),
+        }
     }
 
     pub fn nullifier(&self) -> Nullifier {
@@ -63,7 +67,7 @@ impl InputWitness {
     }
 
     pub fn note_commitment(&self) -> crate::NoteCommitment {
-	self.note.commit(self.nf_sk.commit(), self.nonce)
+        self.note.commit(self.nf_sk.commit(), self.nonce)
     }
 }
 

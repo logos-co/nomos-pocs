@@ -57,13 +57,11 @@ impl StateWitness {
     ///          /   \        /     \
     ///      events   txs   zoneid  balances
     pub fn commit(&self) -> StateCommitment {
-        let io_root = cl::merkle::node(self.events_root(), self.included_txs_root());
-
         let root = cl::merkle::root([
             self.events_root(),
             self.included_txs_root(),
-            zone_id,
-            balances_root,
+            self.zone_metadata.id(),
+            self.balances_root(),
         ]);
 
         StateCommitment(root)
