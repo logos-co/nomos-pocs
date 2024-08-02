@@ -26,7 +26,7 @@ pub static ZONE_CL_FUNDS_UNIT: Lazy<Unit> = Lazy::new(|| crypto::hash_to_curve(b
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ZoneMetadata {
-    pub self_vk: [u8; 32],
+    pub zone_vk: [u8; 32],
     pub funds_vk: [u8; 32],
     pub unit: Unit,
 }
@@ -34,7 +34,7 @@ pub struct ZoneMetadata {
 impl ZoneMetadata {
     pub fn id(&self) -> [u8; 32] {
         let mut hasher = Sha256::new();
-        hasher.update(&self.self_vk);
+        hasher.update(&self.zone_vk);
         hasher.update(&self.funds_vk);
         hasher.update(self.unit.compress().as_bytes());
         hasher.finalize().into()
@@ -50,6 +50,12 @@ pub struct StateWitness {
 }
 
 impl StateWitness {
+    /// Merkle tree over:
+    ///                  root
+    ///              /        \
+    ///            io          state
+    ///          /   \        /     \
+    ///      events   txs   zoneid  balances
     pub fn commit(&self) -> StateCommitment {
         let io_root = cl::merkle::node(self.events_root(), self.included_txs_root());
 

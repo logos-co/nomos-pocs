@@ -16,21 +16,35 @@ fn main() {
         spent_note,
         spend_event,
         spend_event_state_path,
+        txs_root,
+        balances_root,
     } = env::read();
 
     let ptx_root = in_zone_funds.ptx_root();
     let nf = Nullifier::new(in_zone_funds.input.nf_sk, in_zone_funds.input.nonce);
     // check the zone funds note is the one in the spend event
     assert_eq!(nf, spend_event.nf);
-
     assert_eq!(ptx_root, zone_note.ptx_root());
-    // assert the spent event was an output of the zone stf
+
+    // ** Assert the spent event was an output of the correct zone stf **
+    // The zone state field is a merkle tree over:
+    //                  root
+    //              /        \
+    //            io          state
+    //          /   \        /     \
+    //      events   txs   zoneid  balances
+    // We need to check that:
+    // 1) There is a valid path from the spend event to the events root
+    // 2) The zone id matches the one in the current funds note state
+    // 3) The witnesses for spend path, txs and balances allow to calculate the correct root
+    let zone_id = in_zone_funds.input.note.state; // TODO: is there more state?
     let spend_event_leaf = merkle::leaf(&spend_event.to_bytes());
-    // TODO: zones will have some more state
-    assert_eq!(
-        zone_note.output.note.state,
-        merkle::path_root(spend_event_leaf, &spend_event_state_path)
-    );
+    let event_root = merkle::path_root(spend_event_leaf, &spend_event_state_path);
+
+    let io_root = merkle::node(event_root, txs_root);
+    let state_root = merkle::node(zone_id, balances_root);
+    let root = merkle::node(io_root, state_root);
+    assert_eq!(root, zone_note.output.note.state);
 
     assert_eq!(ptx_root, out_zone_funds.ptx_root());
 
@@ -63,6 +77,11 @@ fn main() {
     assert_eq!(
         out_zone_funds.output.nonce,
         NullifierNonce::from_bytes(Sha256::digest(&out_zone_funds.output.nonce.as_bytes()).into())
+    );
+    // the state is propagated
+    assert_eq!(
+        out_zone_funds.output.note.state,
+        in_zone_funds.input.note.state
     );
 
     assert_eq!(ptx_root, spent_note.ptx_root());

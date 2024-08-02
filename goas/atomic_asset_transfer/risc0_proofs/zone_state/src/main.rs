@@ -93,6 +93,8 @@ fn deposit(
     // 4) Check the zone fund notes are correctly created
     assert_eq!(zone_funds_in.note.death_constraint, funds_vk);
     assert_eq!(zone_funds_out.note.death_constraint, funds_vk);
+    assert_eq!(zone_funds_in.note.state, state.zone_metadata.id());
+    assert_eq!(zone_funds_out.note.state, state.zone_metadata.id());
     assert_eq!(zone_funds_in.nf_sk, NullifierSecret::from_bytes([0; 16])); // there is no secret in the zone funds
     assert_eq!(zone_funds_out.nf_pk, zone_funds_in.nf_sk.commit()); // the sk is the same
                                                                     // nonce is correctly evolved
@@ -141,7 +143,7 @@ fn validate_zone_input(
     // should not be possible to create one but let's put this check here just in case
     debug_assert_eq!(
         input.input.note.death_constraint,
-        state.zone_metadata.self_vk
+        state.zone_metadata.zone_vk
     );
 
     (ptx_root, nf)
@@ -156,7 +158,7 @@ fn validate_zone_output(
     assert_eq!(ptx, output.ptx_root()); // the ptx root is the same as in the input
     let output = output.output;
     assert_eq!(output.note.state, <[u8; 32]>::from(state.commit())); // the state in the output is as calculated by this function
-    assert_eq!(output.note.death_constraint, state.zone_metadata.self_vk); // the death constraint is the correct one
+    assert_eq!(output.note.death_constraint, state.zone_metadata.zone_vk); // the death constraint is the correct one
     assert_eq!(output.nf_pk, NullifierSecret::from_bytes([0; 16]).commit()); // the nullifier secret is public
     assert_eq!(output.balance_blinding, input.balance_blinding); // the balance blinding is the same as in the input
     assert_eq!(output.note.unit, state.zone_metadata.unit); // the balance unit is the same as in the input
