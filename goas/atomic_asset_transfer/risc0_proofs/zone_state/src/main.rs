@@ -1,7 +1,7 @@
 use cl::{
     input::InputWitness,
     merkle,
-    nullifier::{Nullifier, NullifierNonce, NullifierSecret},
+    nullifier::{Nullifier, NullifierSecret},
     partial_tx::{MAX_INPUTS, MAX_OUTPUTS},
     PtxRoot,
 };
@@ -13,7 +13,6 @@ use proof_statements::{
     ptx::{PartialTxInputPrivate, PartialTxOutputPrivate},
 };
 use risc0_zkvm::guest::env;
-use sha2::{Digest, Sha256};
 
 fn withdraw(mut state: StateWitness, withdraw: Withdraw) -> StateWitness {
     state.included_txs.push(Input::Withdraw(withdraw));
@@ -100,7 +99,9 @@ fn deposit(
                                                                     // nonce is correctly evolved
     assert_eq!(
         zone_funds_out.nonce,
-        NullifierNonce::from_bytes(Sha256::digest(&zone_funds_in.nonce.as_bytes()).into())
+        zone_funds_in
+            .nonce
+            .evolve(&NullifierSecret::from_bytes([0; 16]))
     );
 
     // 5) Check zone state notes are correctly created
@@ -115,7 +116,9 @@ fn deposit(
     // nonce is correctly evolved
     assert_eq!(
         zone_note_out.nonce,
-        NullifierNonce::from_bytes(Sha256::digest(&zone_note_in.nonce.as_bytes()).into())
+        zone_note_in
+            .nonce
+            .evolve(&NullifierSecret::from_bytes([0; 16]))
     );
     let nullifier = Nullifier::new(zone_note_in.nf_sk, zone_note_in.nonce);
     assert_eq!(nullifier, pub_inputs.nf);
@@ -166,7 +169,7 @@ fn validate_zone_output(
     // the nonce is correctly evolved
     assert_eq!(
         output.nonce,
-        NullifierNonce::from_bytes(Sha256::digest(&input.nonce.as_bytes()).into())
+        input.nonce.evolve(&NullifierSecret::from_bytes([0; 16]))
     );
 }
 

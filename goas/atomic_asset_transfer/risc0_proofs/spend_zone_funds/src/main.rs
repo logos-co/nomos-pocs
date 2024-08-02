@@ -2,11 +2,10 @@
 ///
 /// Our goal: prove the zone authorized spending of funds
 use cl::merkle;
-use cl::nullifier::{Nullifier, NullifierNonce, NullifierSecret};
+use cl::nullifier::{Nullifier, NullifierSecret};
 use goas_proof_statements::zone_funds::SpendFundsPrivate;
 use proof_statements::death_constraint::DeathConstraintPublic;
 use risc0_zkvm::guest::env;
-use sha2::{Digest, Sha256};
 
 fn main() {
     let SpendFundsPrivate {
@@ -41,10 +40,10 @@ fn main() {
     let spend_event_leaf = merkle::leaf(&spend_event.to_bytes());
     let event_root = merkle::path_root(spend_event_leaf, &spend_event_state_path);
 
-    let io_root = merkle::node(event_root, txs_root);
-    let state_root = merkle::node(zone_id, balances_root);
-    let root = merkle::node(io_root, state_root);
-    assert_eq!(root, zone_note.output.note.state);
+    assert_eq!(
+        merkle::root([event_root, txs_root, zone_id, balances_root]),
+        zone_note.output.note.state
+    );
 
     assert_eq!(ptx_root, out_zone_funds.ptx_root());
 
@@ -76,7 +75,10 @@ fn main() {
     );
     assert_eq!(
         out_zone_funds.output.nonce,
-        NullifierNonce::from_bytes(Sha256::digest(&out_zone_funds.output.nonce.as_bytes()).into())
+        in_zone_funds
+            .input
+            .nonce
+            .evolve(&NullifierSecret::from_bytes([0; 16]))
     );
     // the state is propagated
     assert_eq!(
