@@ -54,6 +54,8 @@ fn deposit(
         zone_funds_out,
     } = deposit;
 
+    let funds_vk = state.zone_metadata.funds_vk;
+
     // 1) Check there are no more input/output notes than expected
     let inputs = [
         deposit.commit().to_bytes().to_vec(),
@@ -74,13 +76,13 @@ fn deposit(
     assert_eq!(ptx_root, pub_inputs.ptx_root);
 
     // 2) Check the deposit note is not already under control of the zone
-    assert_ne!(deposit.note.death_constraint, ZONE_FUNDS_VK);
+    assert_ne!(deposit.note.death_constraint, funds_vk);
 
     // 3) Check the ptx is balanced. This is not a requirement for standard ptxs, but we need it
     //    in deposits (at least in a first version) to ensure fund tracking
-    assert_eq!(deposit.note.unit, *ZONE_UNIT);
-    assert_eq!(zone_funds_in.note.unit, *ZONE_UNIT);
-    assert_eq!(zone_funds_out.note.unit, *ZONE_UNIT);
+    assert_eq!(deposit.note.unit, *ZONE_CL_FUNDS_UNIT);
+    assert_eq!(zone_funds_in.note.unit, *ZONE_CL_FUNDS_UNIT);
+    assert_eq!(zone_funds_out.note.unit, *ZONE_CL_FUNDS_UNIT);
 
     let in_sum = deposit.note.value + zone_funds_in.note.value;
 
@@ -89,8 +91,8 @@ fn deposit(
     assert_eq!(out_sum, in_sum, "deposit ptx is unbalanced");
 
     // 4) Check the zone fund notes are correctly created
-    assert_eq!(zone_funds_in.note.death_constraint, ZONE_FUNDS_VK);
-    assert_eq!(zone_funds_out.note.death_constraint, ZONE_FUNDS_VK);
+    assert_eq!(zone_funds_in.note.death_constraint, funds_vk);
+    assert_eq!(zone_funds_out.note.death_constraint, funds_vk);
     assert_eq!(zone_funds_in.nf_sk, NullifierSecret::from_bytes([0; 16])); // there is no secret in the zone funds
     assert_eq!(zone_funds_out.nf_pk, zone_funds_in.nf_sk.commit()); // the sk is the same
                                                                     // nonce is correctly evolved
@@ -136,6 +138,11 @@ fn validate_zone_input(
     let nf = Nullifier::new(input.input.nf_sk, input.input.nonce);
 
     assert_eq!(input.input.note.state, <[u8; 32]>::from(state.commit()));
+    // should not be possible to create one but let's put this check here just in case
+    debug_assert_eq!(
+        input.input.note.death_constraint,
+        state.zone_metadata.self_vk
+    );
 
     (ptx_root, nf)
 }
@@ -149,10 +156,10 @@ fn validate_zone_output(
     assert_eq!(ptx, output.ptx_root()); // the ptx root is the same as in the input
     let output = output.output;
     assert_eq!(output.note.state, <[u8; 32]>::from(state.commit())); // the state in the output is as calculated by this function
-    assert_eq!(output.note.death_constraint, input.note.death_constraint); // the death constraint is the same as the on in the input
+    assert_eq!(output.note.death_constraint, state.zone_metadata.self_vk); // the death constraint is the correct one
     assert_eq!(output.nf_pk, NullifierSecret::from_bytes([0; 16]).commit()); // the nullifier secret is public
     assert_eq!(output.balance_blinding, input.balance_blinding); // the balance blinding is the same as in the input
-    assert_eq!(output.note.unit, input.note.unit); // the balance unit is the same as in the input
+    assert_eq!(output.note.unit, state.zone_metadata.unit); // the balance unit is the same as in the input
 
     // the nonce is correctly evolved
     assert_eq!(

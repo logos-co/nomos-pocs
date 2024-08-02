@@ -7,6 +7,7 @@ use cl::{
 };
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 // TODO: sparse merkle tree
@@ -20,27 +21,44 @@ pub struct StateCommitment([u8; 32]);
 
 pub type AccountId = u32;
 
-// PLACEHOLDER: replace with the death constraint vk of the zone funds
-pub const ZONE_FUNDS_VK: [u8; 32] = [0; 32];
 // PLACEHOLDER: this is probably going to be NMO?
 pub static ZONE_CL_FUNDS_UNIT: Lazy<Unit> = Lazy::new(|| crypto::hash_to_curve(b"NMO"));
-// PLACEHOLDER
-pub static ZONE_UNIT: Lazy<Unit> = Lazy::new(|| crypto::hash_to_curve(b"ZONE_UNIT"));
-// PLACEHOLDER
-pub const ZONE_NF_PK: NullifierCommitment = NullifierCommitment::from_bytes([0; 32]);
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ZoneMetadata {
+    pub self_vk: [u8; 32],
+    pub funds_vk: [u8; 32],
+    pub unit: Unit,
+}
+
+impl ZoneMetadata {
+    pub fn id(&self) -> [u8; 32] {
+        let mut hasher = Sha256::new();
+        hasher.update(&self.self_vk);
+        hasher.update(&self.funds_vk);
+        hasher.update(self.unit.compress().as_bytes());
+        hasher.finalize().into()
+    }
+}
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct StateWitness {
     pub balances: BTreeMap<u32, u32>,
     pub included_txs: Vec<Input>,
     pub output_events: Vec<Event>,
+    pub zone_metadata: ZoneMetadata,
 }
 
 impl StateWitness {
     pub fn commit(&self) -> StateCommitment {
-        let root = self.balances_root();
-        let root = cl::merkle::node(self.events_root(), root);
-        let root = cl::merkle::node(self.included_txs_root(), root);
+        let io_root = cl::merkle::node(self.events_root(), self.included_txs_root());
+
+        let balances_root = self.balances_root();
+        let zone_id = self.zone_metadata.id();
+        let state_root = cl::merkle::node(zone_id, balances_root);
+
+        let root = cl::merkle::node(io_root, state_root);
+
         StateCommitment(root)
     }
 
