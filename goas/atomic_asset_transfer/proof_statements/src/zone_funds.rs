@@ -34,6 +34,10 @@ pub struct SpendFundsPrivate {
     pub spent_note: PartialTxOutputPrivate,
     /// The event emitted by the zone that authorizes the spend
     pub spend_event: Spend,
-    /// Path to the zone output state
+    /// Path to the zone output events root
     pub spend_event_state_path: Vec<cl::merkle::PathNode>,
+    /// Merkle root of txs included in the zone
+    pub txs_root: [u8; 32],
+    /// Merkle root of balances in the zone
+    pub balances_root: [u8; 32],
 }
