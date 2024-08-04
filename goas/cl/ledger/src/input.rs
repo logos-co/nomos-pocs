@@ -1,4 +1,4 @@
-use proof_statements::input::{InputPrivate, InputPublic};
+use ledger_proof_statements::input::{InputPrivate, InputPublic};
 
 use crate::error::{Error, Result};
 
@@ -89,16 +89,18 @@ fn note_commitment_leaves(note_commitments: &[cl::NoteCommitment]) -> [[u8; 32];
 
 #[cfg(test)]
 mod test {
-    use rand::thread_rng;
-
     use super::*;
+    use cl::note::unit_point;
+    use rand::thread_rng;
 
     #[test]
     fn test_input_prover() {
+        let nmo = unit_point("NMO");
+
         let mut rng = thread_rng();
 
         let input = cl::InputWitness {
-            note: cl::NoteWitness::basic(32, "NMO"),
+            note: cl::NoteWitness::basic(32, nmo),
             balance_blinding: cl::BalanceWitness::random(&mut rng),
             nf_sk: cl::NullifierSecret::random(&mut rng),
             nonce: cl::NullifierNonce::random(&mut rng),
@@ -141,7 +143,7 @@ mod test {
             InputPublic {
                 input: cl::Input {
                     balance: cl::BalanceWitness::random(&mut rng)
-                        .commit(&cl::NoteWitness::basic(32, "NMO")),
+                        .commit(&cl::NoteWitness::basic(32, nmo)),
                     ..expected_public_inputs.input
                 },
                 ..expected_public_inputs

@@ -4,10 +4,9 @@
 /// This workaround manually calls into docker after creating a directory with the required permissions.
 /// In addition, splitting the process in different stages highlights better the different work that
 /// needs to be done which could be split across different actors.
-
-use std::path::PathBuf;
 use clap::Parser;
 use risc0_zkvm::{get_prover_server, ProverOpts, Receipt};
+use std::path::PathBuf;
 
 const WORK_DIR_ENV: &str = "RISC0_WORK_DIR";
 
@@ -47,8 +46,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     risc0_groth16::docker::stark_to_snark(&converted.get_seal_bytes())?;
 
     std::fs::create_dir_all(&args.output_dir)?;
-    std::fs::copy(work_dir_path.join("proof.json"), args.output_dir.join("proof.json"))?;
-    std::fs::copy(work_dir_path.join("public.json"), args.output_dir.join("public.json"))?;
-    
+    std::fs::copy(
+        work_dir_path.join("proof.json"),
+        args.output_dir.join("proof.json"),
+    )?;
+    std::fs::copy(
+        work_dir_path.join("public.json"),
+        args.output_dir.join("public.json"),
+    )?;
+
     Ok(())
-   }
+}

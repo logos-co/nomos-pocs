@@ -43,6 +43,10 @@ impl NullifierSecret {
         Self(sk)
     }
 
+    pub const fn zero() -> Self {
+        Self([0u8; 16])
+    }
+
     pub fn commit(&self) -> NullifierCommitment {
         let mut hasher = Sha256::new();
         hasher.update(b"NOMOS_CL_NULL_COMMIT");

@@ -117,12 +117,16 @@ impl PartialTx {
 #[cfg(test)]
 mod test {
 
-    use crate::{note::NoteWitness, nullifier::NullifierSecret};
+    use crate::{
+        note::{unit_point, NoteWitness},
+        nullifier::NullifierSecret,
+    };
 
     use super::*;
 
     #[test]
     fn test_partial_tx_balance() {
+        let (nmo, eth, crv) = (unit_point("NMO"), unit_point("ETH"), unit_point("CRV"));
         let mut rng = rand::thread_rng();
 
         let nf_a = NullifierSecret::random(&mut rng);
@@ -130,15 +134,15 @@ mod test {
         let nf_c = NullifierSecret::random(&mut rng);
 
         let nmo_10_utxo =
-            OutputWitness::random(NoteWitness::basic(10, "NMO"), nf_a.commit(), &mut rng);
+            OutputWitness::random(NoteWitness::basic(10, nmo), nf_a.commit(), &mut rng);
         let nmo_10 = InputWitness::random(nmo_10_utxo, nf_a, &mut rng);
 
         let eth_23_utxo =
-            OutputWitness::random(NoteWitness::basic(23, "ETH"), nf_b.commit(), &mut rng);
+            OutputWitness::random(NoteWitness::basic(23, eth), nf_b.commit(), &mut rng);
         let eth_23 = InputWitness::random(eth_23_utxo, nf_b, &mut rng);
 
         let crv_4840 =
-            OutputWitness::random(NoteWitness::basic(4840, "CRV"), nf_c.commit(), &mut rng);
+            OutputWitness::random(NoteWitness::basic(4840, crv), nf_c.commit(), &mut rng);
 
         let ptx_witness = PartialTxWitness {
             inputs: vec![nmo_10, eth_23],

@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use cl::note::unit_point;
 use ledger::{bundle::ProvedBundle, death_constraint::DeathProof, partial_tx::ProvedPartialTx};
 use rand_core::CryptoRngCore;
 
@@ -29,6 +30,8 @@ fn receive_utxo(
 
 #[test]
 fn test_simple_transfer() {
+    let nmo = unit_point("NMO");
+
     let mut rng = rand::thread_rng();
 
     // alice is sending 8 NMO to bob.
@@ -38,19 +41,18 @@ fn test_simple_transfer() {
 
     // Alice has an unspent note worth 10 NMO
     let utxo = receive_utxo(
-        cl::NoteWitness::stateless(10, "NMO", DeathProof::nop_constraint()),
+        cl::NoteWitness::stateless(10, nmo, DeathProof::nop_constraint()),
         alice.pk(),
         &mut rng,
     );
     let alices_input = cl::InputWitness::random(utxo, alice.sk(), &mut rng);
 
     // Alice wants to send 8 NMO to bob
-    let bobs_output =
-        cl::OutputWitness::random(cl::NoteWitness::basic(8, "NMO"), bob.pk(), &mut rng);
+    let bobs_output = cl::OutputWitness::random(cl::NoteWitness::basic(8, nmo), bob.pk(), &mut rng);
 
     // .. and return the 2 NMO in change to herself.
     let change_output =
-        cl::OutputWitness::random(cl::NoteWitness::basic(2, "NMO"), alice.pk(), &mut rng);
+        cl::OutputWitness::random(cl::NoteWitness::basic(2, nmo), alice.pk(), &mut rng);
 
     // Construct the ptx consuming Alices inputs and producing the two outputs.
     let ptx_witness = cl::PartialTxWitness {

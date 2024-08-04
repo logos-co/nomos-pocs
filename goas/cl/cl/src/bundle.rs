@@ -29,7 +29,10 @@ impl Bundle {
 #[cfg(test)]
 mod test {
     use crate::{
-        input::InputWitness, note::NoteWitness, nullifier::NullifierSecret, output::OutputWitness,
+        input::InputWitness,
+        note::{unit_point, NoteWitness},
+        nullifier::NullifierSecret,
+        output::OutputWitness,
         partial_tx::PartialTxWitness,
     };
 
@@ -38,21 +41,22 @@ mod test {
     #[test]
     fn test_bundle_balance() {
         let mut rng = rand::thread_rng();
+        let (nmo, eth, crv) = (unit_point("NMO"), unit_point("ETH"), unit_point("CRV"));
 
         let nf_a = NullifierSecret::random(&mut rng);
         let nf_b = NullifierSecret::random(&mut rng);
         let nf_c = NullifierSecret::random(&mut rng);
 
         let nmo_10_utxo =
-            OutputWitness::random(NoteWitness::basic(10, "NMO"), nf_a.commit(), &mut rng);
+            OutputWitness::random(NoteWitness::basic(10, nmo), nf_a.commit(), &mut rng);
         let nmo_10_in = InputWitness::random(nmo_10_utxo, nf_a, &mut rng);
 
         let eth_23_utxo =
-            OutputWitness::random(NoteWitness::basic(23, "ETH"), nf_b.commit(), &mut rng);
+            OutputWitness::random(NoteWitness::basic(23, eth), nf_b.commit(), &mut rng);
         let eth_23_in = InputWitness::random(eth_23_utxo, nf_b, &mut rng);
 
         let crv_4840_out =
-            OutputWitness::random(NoteWitness::basic(4840, "CRV"), nf_c.commit(), &mut rng);
+            OutputWitness::random(NoteWitness::basic(4840, crv), nf_c.commit(), &mut rng);
 
         let ptx_unbalanced = PartialTxWitness {
             inputs: vec![nmo_10_in, eth_23_in],
@@ -80,12 +84,12 @@ mod test {
 
         let crv_4840_in = InputWitness::random(crv_4840_out, nf_c, &mut rng);
         let nmo_10_out = OutputWitness::random(
-            NoteWitness::basic(10, "NMO"),
+            NoteWitness::basic(10, nmo),
             NullifierSecret::random(&mut rng).commit(), // transferring to a random owner
             &mut rng,
         );
         let eth_23_out = OutputWitness::random(
-            NoteWitness::basic(23, "ETH"),
+            NoteWitness::basic(23, eth),
             NullifierSecret::random(&mut rng).commit(), // transferring to a random owner
             &mut rng,
         );

@@ -1,5 +1,5 @@
 [package]
-name = "proof_statements"
+name = "ledger_proof_statements"
 version = "0.1.0"
 edition = "2021"
 
