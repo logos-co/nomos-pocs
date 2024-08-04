@@ -17,13 +17,17 @@ fn zone_fund_death_constraint() -> [u8; 32] {
     )
 }
 
-fn zone_fund_in(value: u64, mut rng: impl rand_core::CryptoRngCore) -> cl::InputWitness {
+fn zone_fund_in(
+    value: u64,
+    zone_metadata: ZoneMetadata,
+    mut rng: impl rand_core::CryptoRngCore,
+) -> cl::InputWitness {
     cl::InputWitness {
         note: cl::NoteWitness {
             value,
             unit: *common::ZONE_CL_FUNDS_UNIT,
-            death_constraint: zone_fund_death_constraint(),
-            state: [0u8; 32],
+            death_constraint: zone_metadata.funds_vk,
+            state: zone_metadata.id(),
         },
         balance_blinding: BalanceWitness::unblinded(),
         nf_sk: ZONE_SK,
@@ -44,7 +48,7 @@ fn test_withdrawal() {
     let alice = 42;
     let alice_sk = NullifierSecret::random(&mut rng);
 
-    let fund_in = zone_fund_in(35240, &mut rng);
+    let fund_in = zone_fund_in(35240, zone_metadata, &mut rng);
 
     let withdraw = common::Withdraw {
         from: alice,
