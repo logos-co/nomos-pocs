@@ -41,6 +41,17 @@ impl InputWitness {
         }
     }
 
+    pub fn public(output: crate::OutputWitness) -> Self {
+        let nf_sk = NullifierSecret::zero();
+        assert_eq!(nf_sk.commit(), output.nf_pk); // ensure the output was a public UTXO
+        Self {
+            note: output.note,
+            balance_blinding: BalanceWitness::unblinded(),
+            nf_sk,
+            nonce: output.nonce,
+        }
+    }
+
     pub fn evolved_nonce(&self) -> NullifierNonce {
         self.nonce.evolve(&self.nf_sk)
     }

@@ -1,11 +1,10 @@
 use std::collections::BTreeMap;
 
-use cl::{BalanceWitness, NoteWitness, NullifierNonce, NullifierSecret};
+use cl::{NoteWitness, NullifierNonce, NullifierSecret};
 use common::{events::Event, Input, StateWitness, ZoneMetadata, ZONE_CL_FUNDS_UNIT};
 use ledger::death_constraint::DeathProof;
 use ledger_proof_statements::ptx::{PartialTxInputPrivate, PartialTxOutputPrivate};
-
-const ZONE_SK: NullifierSecret = NullifierSecret::zero();
+use rand_core::CryptoRngCore;
 
 fn zone_state_death_constraint() -> [u8; 32] {
     ledger::death_constraint::risc0_id_to_cl_death_constraint(goas_risc0_proofs::ZONE_STATE_ID)
@@ -17,100 +16,92 @@ fn zone_fund_death_constraint() -> [u8; 32] {
     )
 }
 
-fn zone_fund_in(
+fn zone_fund_utxo(
     value: u64,
-    zone_metadata: ZoneMetadata,
-    mut rng: impl rand_core::CryptoRngCore,
-) -> cl::InputWitness {
-    cl::InputWitness {
-        note: cl::NoteWitness {
+    zone_meta: ZoneMetadata,
+    mut rng: impl CryptoRngCore,
+) -> cl::OutputWitness {
+    cl::OutputWitness::public(
+        cl::NoteWitness {
             value,
             unit: *common::ZONE_CL_FUNDS_UNIT,
-            death_constraint: zone_metadata.funds_vk,
-            state: zone_metadata.id(),
+            death_constraint: zone_meta.funds_vk,
+            state: zone_meta.id(),
         },
-        balance_blinding: BalanceWitness::unblinded(),
-        nf_sk: ZONE_SK,
-        nonce: NullifierNonce::random(&mut rng),
-    }
+        NullifierNonce::random(&mut rng),
+    )
+}
+
+fn zone_state_utxo(zone: &StateWitness, mut rng: impl CryptoRngCore) -> cl::OutputWitness {
+    cl::OutputWitness::public(
+        cl::NoteWitness {
+            value: 1,
+            unit: zone.zone_metadata.unit,
+            death_constraint: zone.zone_metadata.zone_vk,
+            state: zone.commit().0,
+        },
+        NullifierNonce::random(&mut rng),
+    )
 }
 
 #[test]
 fn test_withdrawal() {
     let mut rng = rand::thread_rng();
 
-    let zone_metadata = ZoneMetadata {
-        zone_vk: zone_state_death_constraint(),
-        funds_vk: zone_fund_death_constraint(),
-        unit: cl::note::unit_point("Zone"),
-    };
-
     let alice = 42;
     let alice_sk = NullifierSecret::random(&mut rng);
 
-    let fund_in = zone_fund_in(35240, zone_metadata, &mut rng);
+    let init_state = StateWitness {
+        balances: BTreeMap::from_iter([(alice, 100)]),
+        included_txs: vec![],
+        output_events: vec![],
+        zone_metadata: ZoneMetadata {
+            zone_vk: zone_state_death_constraint(),
+            funds_vk: zone_fund_death_constraint(),
+            unit: cl::note::unit_point("ZONE_STATE"),
+        },
+    };
+
+    let zone_fund_in =
+        cl::InputWitness::public(zone_fund_utxo(35240, init_state.zone_metadata, &mut rng));
+    let zone_state_in = cl::InputWitness::public(zone_state_utxo(&init_state, &mut rng));
 
     let withdraw = common::Withdraw {
         from: alice,
         amount: 78,
         to: alice_sk.commit(),
-        fund_nf: fund_in.nullifier(),
+        fund_nf: zone_fund_in.nullifier(),
     };
 
-    let zone_state = StateWitness {
-        balances: BTreeMap::from_iter([(alice, 100)]),
-        included_txs: vec![],
-        output_events: vec![],
-        zone_metadata,
-    };
+    let end_state = init_state.clone().withdraw(withdraw);
 
-    let new_state = zone_state.clone().withdraw(withdraw);
-
-    let zone_state_in = cl::InputWitness {
-        note: cl::NoteWitness {
-            value: 1,
-            unit: zone_metadata.unit,
-            death_constraint: zone_metadata.zone_vk,
-            state: zone_state.commit().0,
-        },
-        balance_blinding: BalanceWitness::unblinded(),
-        nf_sk: ZONE_SK,
-        nonce: NullifierNonce::random(&mut rng),
-    };
-
-    let zone_state_out = cl::OutputWitness {
-        note: cl::NoteWitness {
-            state: new_state.commit().0,
+    let zone_state_out = cl::OutputWitness::public(
+        cl::NoteWitness {
+            state: end_state.commit().0,
             ..zone_state_in.note
         },
-        balance_blinding: BalanceWitness::unblinded(),
-        nf_pk: ZONE_SK.commit(),
-        nonce: zone_state_in.nonce.evolve(&ZONE_SK),
-    };
-
-    let zone_fund_out = cl::OutputWitness {
-        note: cl::NoteWitness {
-            value: fund_in.note.value - withdraw.amount,
-            ..fund_in.note
+        zone_state_in.evolved_nonce(),
+    );
+    let zone_fund_out = cl::OutputWitness::public(
+        cl::NoteWitness {
+            value: zone_fund_in.note.value - withdraw.amount,
+            ..zone_fund_in.note
         },
-        balance_blinding: BalanceWitness::unblinded(),
-        nf_pk: ZONE_SK.commit(),
-        nonce: fund_in.nonce.evolve(&ZONE_SK),
-    };
+        zone_fund_in.evolved_nonce(),
+    );
 
-    let alice_withdrawal = cl::OutputWitness {
-        note: NoteWitness::stateless(
+    let alice_withdrawal = cl::OutputWitness::random(
+        NoteWitness::stateless(
             withdraw.amount,
             *ZONE_CL_FUNDS_UNIT,
             DeathProof::nop_constraint(),
         ),
-        balance_blinding: BalanceWitness::random(&mut rng),
-        nf_pk: alice_sk.commit(),
-        nonce: NullifierNonce::random(&mut rng),
-    };
+        alice_sk.commit(),
+        &mut rng,
+    );
 
     let withdraw_ptx = cl::PartialTxWitness {
-        inputs: vec![zone_state_in, fund_in],
+        inputs: vec![zone_state_in, zone_fund_in],
         outputs: vec![zone_state_out, zone_fund_out, alice_withdrawal],
     };
     let withdraw_ptx_cm = withdraw_ptx.commit();
@@ -119,7 +110,7 @@ fn test_withdrawal() {
         (
             zone_state_in.nullifier(),
             executor::prove_zone_stf(
-                zone_state,
+                init_state.clone(),
                 vec![Input::Withdraw(withdraw)],
                 PartialTxInputPrivate {
                     input: zone_state_in,
@@ -132,10 +123,10 @@ fn test_withdrawal() {
             ),
         ),
         (
-            fund_in.nullifier(),
+            zone_fund_in.nullifier(),
             executor::prove_zone_fund_withdraw(
                 PartialTxInputPrivate {
-                    input: fund_in,
+                    input: zone_fund_in,
                     path: withdraw_ptx_cm.input_merkle_path(1), // merkle path to input fund note (input #1)
                 },
                 PartialTxOutputPrivate {
@@ -150,13 +141,16 @@ fn test_withdrawal() {
                     output: alice_withdrawal,
                     path: withdraw_ptx_cm.output_merkle_path(2),
                 },
-                &new_state,
+                &end_state,
                 withdraw,
             ),
         ),
     ]);
 
-    let note_commitments = vec![zone_state_in.note_commitment(), fund_in.note_commitment()];
+    let note_commitments = vec![
+        zone_state_in.note_commitment(),
+        zone_fund_in.note_commitment(),
+    ];
 
     let withdraw_proof =
         ledger::partial_tx::ProvedPartialTx::prove(&withdraw_ptx, death_proofs, &note_commitments)
@@ -173,9 +167,9 @@ fn test_withdrawal() {
             output_events: vec![Event::Spend(common::events::Spend {
                 amount: 78,
                 to: alice_sk.commit(),
-                fund_nf: fund_in.nullifier()
+                fund_nf: zone_fund_in.nullifier()
             })],
-            zone_metadata
+            zone_metadata: init_state.zone_metadata
         }
         .commit()
         .0

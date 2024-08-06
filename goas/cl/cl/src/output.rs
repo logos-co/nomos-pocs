@@ -6,7 +6,7 @@ use crate::{
     error::Error,
     note::{NoteCommitment, NoteWitness},
     nullifier::{NullifierCommitment, NullifierNonce},
-    BalanceWitness,
+    BalanceWitness, NullifierSecret,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -34,6 +34,15 @@ impl OutputWitness {
             balance_blinding: BalanceWitness::random(&mut rng),
             nf_pk: owner,
             nonce: NullifierNonce::random(&mut rng),
+        }
+    }
+
+    pub fn public(note: NoteWitness, nonce: NullifierNonce) -> Self {
+        Self {
+            note,
+            balance_blinding: BalanceWitness::unblinded(),
+            nf_pk: NullifierSecret::zero().commit(),
+            nonce,
         }
     }
 
