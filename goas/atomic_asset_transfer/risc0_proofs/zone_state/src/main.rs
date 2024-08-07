@@ -100,7 +100,7 @@ fn deposit(
 fn validate_zone_transition(
     in_note: cl::PartialTxInputWitness,
     out_note: cl::PartialTxOutputWitness,
-    meta: ZoneMetadata,
+    in_meta: ZoneMetadata,
     in_state_cm: StateCommitment,
     out_state: StateWitness,
 ) {
@@ -109,15 +109,15 @@ fn validate_zone_transition(
     assert_eq!(out_note.output.note.state, out_state.commit().0);
 
     // zone metadata is propagated
-    assert_eq!(out_state.zone_metadata.id(), meta.id());
+    assert_eq!(out_state.zone_metadata.id(), in_meta.id());
 
     // ensure units match metadata
-    assert_eq!(in_note.input.note.unit, meta.unit);
-    assert_eq!(out_note.output.note.unit, meta.unit);
+    assert_eq!(in_note.input.note.unit, in_meta.unit);
+    assert_eq!(out_note.output.note.unit, in_meta.unit);
 
     // ensure constraints match metadata
-    assert_eq!(in_note.input.note.death_constraint, meta.zone_vk);
-    assert_eq!(out_note.output.note.death_constraint, meta.zone_vk);
+    assert_eq!(in_note.input.note.death_constraint, in_meta.zone_vk);
+    assert_eq!(out_note.output.note.death_constraint, in_meta.zone_vk);
 
     // nullifier secret is propagated
     assert_eq!(in_note.input.nf_sk.commit(), out_note.output.nf_pk);
@@ -148,7 +148,7 @@ fn main() {
         nf: zone_in.input.nullifier(),
     };
 
-    let meta = state.zone_metadata;
+    let in_meta = state.zone_metadata;
     let in_state_cm = state.commit();
 
     for input in inputs {
@@ -158,7 +158,7 @@ fn main() {
         }
     }
 
-    validate_zone_transition(zone_in, zone_out, meta, in_state_cm, state);
+    validate_zone_transition(zone_in, zone_out, in_meta, in_state_cm, state);
 
     env::commit(&pub_inputs);
 }
