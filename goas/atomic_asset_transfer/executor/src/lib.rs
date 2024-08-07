@@ -1,12 +1,11 @@
 use common::{events::Event, Input, StateWitness};
 use goas_proof_statements::{zone_funds::SpendFundsPrivate, zone_state::ZoneStatePrivate};
-use ledger_proof_statements::ptx::{PartialTxInputPrivate, PartialTxOutputPrivate};
 
 pub fn prove_zone_stf(
     state: StateWitness,
     inputs: Vec<Input>,
-    zone_in: PartialTxInputPrivate,
-    zone_out: PartialTxOutputPrivate,
+    zone_in: cl::PartialTxInputWitness,
+    zone_out: cl::PartialTxOutputWitness,
 ) -> ledger::DeathProof {
     let private_inputs = ZoneStatePrivate {
         state,
@@ -35,10 +34,10 @@ pub fn prove_zone_stf(
 }
 
 pub fn prove_zone_fund_withdraw(
-    in_zone_funds: PartialTxInputPrivate,
-    zone_note: PartialTxOutputPrivate,
-    out_zone_funds: PartialTxOutputPrivate,
-    spent_note: PartialTxOutputPrivate,
+    in_zone_funds: cl::PartialTxInputWitness,
+    zone_note: cl::PartialTxOutputWitness,
+    out_zone_funds: cl::PartialTxOutputWitness,
+    spent_note: cl::PartialTxOutputWitness,
     out_zone_state: &StateWitness,
     withdraw: common::Withdraw,
 ) -> ledger::DeathProof {

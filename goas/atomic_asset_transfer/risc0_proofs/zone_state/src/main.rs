@@ -9,7 +9,6 @@ use common::*;
 use goas_proof_statements::zone_state::ZoneStatePrivate;
 use ledger_proof_statements::{
     death_constraint::DeathConstraintPublic,
-    ptx::{PartialTxInputPrivate, PartialTxOutputPrivate},
 };
 use risc0_zkvm::guest::env;
 
@@ -101,8 +100,8 @@ fn deposit(
 }
 
 fn validate_zone_transition(
-    in_note: &PartialTxInputPrivate,
-    out_note: &PartialTxOutputPrivate,
+    in_note: &cl::PartialTxInputWitness,
+    out_note: &cl::PartialTxOutputWitness,
     in_state_cm: &StateCommitment,
     out_state_cm: &StateCommitment,
 ) {

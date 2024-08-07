@@ -3,7 +3,6 @@ use std::collections::BTreeMap;
 use cl::{NoteWitness, NullifierNonce, NullifierSecret};
 use common::{events::Event, Input, StateWitness, ZoneMetadata, ZONE_CL_FUNDS_UNIT};
 use ledger::death_constraint::DeathProof;
-use ledger_proof_statements::ptx::{PartialTxInputPrivate, PartialTxOutputPrivate};
 use rand_core::CryptoRngCore;
 
 fn zone_state_death_constraint() -> [u8; 32] {
@@ -104,7 +103,6 @@ fn test_withdrawal() {
         inputs: vec![zone_state_in, zone_fund_in],
         outputs: vec![zone_state_out, zone_fund_out, alice_withdrawal],
     };
-    let withdraw_ptx_cm = withdraw_ptx.commit();
 
     let death_proofs = BTreeMap::from_iter([
         (
@@ -112,35 +110,17 @@ fn test_withdrawal() {
             executor::prove_zone_stf(
                 init_state.clone(),
                 vec![Input::Withdraw(withdraw)],
-                PartialTxInputPrivate {
-                    input: zone_state_in,
-                    path: withdraw_ptx_cm.input_merkle_path(0), // merkle path to input state note (input #0)
-                },
-                PartialTxOutputPrivate {
-                    output: zone_state_out,
-                    path: withdraw_ptx_cm.output_merkle_path(0), // merkle path to output state note (output #0)
-                },
+                withdraw_ptx.input_witness(0), // input state note (input #0)
+                withdraw_ptx.output_witness(0), // output state note (output #0)
             ),
         ),
         (
             zone_fund_in.nullifier(),
             executor::prove_zone_fund_withdraw(
-                PartialTxInputPrivate {
-                    input: zone_fund_in,
-                    path: withdraw_ptx_cm.input_merkle_path(1), // merkle path to input fund note (input #1)
-                },
-                PartialTxOutputPrivate {
-                    output: zone_state_out,
-                    path: withdraw_ptx_cm.output_merkle_path(0),
-                },
-                PartialTxOutputPrivate {
-                    output: zone_fund_out,
-                    path: withdraw_ptx_cm.output_merkle_path(1),
-                },
-                PartialTxOutputPrivate {
-                    output: alice_withdrawal,
-                    path: withdraw_ptx_cm.output_merkle_path(2),
-                },
+                withdraw_ptx.input_witness(1),  // input fund note (input #1)
+                withdraw_ptx.output_witness(0), // output state note (output #0)
+                withdraw_ptx.output_witness(1), // output state note (output #0)
+                withdraw_ptx.output_witness(2), // output state note (output #0)
                 &end_state,
                 withdraw,
             ),
