@@ -7,9 +7,7 @@ use cl::{
 
 use common::*;
 use goas_proof_statements::zone_state::ZoneStatePrivate;
-use ledger_proof_statements::{
-    death_constraint::DeathConstraintPublic,
-};
+use ledger_proof_statements::death_constraint::DeathConstraintPublic;
 use risc0_zkvm::guest::env;
 
 fn deposit(
@@ -100,29 +98,36 @@ fn deposit(
 }
 
 fn validate_zone_transition(
-    in_note: &cl::PartialTxInputWitness,
-    out_note: &cl::PartialTxOutputWitness,
-    in_state_cm: &StateCommitment,
-    out_state_cm: &StateCommitment,
+    in_note: cl::PartialTxInputWitness,
+    out_note: cl::PartialTxOutputWitness,
+    meta: ZoneMetadata,
+    in_state_cm: StateCommitment,
+    out_state: StateWitness,
 ) {
     // Ensure input/output notes are committing to the expected states.
     assert_eq!(in_note.input.note.state, in_state_cm.0);
-    assert_eq!(out_note.output.note.state, out_state_cm.0);
+    assert_eq!(out_note.output.note.state, out_state.commit().0);
 
-    // death constraint is propagated
-    assert_eq!(
-        in_note.input.note.death_constraint,
-        out_note.output.note.death_constraint
-    );
+    // zone metadata is propagated
+    assert_eq!(out_state.zone_metadata.id(), meta.id());
+
+    // ensure units match metadata
+    assert_eq!(in_note.input.note.unit, meta.unit);
+    assert_eq!(out_note.output.note.unit, meta.unit);
+
+    // ensure constraints match metadata
+    assert_eq!(in_note.input.note.death_constraint, meta.zone_vk);
+    assert_eq!(out_note.output.note.death_constraint, meta.zone_vk);
+
     // nullifier secret is propagated
     assert_eq!(in_note.input.nf_sk.commit(), out_note.output.nf_pk);
+
     // balance blinding is propagated
     assert_eq!(
         in_note.input.balance_blinding,
         out_note.output.balance_blinding
     );
-    // unit is propagated
-    assert_eq!(in_note.input.note.unit, out_note.output.note.unit);
+
     // the nonce is correctly evolved
     assert_eq!(in_note.input.evolved_nonce(), out_note.output.nonce);
 }
@@ -143,6 +148,7 @@ fn main() {
         nf: zone_in.input.nullifier(),
     };
 
+    let meta = state.zone_metadata;
     let in_state_cm = state.commit();
 
     for input in inputs {
@@ -152,9 +158,7 @@ fn main() {
         }
     }
 
-    let out_state_cm = state.commit();
-
-    validate_zone_transition(&zone_in, &zone_out, &in_state_cm, &out_state_cm);
+    validate_zone_transition(zone_in, zone_out, meta, in_state_cm, state);
 
     env::commit(&pub_inputs);
 }
