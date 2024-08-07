@@ -110,8 +110,9 @@ template membership_checker(){
 
 }
 
-template anemoi_proof_of_validator(max_notes, minimum_stake){   //TODO: put minimum_stake in the input to change it dynamically
+template anemoi_proof_of_validator(max_notes){
     signal input commitments_root;
+    signal input minimum_stake;
 
         // Note variables
     signal input constraints[max_notes];    // Every note field represented as F_p elements for now (constraints are represented by their Merkle root)
@@ -222,4 +223,4 @@ template anemoi_proof_of_validator(max_notes, minimum_stake){   //TODO: put mini
 }
 
 
-component main {public [commitments_root]} = anemoi_proof_of_validator(50,10000);
+component main {public [commitments_root, minimum_stake]} = anemoi_proof_of_validator(50);

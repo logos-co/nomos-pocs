@@ -1243,6 +1243,7 @@ if merkle_hash == "Poseidon2":
 
 with open("input.json", "w") as file:
 	file.write('{\n\t"commitments_root" :\t\t"'+str(commitment_root)+'",')
+	file.write('{\n\t"minimum_stake" :\t\t"'+str(minimum_stake)+'",')
 	file.write('\n\t"constraints" :\t\t\t\t[')
 	for i in range(maximum_number_of_note):
 		file.write('"')

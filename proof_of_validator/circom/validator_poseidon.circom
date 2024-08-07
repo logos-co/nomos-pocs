@@ -110,8 +110,9 @@ template membership_checker(){
 
 }
 
-template poseidon_proof_of_validator(max_notes, minimum_stake){     //TODO: put minimum_stake in the input to change it dynamically
+template poseidon_proof_of_validator(max_notes){
     signal input commitments_root;
+    signal input minimum_stake;
 
         // Note variables
     signal input constraints[max_notes];    // Every note field represented as F_p elements for now (constraints are represented by their Merkle root)
@@ -223,4 +224,4 @@ template poseidon_proof_of_validator(max_notes, minimum_stake){     //TODO: put 
 }
 
 
-component main {public [commitments_root]} = poseidon_proof_of_validator(50,10000);
+component main {public [commitments_root, minimum_stake]} = poseidon_proof_of_validator(50);
