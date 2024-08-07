@@ -94,6 +94,13 @@ fn deposit(
         .checked_add(amount)
         .expect("overflow when depositing");
 
+    // authorize the merge of the zone funds
+    state
+        .output_events
+        .push(events::Event::Merge(events::Merge {
+            nf: Nullifier::new(zone_funds_in.nf_sk, zone_funds_in.nonce),
+        }));
+
     state
 }
 
