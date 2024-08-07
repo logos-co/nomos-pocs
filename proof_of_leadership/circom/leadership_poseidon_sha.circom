@@ -1,11 +1,11 @@
 //test
 pragma circom 2.1.9;
 
-include "poseidon/poseidon_2_to_1_Jubjub.circom";
-include "poseidon/poseidon_4_to_1_Jubjub.circom";
-include "poseidon/poseidon_16_to_1_Jubjub.circom";
-include "../../circomlib-master/circuits/bitify.circom";
-include "../../circomlib-master/circuits/sha256/sha256.circom";
+include "../../circom_circuits/hash/poseidon/poseidon_2_to_1_Jubjub.circom";
+include "../../circom_circuits/hash/poseidon/poseidon_4_to_1_Jubjub.circom";
+include "../../circom_circuits/hash/poseidon/poseidon_16_to_1_Jubjub.circom";
+include "../../circom_circuits/circomlib/circuits/bitify.circom";
+include "../../circom_circuits/circomlib/circuits/sha256/sha256.circom";
 
 template BLSLessThan(n) {
     assert(n <= 253);
@@ -175,7 +175,7 @@ template nullifier_computer(){
     nullifier <== hash.out;
 }
 
-template commitment_computer(){
+template commitment_computer(){     // TODO: ensure all field are hash
     signal input note_nonce;
     signal input nullifier_public_key;
     signal input value;
