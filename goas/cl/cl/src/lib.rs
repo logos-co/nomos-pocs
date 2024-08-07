@@ -15,4 +15,6 @@ pub use input::{Input, InputWitness};
 pub use note::{DeathCommitment, NoteCommitment, NoteWitness};
 pub use nullifier::{Nullifier, NullifierCommitment, NullifierNonce, NullifierSecret};
 pub use output::{Output, OutputWitness};
-pub use partial_tx::{PartialTx, PartialTxWitness, PtxRoot};
+pub use partial_tx::{
+    PartialTx, PartialTxInputWitness, PartialTxOutputWitness, PartialTxWitness, PtxRoot,
+};

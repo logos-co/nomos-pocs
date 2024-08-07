@@ -1,4 +1,4 @@
-use proof_statements::death_constraint::DeathConstraintPublic;
+use ledger_proof_statements::death_constraint::DeathConstraintPublic;
 use sha2::{Digest, Sha256};
 
 use crate::error::Result;
@@ -7,11 +7,11 @@ pub type Risc0DeathConstraintId = [u32; 8];
 
 #[derive(Debug, Clone)]
 pub struct DeathProof {
-    constraint: Risc0DeathConstraintId,
-    risc0_receipt: risc0_zkvm::Receipt,
+    pub constraint: Risc0DeathConstraintId,
+    pub risc0_receipt: risc0_zkvm::Receipt,
 }
 
-fn risc0_id_to_cl_death_constraint(risc0_id: Risc0DeathConstraintId) -> [u8; 32] {
+pub fn risc0_id_to_cl_death_constraint(risc0_id: Risc0DeathConstraintId) -> [u8; 32] {
     // RISC0 proof ids have the format: [u32; 8], and cl death constraint ids have the format [u8; 32].
     // CL death constraints are meaningless beyond being binding, therefore we merely need a collision
     // resisitant mapping of RISC0 ids to cl death constraints.
@@ -26,6 +26,16 @@ fn risc0_id_to_cl_death_constraint(risc0_id: Risc0DeathConstraintId) -> [u8; 32]
 }
 
 impl DeathProof {
+    pub fn from_risc0(
+        risc0_id: Risc0DeathConstraintId,
+        risc0_receipt: risc0_zkvm::Receipt,
+    ) -> Self {
+        Self {
+            constraint: risc0_id,
+            risc0_receipt,
+        }
+    }
+
     pub fn death_commitment(&self) -> cl::DeathCommitment {
         cl::note::death_commitment(&risc0_id_to_cl_death_constraint(self.constraint))
     }
@@ -75,9 +85,6 @@ impl DeathProof {
         // extract the receipt.
         let receipt = prove_info.receipt;
 
-        Self {
-            constraint: nomos_cl_risc0_proofs::DEATH_CONSTRAINT_NOP_ID,
-            risc0_receipt: receipt,
-        }
+        Self::from_risc0(nomos_cl_risc0_proofs::DEATH_CONSTRAINT_NOP_ID, receipt)
     }
 }

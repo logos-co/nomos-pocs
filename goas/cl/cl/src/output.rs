@@ -6,7 +6,7 @@ use crate::{
     error::Error,
     note::{NoteCommitment, NoteWitness},
     nullifier::{NullifierCommitment, NullifierNonce},
-    BalanceWitness,
+    BalanceWitness, NullifierSecret,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -34,6 +34,15 @@ impl OutputWitness {
             balance_blinding: BalanceWitness::random(&mut rng),
             nf_pk: owner,
             nonce: NullifierNonce::random(&mut rng),
+        }
+    }
+
+    pub fn public(note: NoteWitness, nonce: NullifierNonce) -> Self {
+        Self {
+            note,
+            balance_blinding: BalanceWitness::unblinded(),
+            nf_pk: NullifierSecret::zero().commit(),
+            nonce,
         }
     }
 
@@ -86,14 +95,15 @@ impl Output {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::nullifier::NullifierSecret;
+    use crate::{note::unit_point, nullifier::NullifierSecret};
 
     #[test]
     fn test_output_proof() {
+        let (nmo, eth) = (unit_point("NMO"), unit_point("ETH"));
         let mut rng = rand::thread_rng();
 
         let witness = OutputWitness {
-            note: NoteWitness::basic(10, "NMO"),
+            note: NoteWitness::basic(10, nmo),
             balance_blinding: BalanceWitness::random(&mut rng),
             nf_pk: NullifierSecret::random(&mut rng).commit(),
             nonce: NullifierNonce::random(&mut rng),
@@ -106,11 +116,11 @@ mod test {
 
         let wrong_witnesses = [
             OutputWitness {
-                note: NoteWitness::basic(11, "NMO"),
+                note: NoteWitness::basic(11, nmo),
                 ..witness
             },
             OutputWitness {
-                note: NoteWitness::basic(10, "ETH"),
+                note: NoteWitness::basic(10, eth),
                 ..witness
             },
             OutputWitness {

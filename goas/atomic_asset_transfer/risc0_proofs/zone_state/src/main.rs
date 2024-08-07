@@ -1,5 +1,4 @@
 use cl::{
-    input::InputWitness,
     merkle,
     nullifier::{Nullifier, NullifierSecret},
     partial_tx::{MAX_INPUTS, MAX_OUTPUTS},
@@ -7,36 +6,9 @@ use cl::{
 };
 
 use common::*;
-use goas_proof_statements::zone_funds::Spend;
-use proof_statements::{
-    death_constraint::DeathConstraintPublic,
-    ptx::{PartialTxInputPrivate, PartialTxOutputPrivate},
-};
+use goas_proof_statements::zone_state::ZoneStatePrivate;
+use ledger_proof_statements::death_constraint::DeathConstraintPublic;
 use risc0_zkvm::guest::env;
-
-fn withdraw(mut state: StateWitness, withdraw: Withdraw) -> StateWitness {
-    state.included_txs.push(Input::Withdraw(withdraw));
-
-    let Withdraw {
-        from,
-        amount,
-        to,
-        nf,
-    } = withdraw;
-
-    let from_balance = state.balances.entry(from).or_insert(0);
-    *from_balance = from
-        .checked_sub(amount)
-        .expect("insufficient funds in account");
-    let spend_auth = Spend {
-        amount: amount.into(),
-        to,
-        nf,
-    };
-
-    state.output_events.push(Event::Spend(spend_auth));
-    state
-}
 
 fn deposit(
     mut state: StateWitness,
@@ -114,7 +86,7 @@ fn deposit(
     assert_eq!(nullifier, pub_inputs.nf);
 
     // 6) We're now ready to do the deposit!
-    let amount = deposit.note.value as u32;
+    let amount = deposit.note.value;
     let to = AccountId::from_be_bytes(<[u8; 4]>::try_from(&deposit.note.state[0..4]).unwrap());
 
     let to_balance = state.balances.entry(to).or_insert(0);
@@ -125,59 +97,68 @@ fn deposit(
     state
 }
 
-fn validate_zone_input(
-    input: &PartialTxInputPrivate,
-    state: &StateWitness,
-) -> (PtxRoot, Nullifier) {
-    let ptx_root = input.ptx_root();
-    let nf = Nullifier::new(input.input.nf_sk, input.input.nonce);
+fn validate_zone_transition(
+    in_note: cl::PartialTxInputWitness,
+    out_note: cl::PartialTxOutputWitness,
+    in_meta: ZoneMetadata,
+    in_state_cm: StateCommitment,
+    out_state: StateWitness,
+) {
+    // Ensure input/output notes are committing to the expected states.
+    assert_eq!(in_note.input.note.state, in_state_cm.0);
+    assert_eq!(out_note.output.note.state, out_state.commit().0);
 
-    assert_eq!(input.input.note.state, <[u8; 32]>::from(state.commit()));
-    // should not be possible to create one but let's put this check here just in case
-    debug_assert_eq!(
-        input.input.note.death_constraint,
-        state.zone_metadata.zone_vk
+    // zone metadata is propagated
+    assert_eq!(out_state.zone_metadata.id(), in_meta.id());
+
+    // ensure units match metadata
+    assert_eq!(in_note.input.note.unit, in_meta.unit);
+    assert_eq!(out_note.output.note.unit, in_meta.unit);
+
+    // ensure constraints match metadata
+    assert_eq!(in_note.input.note.death_constraint, in_meta.zone_vk);
+    assert_eq!(out_note.output.note.death_constraint, in_meta.zone_vk);
+
+    // nullifier secret is propagated
+    assert_eq!(in_note.input.nf_sk.commit(), out_note.output.nf_pk);
+
+    // balance blinding is propagated
+    assert_eq!(
+        in_note.input.balance_blinding,
+        out_note.output.balance_blinding
     );
 
-    (ptx_root, nf)
-}
-
-fn validate_zone_output(
-    ptx: PtxRoot,
-    input: InputWitness,
-    output: PartialTxOutputPrivate,
-    state: &StateWitness,
-) {
-    assert_eq!(ptx, output.ptx_root()); // the ptx root is the same as in the input
-    let output = output.output;
-    assert_eq!(output.note.state, <[u8; 32]>::from(state.commit())); // the state in the output is as calculated by this function
-    assert_eq!(output.note.death_constraint, state.zone_metadata.zone_vk); // the death constraint is the correct one
-    assert_eq!(output.nf_pk, NullifierSecret::from_bytes([0; 16]).commit()); // the nullifier secret is public
-    assert_eq!(output.balance_blinding, input.balance_blinding); // the balance blinding is the same as in the input
-    assert_eq!(output.note.unit, state.zone_metadata.unit); // the balance unit is the same as in the input
-
     // the nonce is correctly evolved
-    assert_eq!(output.nonce, input.evolved_nonce());
+    assert_eq!(in_note.input.evolved_nonce(), out_note.output.nonce);
 }
 
 fn main() {
-    let zone_in: PartialTxInputPrivate = env::read();
-    let mut state: StateWitness = env::read();
-    let zone_out: PartialTxOutputPrivate = env::read();
+    let ZoneStatePrivate {
+        mut state,
+        inputs,
+        zone_in,
+        zone_out,
+    } = env::read();
 
-    let (ptx_root, nf) = validate_zone_input(&zone_in, &state);
+    let pub_inputs = DeathConstraintPublic {
+        ptx_root: PtxRoot(cl::merkle::node(
+            zone_in.input_root(),
+            zone_out.output_root(),
+        )),
+        nf: zone_in.input.nullifier(),
+    };
 
-    let pub_inputs = DeathConstraintPublic { ptx_root, nf };
-
-    let inputs: Vec<Input> = env::read();
+    let in_meta = state.zone_metadata;
+    let in_state_cm = state.commit();
 
     for input in inputs {
-        match input {
-            Input::Withdraw(input) => state = withdraw(state, input),
-            Input::Deposit(input) => state = deposit(state, input, pub_inputs),
+        state = match input {
+            Input::Withdraw(input) => state.withdraw(input),
+            Input::Deposit(input) => deposit(state, input, pub_inputs),
         }
     }
 
-    validate_zone_output(ptx_root, zone_in.input, zone_out, &state);
+    validate_zone_transition(zone_in, zone_out, in_meta, in_state_cm, state);
+
     env::commit(&pub_inputs);
 }

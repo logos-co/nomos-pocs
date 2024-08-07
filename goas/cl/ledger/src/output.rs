@@ -55,16 +55,18 @@ impl ProvedOutput {
 
 #[cfg(test)]
 mod test {
-    use rand::thread_rng;
-
     use super::*;
+    use cl::note::unit_point;
+    use rand::thread_rng;
 
     #[test]
     fn test_output_prover() {
+        let nmo = unit_point("NMO");
+
         let mut rng = thread_rng();
 
         let output = cl::OutputWitness {
-            note: cl::NoteWitness::basic(32, "NMO"),
+            note: cl::NoteWitness::basic(32, nmo),
             balance_blinding: cl::BalanceWitness::random(&mut rng),
             nf_pk: cl::NullifierSecret::random(&mut rng).commit(),
             nonce: cl::NullifierNonce::random(&mut rng),
@@ -79,19 +81,19 @@ mod test {
 
         let wrong_output_cms = [
             cl::Output {
-                note_comm: cl::NoteWitness::basic(100, "NMO").commit(
+                note_comm: cl::NoteWitness::basic(100, nmo).commit(
                     cl::NullifierSecret::random(&mut rng).commit(),
                     cl::NullifierNonce::random(&mut rng),
                 ),
                 ..expected_output_cm
             },
             cl::Output {
-                note_comm: cl::NoteWitness::basic(100, "NMO").commit(
+                note_comm: cl::NoteWitness::basic(100, nmo).commit(
                     cl::NullifierSecret::random(&mut rng).commit(),
                     cl::NullifierNonce::random(&mut rng),
                 ),
                 balance: cl::BalanceWitness::random(&mut rng)
-                    .commit(&cl::NoteWitness::basic(100, "NMO")),
+                    .commit(&cl::NoteWitness::basic(100, nmo)),
             },
         ];
 
@@ -103,10 +105,11 @@ mod test {
 
     #[test]
     fn test_zero_output_is_rejected() {
+        let nmo = unit_point("NMO");
         let mut rng = thread_rng();
 
         let output = cl::OutputWitness::random(
-            cl::NoteWitness::basic(0, "NMO"),
+            cl::NoteWitness::basic(0, nmo),
             cl::NullifierSecret::random(&mut rng).commit(),
             &mut rng,
         );

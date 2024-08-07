@@ -2,9 +2,9 @@
 ///
 /// Our goal: prove the zone authorized spending of funds
 use cl::merkle;
-use cl::nullifier::{Nullifier, NullifierSecret};
+use cl::partial_tx::PtxRoot;
 use goas_proof_statements::zone_funds::SpendFundsPrivate;
-use proof_statements::death_constraint::DeathConstraintPublic;
+use ledger_proof_statements::death_constraint::DeathConstraintPublic;
 use risc0_zkvm::guest::env;
 
 fn main() {
@@ -19,11 +19,12 @@ fn main() {
         balances_root,
     } = env::read();
 
-    let ptx_root = in_zone_funds.ptx_root();
-    let nf = Nullifier::new(in_zone_funds.input.nf_sk, in_zone_funds.input.nonce);
-    // check the zone funds note is the one in the spend event
-    assert_eq!(nf, spend_event.nf);
-    assert_eq!(ptx_root, zone_note.ptx_root());
+    let input_root = in_zone_funds.input_root();
+    let output_root = out_zone_funds.output_root();
+
+    assert_eq!(output_root, zone_note.output_root());
+    assert_eq!(output_root, spent_note.output_root());
+    assert_eq!(output_root, out_zone_funds.output_root());
 
     // ** Assert the spent event was an output of the correct zone stf **
     // The zone state field is a merkle tree over:
@@ -45,8 +46,6 @@ fn main() {
         zone_note.output.note.state
     );
 
-    assert_eq!(ptx_root, out_zone_funds.ptx_root());
-
     // Check we return the rest of the funds back to the zone
     let change = in_zone_funds
         .input
@@ -57,33 +56,31 @@ fn main() {
     assert_eq!(out_zone_funds.output.note.value, change);
     // zone funds output should have the same death constraints as the zone funds input
     assert_eq!(
-        out_zone_funds.output.note.death_constraint,
-        in_zone_funds.input.note.death_constraint
+        in_zone_funds.input.note.death_constraint,
+        out_zone_funds.output.note.death_constraint
     );
     assert_eq!(
-        out_zone_funds.output.note.unit,
-        in_zone_funds.input.note.unit
+        in_zone_funds.input.note.unit,
+        out_zone_funds.output.note.unit
     );
-    // zone funds nullifier, nonce and value blinding should be public so that everybody can spend it
+    // ensure zone fund sk's, blindings and nonces are propagated correctly.
     assert_eq!(
-        out_zone_funds.output.nf_pk,
-        NullifierSecret::from_bytes([0; 16]).commit()
-    );
-    assert_eq!(
-        out_zone_funds.output.balance_blinding,
-        in_zone_funds.input.balance_blinding
+        in_zone_funds.input.nf_sk.commit(),
+        out_zone_funds.output.nf_pk
     );
     assert_eq!(
+        in_zone_funds.input.balance_blinding,
+        out_zone_funds.output.balance_blinding
+    );
+    assert_eq!(
+        in_zone_funds.input.evolved_nonce(),
         out_zone_funds.output.nonce,
-        in_zone_funds.input.evolved_nonce()
     );
     // the state is propagated
     assert_eq!(
+        in_zone_funds.input.note.state,
         out_zone_funds.output.note.state,
-        in_zone_funds.input.note.state
     );
-
-    assert_eq!(ptx_root, spent_note.ptx_root());
 
     // check the correct amount of funds is being spent
     assert_eq!(spent_note.output.note.value, spend_event.amount);
@@ -91,5 +88,9 @@ fn main() {
     // check the correct recipient is being paid
     assert_eq!(spent_note.output.nf_pk, spend_event.to);
 
+    let nf = in_zone_funds.input.nullifier();
+    assert_eq!(nf, spend_event.fund_nf); // ensure this event was meant for this note.
+
+    let ptx_root = PtxRoot(merkle::node(input_root, output_root));
     env::commit(&DeathConstraintPublic { ptx_root, nf });
 }

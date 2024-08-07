@@ -1,6 +1,6 @@
 /// Input Proof
 use cl::merkle;
-use proof_statements::input::{InputPrivate, InputPublic};
+use ledger_proof_statements::input::{InputPrivate, InputPublic};
 use risc0_zkvm::guest::env;
 
 fn main() {

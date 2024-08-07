@@ -1,3 +1,4 @@
+use cl::note::unit_point;
 use rand_core::CryptoRngCore;
 
 fn receive_utxo(
@@ -10,6 +11,7 @@ fn receive_utxo(
 
 #[test]
 fn test_simple_transfer() {
+    let nmo = unit_point("NMO");
     let mut rng = rand::thread_rng();
 
     let sender_nf_sk = cl::NullifierSecret::random(&mut rng);
@@ -18,13 +20,13 @@ fn test_simple_transfer() {
     let recipient_nf_pk = cl::NullifierSecret::random(&mut rng).commit();
 
     // Assume the sender has received an unspent output from somewhere
-    let utxo = receive_utxo(cl::NoteWitness::basic(10, "NMO"), sender_nf_pk, &mut rng);
+    let utxo = receive_utxo(cl::NoteWitness::basic(10, nmo), sender_nf_pk, &mut rng);
 
     // and wants to send 8 NMO to some recipient and return 2 NMO to itself.
     let recipient_output =
-        cl::OutputWitness::random(cl::NoteWitness::basic(8, "NMO"), recipient_nf_pk, &mut rng);
+        cl::OutputWitness::random(cl::NoteWitness::basic(8, nmo), recipient_nf_pk, &mut rng);
     let change_output =
-        cl::OutputWitness::random(cl::NoteWitness::basic(2, "NMO"), sender_nf_pk, &mut rng);
+        cl::OutputWitness::random(cl::NoteWitness::basic(2, nmo), sender_nf_pk, &mut rng);
 
     let ptx_witness = cl::PartialTxWitness {
         inputs: vec![cl::InputWitness::random(utxo, sender_nf_sk, &mut rng)],

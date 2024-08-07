@@ -19,7 +19,7 @@ pub fn death_commitment(death_constraint: &[u8]) -> DeathCommitment {
 }
 
 pub fn unit_point(unit: &str) -> Unit {
-    crate::crypto::hash_to_curve(unit.as_bytes())
+    crate::crypto::hash_to_curve(format!("NOMOS_CL_UNIT{unit}").as_bytes())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -42,25 +42,20 @@ pub struct NoteWitness {
 }
 
 impl NoteWitness {
-    pub fn new(
-        value: u64,
-        unit: impl Into<String>,
-        death_constraint: [u8; 32],
-        state: [u8; 32],
-    ) -> Self {
+    pub fn new(value: u64, unit: Unit, death_constraint: [u8; 32], state: [u8; 32]) -> Self {
         Self {
             value,
-            unit: unit_point(&unit.into()),
+            unit,
             death_constraint,
             state,
         }
     }
 
-    pub fn basic(value: u64, unit: impl Into<String>) -> Self {
+    pub fn basic(value: u64, unit: Unit) -> Self {
         Self::new(value, unit, [0u8; 32], [0u8; 32])
     }
 
-    pub fn stateless(value: u64, unit: impl Into<String>, death_constraint: [u8; 32]) -> Self {
+    pub fn stateless(value: u64, unit: Unit, death_constraint: [u8; 32]) -> Self {
         Self::new(value, unit, death_constraint, [0u8; 32])
     }
 
@@ -94,18 +89,19 @@ impl NoteWitness {
 
 #[cfg(test)]
 mod test {
-    use crate::nullifier::NullifierSecret;
-
     use super::*;
+    use crate::nullifier::NullifierSecret;
 
     #[test]
     fn test_note_commit_permutations() {
+        let (nmo, eth) = (unit_point("NMO"), unit_point("ETH"));
+
         let mut rng = rand::thread_rng();
 
         let nf_pk = NullifierSecret::random(&mut rng).commit();
         let nf_nonce = NullifierNonce::random(&mut rng);
 
-        let reference_note = NoteWitness::basic(32, "NMO");
+        let reference_note = NoteWitness::basic(32, nmo);
 
         // different notes under same nullifier produce different commitments
         let mutation_tests = [
@@ -114,7 +110,7 @@ mod test {
                 ..reference_note
             },
             NoteWitness {
-                unit: unit_point("ETH"),
+                unit: eth,
                 ..reference_note
             },
             NoteWitness {

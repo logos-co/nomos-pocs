@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use proof_statements::death_constraint::DeathConstraintPublic;
+use ledger_proof_statements::death_constraint::DeathConstraintPublic;
 
 use crate::{
     death_constraint::DeathProof, error::Result, input::ProvedInput, output::ProvedOutput,

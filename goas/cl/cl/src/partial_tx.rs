@@ -60,6 +60,26 @@ impl PartialTxWitness {
 
         BalanceWitness(out_sum - in_sum)
     }
+
+    pub fn input_witness(&self, idx: usize) -> PartialTxInputWitness {
+        let input_bytes =
+            Vec::from_iter(self.inputs.iter().map(|i| i.commit().to_bytes().to_vec()));
+        let input_merkle_leaves = merkle::padded_leaves::<MAX_INPUTS>(&input_bytes);
+
+        let path = merkle::path(input_merkle_leaves, idx);
+        let input = self.inputs[idx];
+        PartialTxInputWitness { input, path }
+    }
+
+    pub fn output_witness(&self, idx: usize) -> PartialTxOutputWitness {
+        let output_bytes =
+            Vec::from_iter(self.outputs.iter().map(|o| o.commit().to_bytes().to_vec()));
+        let output_merkle_leaves = merkle::padded_leaves::<MAX_OUTPUTS>(&output_bytes);
+
+        let path = merkle::path(output_merkle_leaves, idx);
+        let output = self.outputs[idx];
+        PartialTxOutputWitness { output, path }
+    }
 }
 
 impl PartialTx {
@@ -81,24 +101,6 @@ impl PartialTx {
         merkle::root::<MAX_OUTPUTS>(output_merkle_leaves)
     }
 
-    pub fn input_merkle_path(&self, idx: usize) -> Vec<merkle::PathNode> {
-        let input_bytes =
-            Vec::from_iter(self.inputs.iter().map(Input::to_bytes).map(Vec::from_iter));
-        let input_merkle_leaves = merkle::padded_leaves::<MAX_INPUTS>(&input_bytes);
-        merkle::path(input_merkle_leaves, idx)
-    }
-
-    pub fn output_merkle_path(&self, idx: usize) -> Vec<merkle::PathNode> {
-        let output_bytes = Vec::from_iter(
-            self.outputs
-                .iter()
-                .map(Output::to_bytes)
-                .map(Vec::from_iter),
-        );
-        let output_merkle_leaves = merkle::padded_leaves::<MAX_OUTPUTS>(&output_bytes);
-        merkle::path(output_merkle_leaves, idx)
-    }
-
     pub fn root(&self) -> PtxRoot {
         let input_root = self.input_root();
         let output_root = self.output_root();
@@ -114,15 +116,47 @@ impl PartialTx {
     }
 }
 
+/// An input to a partial transaction
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PartialTxInputWitness {
+    pub input: InputWitness,
+    pub path: Vec<merkle::PathNode>,
+}
+
+impl PartialTxInputWitness {
+    pub fn input_root(&self) -> [u8; 32] {
+        let leaf = merkle::leaf(&self.input.commit().to_bytes());
+        merkle::path_root(leaf, &self.path)
+    }
+}
+
+/// An output to a partial transaction
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PartialTxOutputWitness {
+    pub output: OutputWitness,
+    pub path: Vec<merkle::PathNode>,
+}
+
+impl PartialTxOutputWitness {
+    pub fn output_root(&self) -> [u8; 32] {
+        let leaf = merkle::leaf(&self.output.commit().to_bytes());
+        merkle::path_root(leaf, &self.path)
+    }
+}
+
 #[cfg(test)]
 mod test {
 
-    use crate::{note::NoteWitness, nullifier::NullifierSecret};
+    use crate::{
+        note::{unit_point, NoteWitness},
+        nullifier::NullifierSecret,
+    };
 
     use super::*;
 
     #[test]
     fn test_partial_tx_balance() {
+        let (nmo, eth, crv) = (unit_point("NMO"), unit_point("ETH"), unit_point("CRV"));
         let mut rng = rand::thread_rng();
 
         let nf_a = NullifierSecret::random(&mut rng);
@@ -130,15 +164,15 @@ mod test {
         let nf_c = NullifierSecret::random(&mut rng);
 
         let nmo_10_utxo =
-            OutputWitness::random(NoteWitness::basic(10, "NMO"), nf_a.commit(), &mut rng);
+            OutputWitness::random(NoteWitness::basic(10, nmo), nf_a.commit(), &mut rng);
         let nmo_10 = InputWitness::random(nmo_10_utxo, nf_a, &mut rng);
 
         let eth_23_utxo =
-            OutputWitness::random(NoteWitness::basic(23, "ETH"), nf_b.commit(), &mut rng);
+            OutputWitness::random(NoteWitness::basic(23, eth), nf_b.commit(), &mut rng);
         let eth_23 = InputWitness::random(eth_23_utxo, nf_b, &mut rng);
 
         let crv_4840 =
-            OutputWitness::random(NoteWitness::basic(4840, "CRV"), nf_c.commit(), &mut rng);
+            OutputWitness::random(NoteWitness::basic(4840, crv), nf_c.commit(), &mut rng);
 
         let ptx_witness = PartialTxWitness {
             inputs: vec![nmo_10, eth_23],
