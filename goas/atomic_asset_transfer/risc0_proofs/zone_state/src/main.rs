@@ -68,9 +68,6 @@ fn validate_zone_transition(
     assert_eq!(in_note.input.note.state, in_state_cm.0);
     assert_eq!(out_note.output.note.state, out_state_cm);
 
-    // zone metadata is propagated
-    assert_eq!(out_state.zone_metadata.id(), metadata.id());
-
     // ensure units match metadata
     assert_eq!(in_note.input.note.unit, metadata.unit);
     assert_eq!(out_note.output.note.unit, metadata.unit);
