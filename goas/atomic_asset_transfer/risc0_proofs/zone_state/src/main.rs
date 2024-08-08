@@ -1,7 +1,8 @@
 use cl::{
-    merkle,
-    nullifier::{Nullifier, NullifierSecret},
-    partial_tx::{MAX_INPUTS, MAX_OUTPUTS},
+    note::NoteWitness,
+    nullifier::NullifierNonce,
+    output::OutputWitness,
+    partial_tx::{PartialTxInputWitness, PartialTxOutputWitness},
     PtxRoot,
 };
 
@@ -10,114 +11,70 @@ use goas_proof_statements::zone_state::ZoneStatePrivate;
 use ledger_proof_statements::death_constraint::DeathConstraintPublic;
 use risc0_zkvm::guest::env;
 
-fn deposit(
-    mut state: StateWitness,
-    deposit: Deposit,
-    pub_inputs: DeathConstraintPublic,
+fn withdraw(
+    state: StateWitness,
+    output_root: [u8; 32],
+    withdrawal_req: Withdraw,
+    withdrawal: PartialTxOutputWitness,
 ) -> StateWitness {
-    state.included_txs.push(Input::Deposit(deposit.clone()));
+    // 1) check the correct amount of funds is being spent
+    assert_eq!(withdrawal.output.note.value, withdrawal_req.amount);
+    assert_eq!(withdrawal.output.note.unit, *ZONE_CL_FUNDS_UNIT);
+    // 2) check the correct recipient is being paid
+    assert_eq!(withdrawal.output.nf_pk, withdrawal_req.to);
 
-    let Deposit {
-        deposit,
-        zone_note_in,
-        zone_note_out,
-        zone_funds_in,
-        zone_funds_out,
-    } = deposit;
+    assert_eq!(output_root, withdrawal.output_root());
 
-    let funds_vk = state.zone_metadata.funds_vk;
+    state.withdraw(withdrawal_req)
+}
 
-    // 1) Check there are no more input/output notes than expected
-    let inputs = [
-        deposit.commit().to_bytes().to_vec(),
-        zone_note_in.commit().to_bytes().to_vec(),
-        zone_funds_in.commit().to_bytes().to_vec(),
-    ];
+fn deposit(
+    state: StateWitness,
+    input_root: [u8; 32],
+    deposit_req: Deposit,
+    deposit: PartialTxInputWitness,
+) -> StateWitness {
+    assert_eq!(deposit.input_root(), input_root);
 
-    let inputs_root = merkle::root(merkle::padded_leaves::<MAX_INPUTS>(&inputs));
-
-    let outputs = [
-        zone_note_out.commit().to_bytes().to_vec(),
-        zone_funds_out.commit().to_bytes().to_vec(),
-    ];
-
-    let outputs_root = merkle::root(merkle::padded_leaves::<MAX_OUTPUTS>(&outputs));
-
-    let ptx_root = PtxRoot(merkle::node(inputs_root, outputs_root));
-    assert_eq!(ptx_root, pub_inputs.ptx_root);
-
-    // 2) Check the deposit note is not already under control of the zone
-    assert_ne!(deposit.note.death_constraint, funds_vk);
-
-    // 3) Check the ptx is balanced. This is not a requirement for standard ptxs, but we need it
-    //    in deposits (at least in a first version) to ensure fund tracking
-    assert_eq!(deposit.note.unit, *ZONE_CL_FUNDS_UNIT);
-    assert_eq!(zone_funds_in.note.unit, *ZONE_CL_FUNDS_UNIT);
-    assert_eq!(zone_funds_out.note.unit, *ZONE_CL_FUNDS_UNIT);
-
-    let in_sum = deposit.note.value + zone_funds_in.note.value;
-
-    let out_sum = zone_note_out.note.value;
-
-    assert_eq!(out_sum, in_sum, "deposit ptx is unbalanced");
-
-    // 4) Check the zone fund notes are correctly created
-    assert_eq!(zone_funds_in.note.death_constraint, funds_vk);
-    assert_eq!(zone_funds_out.note.death_constraint, funds_vk);
-    assert_eq!(zone_funds_in.note.state, state.zone_metadata.id());
-    assert_eq!(zone_funds_out.note.state, state.zone_metadata.id());
-    assert_eq!(zone_funds_in.nf_sk, NullifierSecret::from_bytes([0; 16])); // there is no secret in the zone funds
-    assert_eq!(zone_funds_out.nf_pk, zone_funds_in.nf_sk.commit()); // the sk is the same
-                                                                    // nonce is correctly evolved
-    assert_eq!(zone_funds_out.nonce, zone_funds_in.evolved_nonce());
-
-    // 5) Check zone state notes are correctly created
-    assert_eq!(
-        zone_note_in.note.death_constraint,
-        zone_note_out.note.death_constraint
+    // 1) Check the deposit note is not already under control of the zone
+    assert_ne!(
+        deposit.input.note.death_constraint,
+        state.zone_metadata.funds_vk
     );
-    assert_eq!(zone_note_in.nf_sk, NullifierSecret::from_bytes([0; 16])); //// there is no secret in the zone state
-    assert_eq!(zone_note_out.nf_pk, zone_note_in.nf_sk.commit()); // the sk is the same
-    assert_eq!(zone_note_in.note.unit, zone_note_out.note.unit);
-    assert_eq!(zone_note_in.note.value, zone_note_out.note.value);
-    // nonce is correctly evolved
-    assert_eq!(zone_note_out.nonce, zone_note_in.evolved_nonce());
-    let nullifier = Nullifier::new(zone_note_in.nf_sk, zone_note_in.nonce);
-    assert_eq!(nullifier, pub_inputs.nf);
 
-    // 6) We're now ready to do the deposit!
-    let amount = deposit.note.value;
-    let to = AccountId::from_be_bytes(<[u8; 4]>::try_from(&deposit.note.state[0..4]).unwrap());
+    // 2) Check the deposit note is for the correct amount
+    assert_eq!(deposit.input.note.unit, *ZONE_CL_FUNDS_UNIT);
+    assert_eq!(deposit.input.note.value, deposit_req.amount);
 
-    let to_balance = state.balances.entry(to).or_insert(0);
-    *to_balance = to_balance
-        .checked_add(amount)
-        .expect("overflow when depositing");
+    // 3) Check the deposit note is for the correct recipient
+    assert_eq!(
+        AccountId::from_le_bytes(<[u8; 4]>::try_from(&deposit.input.note.state[..4]).unwrap()),
+        deposit_req.to
+    );
 
-    state
+    state.deposit(deposit_req)
 }
 
 fn validate_zone_transition(
     in_note: cl::PartialTxInputWitness,
     out_note: cl::PartialTxOutputWitness,
-    in_meta: ZoneMetadata,
+    out_funds: cl::PartialTxOutputWitness,
     in_state_cm: StateCommitment,
     out_state: StateWitness,
 ) {
+    let metadata = out_state.zone_metadata;
+    let out_state_cm = out_state.commit().0;
     // Ensure input/output notes are committing to the expected states.
     assert_eq!(in_note.input.note.state, in_state_cm.0);
-    assert_eq!(out_note.output.note.state, out_state.commit().0);
-
-    // zone metadata is propagated
-    assert_eq!(out_state.zone_metadata.id(), in_meta.id());
+    assert_eq!(out_note.output.note.state, out_state_cm);
 
     // ensure units match metadata
-    assert_eq!(in_note.input.note.unit, in_meta.unit);
-    assert_eq!(out_note.output.note.unit, in_meta.unit);
+    assert_eq!(in_note.input.note.unit, metadata.unit);
+    assert_eq!(out_note.output.note.unit, metadata.unit);
 
     // ensure constraints match metadata
-    assert_eq!(in_note.input.note.death_constraint, in_meta.zone_vk);
-    assert_eq!(out_note.output.note.death_constraint, in_meta.zone_vk);
+    assert_eq!(in_note.input.note.death_constraint, metadata.zone_vk);
+    assert_eq!(out_note.output.note.death_constraint, metadata.zone_vk);
 
     // nullifier secret is propagated
     assert_eq!(in_note.input.nf_sk.commit(), out_note.output.nf_pk);
@@ -130,6 +87,23 @@ fn validate_zone_transition(
 
     // the nonce is correctly evolved
     assert_eq!(in_note.input.evolved_nonce(), out_note.output.nonce);
+
+    // funds are still under control of the zone
+    let expected_note_witness = NoteWitness::new(
+        out_state.total_balance(),
+        *ZONE_CL_FUNDS_UNIT,
+        metadata.funds_vk,
+        metadata.id(),
+    );
+    assert_eq!(
+        out_funds.output,
+        OutputWitness::public(
+            expected_note_witness,
+            NullifierNonce::from_bytes(out_state.nonce)
+        )
+    );
+    // funds belong to the same partial tx
+    assert_eq!(out_funds.output_root(), out_note.output_root());
 }
 
 fn main() {
@@ -138,27 +112,30 @@ fn main() {
         inputs,
         zone_in,
         zone_out,
+        funds_out,
+        mut withdrawals,
+        mut deposits,
     } = env::read();
 
+    let input_root = zone_in.input_root();
+    let output_root = zone_out.output_root();
+
     let pub_inputs = DeathConstraintPublic {
-        ptx_root: PtxRoot(cl::merkle::node(
-            zone_in.input_root(),
-            zone_out.output_root(),
-        )),
+        ptx_root: PtxRoot(cl::merkle::node(input_root, output_root)),
         nf: zone_in.input.nullifier(),
     };
 
-    let in_meta = state.zone_metadata;
     let in_state_cm = state.commit();
 
     for input in inputs {
         state = match input {
-            Input::Withdraw(input) => state.withdraw(input),
-            Input::Deposit(input) => deposit(state, input, pub_inputs),
+            Input::Withdraw(w) => withdraw(state, output_root, w, withdrawals.pop_front().unwrap()),
+            Input::Deposit(d) => deposit(state, input_root, d, deposits.pop_front().unwrap()),
         }
     }
 
-    validate_zone_transition(zone_in, zone_out, in_meta, in_state_cm, state);
+    let state = state.evolve_nonce();
+    validate_zone_transition(zone_in, zone_out, funds_out, in_state_cm, state);
 
     env::commit(&pub_inputs);
 }

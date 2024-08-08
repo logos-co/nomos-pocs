@@ -1,7 +1,7 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 
 use cl::{NoteWitness, NullifierNonce, NullifierSecret};
-use common::{events::Event, Input, StateWitness, ZoneMetadata, ZONE_CL_FUNDS_UNIT};
+use common::{Input, StateWitness, ZoneMetadata, ZONE_CL_FUNDS_UNIT};
 use ledger::death_constraint::DeathProof;
 use rand_core::CryptoRngCore;
 
@@ -53,26 +53,25 @@ fn test_withdrawal() {
     let init_state = StateWitness {
         balances: BTreeMap::from_iter([(alice, 100)]),
         included_txs: vec![],
-        output_events: vec![],
         zone_metadata: ZoneMetadata {
             zone_vk: zone_state_death_constraint(),
             funds_vk: zone_fund_death_constraint(),
             unit: cl::note::unit_point("ZONE_STATE"),
         },
+        nonce: [0; 32],
     };
 
     let zone_fund_in =
-        cl::InputWitness::public(zone_fund_utxo(35240, init_state.zone_metadata, &mut rng));
+        cl::InputWitness::public(zone_fund_utxo(100, init_state.zone_metadata, &mut rng));
     let zone_state_in = cl::InputWitness::public(zone_state_utxo(&init_state, &mut rng));
 
     let withdraw = common::Withdraw {
         from: alice,
         amount: 78,
         to: alice_sk.commit(),
-        fund_nf: zone_fund_in.nullifier(),
     };
 
-    let end_state = init_state.clone().withdraw(withdraw);
+    let end_state = init_state.clone().withdraw(withdraw).evolve_nonce();
 
     let zone_state_out = cl::OutputWitness::public(
         cl::NoteWitness {
@@ -86,7 +85,7 @@ fn test_withdrawal() {
             value: zone_fund_in.note.value - withdraw.amount,
             ..zone_fund_in.note
         },
-        zone_fund_in.evolved_nonce(),
+        NullifierNonce::from_bytes(end_state.nonce),
     );
 
     let alice_withdrawal = cl::OutputWitness::random(
@@ -112,6 +111,9 @@ fn test_withdrawal() {
                 vec![Input::Withdraw(withdraw)],
                 withdraw_ptx.input_witness(0), // input state note (input #0)
                 withdraw_ptx.output_witness(0), // output state note (output #0)
+                withdraw_ptx.output_witness(1), // output funds note (output #1)
+                VecDeque::from_iter([withdraw_ptx.output_witness(2)]), // alice withdrawal
+                VecDeque::new(),               // no deposits
             ),
         ),
         (
@@ -119,10 +121,7 @@ fn test_withdrawal() {
             executor::prove_zone_fund_withdraw(
                 withdraw_ptx.input_witness(1),  // input fund note (input #1)
                 withdraw_ptx.output_witness(0), // output state note (output #0)
-                withdraw_ptx.output_witness(1), // output state note (output #0)
-                withdraw_ptx.output_witness(2), // output state note (output #0)
                 &end_state,
-                withdraw,
             ),
         ),
     ]);
@@ -144,12 +143,8 @@ fn test_withdrawal() {
         StateWitness {
             balances: BTreeMap::from_iter([(alice, 22)]),
             included_txs: vec![Input::Withdraw(withdraw)],
-            output_events: vec![Event::Spend(common::events::Spend {
-                amount: 78,
-                to: alice_sk.commit(),
-                fund_nf: zone_fund_in.nullifier()
-            })],
-            zone_metadata: init_state.zone_metadata
+            zone_metadata: init_state.zone_metadata,
+            nonce: init_state.evolve_nonce().nonce,
         }
         .commit()
         .0

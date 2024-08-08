@@ -1,17 +1,24 @@
-use common::{events::Event, Input, StateWitness};
+use common::{Input, StateWitness};
 use goas_proof_statements::{zone_funds::SpendFundsPrivate, zone_state::ZoneStatePrivate};
+use std::collections::VecDeque;
 
 pub fn prove_zone_stf(
     state: StateWitness,
     inputs: Vec<Input>,
     zone_in: cl::PartialTxInputWitness,
     zone_out: cl::PartialTxOutputWitness,
+    funds_out: cl::PartialTxOutputWitness,
+    withdrawals: VecDeque<cl::PartialTxOutputWitness>,
+    deposits: VecDeque<cl::PartialTxInputWitness>,
 ) -> ledger::DeathProof {
     let private_inputs = ZoneStatePrivate {
         state,
         inputs,
         zone_in,
         zone_out,
+        funds_out,
+        withdrawals,
+        deposits,
     };
 
     let env = risc0_zkvm::ExecutorEnv::builder()
@@ -36,21 +43,12 @@ pub fn prove_zone_stf(
 pub fn prove_zone_fund_withdraw(
     in_zone_funds: cl::PartialTxInputWitness,
     zone_note: cl::PartialTxOutputWitness,
-    out_zone_funds: cl::PartialTxOutputWitness,
-    spent_note: cl::PartialTxOutputWitness,
     out_zone_state: &StateWitness,
-    withdraw: common::Withdraw,
 ) -> ledger::DeathProof {
-    let spend_event = withdraw.to_event();
     let private_inputs = SpendFundsPrivate {
         in_zone_funds,
         zone_note,
-        out_zone_funds,
-        spent_note,
-        spend_event,
-        spend_event_state_path: out_zone_state.event_merkle_path(Event::Spend(spend_event)),
-        balances_root: out_zone_state.balances_root(),
-        txs_root: out_zone_state.included_txs_root(),
+        state_witness: out_zone_state.clone(),
     };
 
     let env = risc0_zkvm::ExecutorEnv::builder()
