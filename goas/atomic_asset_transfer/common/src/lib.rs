@@ -1,11 +1,4 @@
-pub mod events;
-
-use cl::{
-    balance::Unit,
-    input::InputWitness,
-    nullifier::{Nullifier, NullifierCommitment},
-    output::OutputWitness,
-};
+use cl::{balance::Unit, nullifier::NullifierCommitment};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -46,8 +39,8 @@ impl ZoneMetadata {
 pub struct StateWitness {
     pub balances: BTreeMap<AccountId, u64>,
     pub included_txs: Vec<Input>,
-    pub output_events: Vec<events::Event>,
     pub zone_metadata: ZoneMetadata,
+    pub nonce: [u8; 32],
 }
 
 impl StateWitness {
@@ -56,10 +49,10 @@ impl StateWitness {
     ///              /        \
     ///            io          state
     ///          /   \        /     \
-    ///      events   txs   zoneid  balances
+    ///      nonce   txs   zoneid  balances
     pub fn commit(&self) -> StateCommitment {
         let root = cl::merkle::root([
-            self.events_root(),
+            self.nonce,
             self.included_txs_root(),
             self.zone_metadata.id(),
             self.balances_root(),
@@ -74,8 +67,7 @@ impl StateWitness {
         let Withdraw {
             from,
             amount,
-            to,
-            fund_nf,
+            to: _,
         } = w;
 
         let from_balance = self.balances.entry(from).or_insert(0);
@@ -83,20 +75,19 @@ impl StateWitness {
             .checked_sub(amount)
             .expect("insufficient funds in account");
 
-        let spend_auth = events::Spend {
-            amount,
-            to,
-            fund_nf,
-        };
-
-        self.output_events.push(events::Event::Spend(spend_auth));
         self
     }
 
-    pub fn events_root(&self) -> [u8; 32] {
-        let event_bytes = Vec::from_iter(self.output_events.iter().map(events::Event::to_bytes));
-        let event_merkle_leaves = cl::merkle::padded_leaves(&event_bytes);
-        cl::merkle::root::<MAX_EVENTS>(event_merkle_leaves)
+    pub fn deposit(mut self, d: Deposit) -> Self {
+        self.included_txs.push(Input::Deposit(d));
+
+        let Deposit { to, amount } = d;
+
+        let to_balance = self.balances.entry(to).or_insert(0);
+        *to_balance += to_balance
+            .checked_add(amount)
+            .expect("overflow in account balance");
+        self
     }
 
     pub fn included_txs_root(&self) -> [u8; 32] {
@@ -117,11 +108,21 @@ impl StateWitness {
         cl::merkle::root::<MAX_BALANCES>(balance_merkle_leaves)
     }
 
-    pub fn event_merkle_path(&self, event: events::Event) -> Vec<cl::merkle::PathNode> {
-        let idx = self.output_events.iter().position(|e| e == &event).unwrap();
-        let event_bytes = Vec::from_iter(self.output_events.iter().map(events::Event::to_bytes));
-        let event_merkle_leaves = cl::merkle::padded_leaves(&event_bytes);
-        cl::merkle::path::<MAX_EVENTS>(event_merkle_leaves, idx)
+    pub fn total_balance(&self) -> u64 {
+        self.balances.values().sum()
+    }
+
+    pub fn evolve_nonce(self) -> Self {
+        let updated_nonce = {
+            let mut hasher = Sha256::new();
+            hasher.update(&self.nonce);
+            hasher.update(b"NOMOS_ZONE_NONCE_EVOLVE");
+            hasher.finalize().into()
+        };
+        Self {
+            nonce: updated_nonce,
+            ..self
+        }
     }
 }
 
@@ -136,24 +137,14 @@ pub struct Withdraw {
     pub from: AccountId,
     pub amount: u64,
     pub to: NullifierCommitment,
-    pub fund_nf: Nullifier,
 }
 
 impl Withdraw {
-    pub fn to_event(&self) -> events::Spend {
-        events::Spend {
-            amount: self.amount,
-            to: self.to,
-            fund_nf: self.fund_nf,
-        }
-    }
-
-    pub fn to_bytes(&self) -> [u8; 72] {
-        let mut bytes = [0; 72];
+    pub fn to_bytes(&self) -> [u8; 44] {
+        let mut bytes = [0; 44];
         bytes[0..4].copy_from_slice(&self.from.to_le_bytes());
-        bytes[4..8].copy_from_slice(&self.amount.to_le_bytes());
-        bytes[8..40].copy_from_slice(self.to.as_bytes());
-        bytes[40..72].copy_from_slice(self.fund_nf.as_bytes());
+        bytes[4..12].copy_from_slice(&self.amount.to_le_bytes());
+        bytes[12..44].copy_from_slice(self.to.as_bytes());
         bytes
     }
 }
@@ -161,16 +152,17 @@ impl Withdraw {
 /// A deposit of funds into the zone
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Deposit {
-    /// The note that is used to deposit funds into the zone
-    pub deposit: InputWitness,
+    pub to: AccountId,
+    pub amount: u64,
+}
 
-    // This zone state note
-    pub zone_note_in: InputWitness,
-    pub zone_note_out: OutputWitness,
-
-    // The zone funds note
-    pub zone_funds_in: InputWitness,
-    pub zone_funds_out: OutputWitness,
+impl Deposit {
+    pub fn to_bytes(&self) -> [u8; 32] {
+        let mut bytes = [0; 32];
+        bytes[0..4].copy_from_slice(&self.to.to_le_bytes());
+        bytes[4..12].copy_from_slice(&self.amount.to_le_bytes());
+        bytes
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
