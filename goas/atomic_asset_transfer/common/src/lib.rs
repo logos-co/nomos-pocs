@@ -1,4 +1,4 @@
-use cl::{balance::Unit, nullifier::NullifierCommitment};
+use cl::{balance::Unit, merkle, nullifier::NullifierCommitment};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -91,10 +91,13 @@ impl StateWitness {
     }
 
     pub fn included_txs_root(&self) -> [u8; 32] {
-        // this is a placeholder
-        let tx_bytes = [vec![0u8; 32]];
-        let tx_merkle_leaves = cl::merkle::padded_leaves(&tx_bytes);
-        cl::merkle::root::<MAX_TXS>(tx_merkle_leaves)
+        merkle::root::<MAX_TXS>(self.included_tx_merkle_leaves())
+    }
+
+    pub fn included_tx_witness(&self, idx: usize) -> IncludedTxWitness {
+        let tx = self.included_txs.get(idx).unwrap().clone();
+        let path = merkle::path(self.included_tx_merkle_leaves(), idx);
+        IncludedTxWitness { tx, path }
     }
 
     pub fn balances_root(&self) -> [u8; 32] {
@@ -105,7 +108,7 @@ impl StateWitness {
             bytes
         }));
         let balance_merkle_leaves = cl::merkle::padded_leaves(&balance_bytes);
-        cl::merkle::root::<MAX_BALANCES>(balance_merkle_leaves)
+        merkle::root::<MAX_BALANCES>(balance_merkle_leaves)
     }
 
     pub fn total_balance(&self) -> u64 {
@@ -123,6 +126,15 @@ impl StateWitness {
             nonce: updated_nonce,
             ..self
         }
+    }
+
+    fn included_tx_merkle_leaves(&self) -> [[u8; 32]; MAX_TXS] {
+        let tx_bytes = self
+            .included_txs
+            .iter()
+            .map(|t| t.to_bytes())
+            .collect::<Vec<_>>();
+        merkle::padded_leaves(&tx_bytes)
     }
 }
 
@@ -169,4 +181,19 @@ impl Deposit {
 pub enum Input {
     Withdraw(Withdraw),
     Deposit(Deposit),
+}
+
+impl Input {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        match self {
+            Input::Withdraw(withdraw) => withdraw.to_bytes().to_vec(),
+            Input::Deposit(deposit) => deposit.to_bytes().to_vec(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IncludedTxWitness {
+    pub tx: Input,
+    pub path: Vec<merkle::PathNode>,
 }
