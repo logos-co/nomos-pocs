@@ -1,10 +1,10 @@
-use common::{Input, StateWitness};
+use common::{StateWitness, Tx};
 use goas_proof_statements::{zone_funds::SpendFundsPrivate, zone_state::ZoneStatePrivate};
 use std::collections::VecDeque;
 
 pub fn prove_zone_stf(
     state: StateWitness,
-    inputs: Vec<Input>,
+    inputs: Vec<Tx>,
     zone_in: cl::PartialTxInputWitness,
     zone_out: cl::PartialTxOutputWitness,
     funds_out: cl::PartialTxOutputWitness,

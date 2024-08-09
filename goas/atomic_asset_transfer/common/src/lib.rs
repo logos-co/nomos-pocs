@@ -38,7 +38,7 @@ impl ZoneMetadata {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StateWitness {
     pub balances: BTreeMap<AccountId, u64>,
-    pub included_txs: Vec<Input>,
+    pub included_txs: Vec<Tx>,
     pub zone_metadata: ZoneMetadata,
     pub nonce: [u8; 32],
 }
@@ -62,7 +62,7 @@ impl StateWitness {
     }
 
     pub fn withdraw(mut self, w: Withdraw) -> Self {
-        self.included_txs.push(Input::Withdraw(w));
+        self.included_txs.push(Tx::Withdraw(w));
 
         let Withdraw {
             from,
@@ -79,7 +79,7 @@ impl StateWitness {
     }
 
     pub fn deposit(mut self, d: Deposit) -> Self {
-        self.included_txs.push(Input::Deposit(d));
+        self.included_txs.push(Tx::Deposit(d));
 
         let Deposit { to, amount } = d;
 
@@ -178,22 +178,22 @@ impl Deposit {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Input {
+pub enum Tx {
     Withdraw(Withdraw),
     Deposit(Deposit),
 }
 
-impl Input {
+impl Tx {
     pub fn to_bytes(&self) -> Vec<u8> {
         match self {
-            Input::Withdraw(withdraw) => withdraw.to_bytes().to_vec(),
-            Input::Deposit(deposit) => deposit.to_bytes().to_vec(),
+            Tx::Withdraw(withdraw) => withdraw.to_bytes().to_vec(),
+            Tx::Deposit(deposit) => deposit.to_bytes().to_vec(),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IncludedTxWitness {
-    pub tx: Input,
+    pub tx: Tx,
     pub path: Vec<merkle::PathNode>,
 }
