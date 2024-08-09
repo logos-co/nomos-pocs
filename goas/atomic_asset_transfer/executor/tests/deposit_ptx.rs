@@ -1,7 +1,7 @@
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::BTreeMap;
 
 use cl::{NoteWitness, NullifierNonce, NullifierSecret};
-use common::{StateWitness, Tx, ZoneMetadata, ZONE_CL_FUNDS_UNIT};
+use common::{BoundTx, StateWitness, Tx, ZoneMetadata, ZONE_CL_FUNDS_UNIT};
 use ledger::death_constraint::DeathProof;
 use rand_core::CryptoRngCore;
 
@@ -83,7 +83,7 @@ fn test_deposit() {
             NoteWitness::new(
                 78,
                 *ZONE_CL_FUNDS_UNIT,
-                DeathProof::nop_constraint(),
+                DeathProof::nop_constraint(), // alice should demand a tx inclusion proof for the deposit
                 alice_state,
             ),
             alice_sk.commit(),
@@ -103,12 +103,13 @@ fn test_deposit() {
             zone_state_in.nullifier(),
             executor::prove_zone_stf(
                 init_state.clone(),
-                vec![Tx::Deposit(deposit)],
+                vec![BoundTx {
+                    tx: Tx::Deposit(deposit),
+                    bind: deposit_ptx.input_witness(1), // bind it to the deposit note
+                }],
                 deposit_ptx.input_witness(0), // input state note (input #0)
                 deposit_ptx.output_witness(0), // output state note (output #0)
                 deposit_ptx.output_witness(1), // output funds note (output #1)
-                VecDeque::from_iter([]),      // no withdrawals
-                VecDeque::from_iter([deposit_ptx.input_witness(1)]), // alices deposit (input #1)
             ),
         ),
         (
