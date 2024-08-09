@@ -1,58 +1,18 @@
-use cl::{
-    note::NoteWitness,
-    nullifier::NullifierNonce,
-    output::OutputWitness,
-    partial_tx::{PartialTxInputWitness, PartialTxOutputWitness},
-    PtxRoot,
-};
+use cl::{note::NoteWitness, nullifier::NullifierNonce, output::OutputWitness, PtxRoot};
 
 use common::*;
 use goas_proof_statements::zone_state::ZoneStatePrivate;
 use ledger_proof_statements::death_constraint::DeathConstraintPublic;
 use risc0_zkvm::guest::env;
 
-fn withdraw(
-    state: StateWitness,
-    output_root: [u8; 32],
-    withdrawal_req: Withdraw,
-    withdrawal: PartialTxOutputWitness,
-) -> StateWitness {
-    // 1) check the correct amount of funds is being spent
-    assert_eq!(withdrawal.output.note.value, withdrawal_req.amount);
-    assert_eq!(withdrawal.output.note.unit, *ZONE_CL_FUNDS_UNIT);
-    // 2) check the correct recipient is being paid
-    assert_eq!(withdrawal.output.nf_pk, withdrawal_req.to);
-
-    assert_eq!(output_root, withdrawal.output_root());
-
-    state.withdraw(withdrawal_req)
+fn withdraw(state: StateWitness, input_root: [u8; 32], withdrawal: Withdraw) -> StateWitness {
+    assert_eq!(input_root, withdrawal.bind.input_root());
+    state.withdraw(withdrawal)
 }
 
-fn deposit(
-    state: StateWitness,
-    input_root: [u8; 32],
-    deposit_req: Deposit,
-    deposit: PartialTxInputWitness,
-) -> StateWitness {
-    assert_eq!(deposit.input_root(), input_root);
-
-    // 1) Check the deposit note is not already under control of the zone
-    assert_ne!(
-        deposit.input.note.death_constraint,
-        state.zone_metadata.funds_vk
-    );
-
-    // 2) Check the deposit note is for the correct amount
-    assert_eq!(deposit.input.note.unit, *ZONE_CL_FUNDS_UNIT);
-    assert_eq!(deposit.input.note.value, deposit_req.amount);
-
-    // 3) Check the deposit note is for the correct recipient
-    assert_eq!(
-        AccountId::from_le_bytes(<[u8; 4]>::try_from(&deposit.input.note.state[..4]).unwrap()),
-        deposit_req.to
-    );
-
-    state.deposit(deposit_req)
+fn deposit(state: StateWitness, input_root: [u8; 32], deposit: Deposit) -> StateWitness {
+    assert_eq!(deposit.bind.input_root(), input_root);
+    state.deposit(deposit)
 }
 
 fn validate_zone_transition(
@@ -113,8 +73,6 @@ fn main() {
         zone_in,
         zone_out,
         funds_out,
-        mut withdrawals,
-        mut deposits,
     } = env::read();
 
     let input_root = zone_in.input_root();
@@ -129,8 +87,8 @@ fn main() {
 
     for input in inputs {
         state = match input {
-            Tx::Withdraw(w) => withdraw(state, output_root, w, withdrawals.pop_front().unwrap()),
-            Tx::Deposit(d) => deposit(state, input_root, d, deposits.pop_front().unwrap()),
+            Tx::Withdraw(w) => withdraw(state, input_root, w),
+            Tx::Deposit(d) => deposit(state, input_root, d),
         }
     }
 

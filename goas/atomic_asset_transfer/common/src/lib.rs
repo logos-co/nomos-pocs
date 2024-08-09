@@ -1,4 +1,4 @@
-use cl::{balance::Unit, merkle, nullifier::NullifierCommitment};
+use cl::{balance::Unit, merkle, PartialTxInputWitness};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -62,31 +62,35 @@ impl StateWitness {
     }
 
     pub fn withdraw(mut self, w: Withdraw) -> Self {
-        self.included_txs.push(Tx::Withdraw(w));
-
         let Withdraw {
             from,
             amount,
-            to: _,
-        } = w;
+            bind: _,
+        } = &w;
 
-        let from_balance = self.balances.entry(from).or_insert(0);
+        let from_balance = self.balances.entry(*from).or_insert(0);
         *from_balance = from_balance
-            .checked_sub(amount)
+            .checked_sub(*amount)
             .expect("insufficient funds in account");
+
+        self.included_txs.push(Tx::Withdraw(w));
 
         self
     }
 
     pub fn deposit(mut self, d: Deposit) -> Self {
-        self.included_txs.push(Tx::Deposit(d));
+        let Deposit {
+            to,
+            amount,
+            bind: _,
+        } = &d;
 
-        let Deposit { to, amount } = d;
-
-        let to_balance = self.balances.entry(to).or_insert(0);
+        let to_balance = self.balances.entry(*to).or_insert(0);
         *to_balance += to_balance
-            .checked_add(amount)
+            .checked_add(*amount)
             .expect("overflow in account balance");
+
+        self.included_txs.push(Tx::Deposit(d));
         self
     }
 
@@ -144,40 +148,42 @@ impl From<StateCommitment> for [u8; 32] {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Withdraw {
     pub from: AccountId,
     pub amount: u64,
-    pub to: NullifierCommitment,
+    pub bind: PartialTxInputWitness,
 }
 
 impl Withdraw {
-    pub fn to_bytes(&self) -> [u8; 44] {
-        let mut bytes = [0; 44];
+    pub fn to_bytes(&self) -> [u8; 108] {
+        let mut bytes = [0; 108];
         bytes[0..4].copy_from_slice(&self.from.to_le_bytes());
         bytes[4..12].copy_from_slice(&self.amount.to_le_bytes());
-        bytes[12..44].copy_from_slice(self.to.as_bytes());
+        bytes[12..108].copy_from_slice(&self.bind.input.commit().to_bytes());
         bytes
     }
 }
 
 /// A deposit of funds into the zone
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Deposit {
     pub to: AccountId,
     pub amount: u64,
+    pub bind: PartialTxInputWitness,
 }
 
 impl Deposit {
-    pub fn to_bytes(&self) -> [u8; 32] {
-        let mut bytes = [0; 32];
+    pub fn to_bytes(&self) -> [u8; 108] {
+        let mut bytes = [0; 108];
         bytes[0..4].copy_from_slice(&self.to.to_le_bytes());
         bytes[4..12].copy_from_slice(&self.amount.to_le_bytes());
+        bytes[12..108].copy_from_slice(&self.bind.input.commit().to_bytes());
         bytes
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Tx {
     Withdraw(Withdraw),
     Deposit(Deposit),

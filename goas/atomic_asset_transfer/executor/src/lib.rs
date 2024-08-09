@@ -1,6 +1,5 @@
 use common::{StateWitness, Tx};
 use goas_proof_statements::{zone_funds::SpendFundsPrivate, zone_state::ZoneStatePrivate};
-use std::collections::VecDeque;
 
 pub fn prove_zone_stf(
     state: StateWitness,
@@ -8,8 +7,6 @@ pub fn prove_zone_stf(
     zone_in: cl::PartialTxInputWitness,
     zone_out: cl::PartialTxOutputWitness,
     funds_out: cl::PartialTxOutputWitness,
-    withdrawals: VecDeque<cl::PartialTxOutputWitness>,
-    deposits: VecDeque<cl::PartialTxInputWitness>,
 ) -> ledger::DeathProof {
     let private_inputs = ZoneStatePrivate {
         state,
@@ -17,8 +14,6 @@ pub fn prove_zone_stf(
         zone_in,
         zone_out,
         funds_out,
-        withdrawals,
-        deposits,
     };
 
     let env = risc0_zkvm::ExecutorEnv::builder()
