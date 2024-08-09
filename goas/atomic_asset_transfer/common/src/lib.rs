@@ -179,14 +179,6 @@ pub struct BoundTx {
     pub bind: PartialTxInputWitness,
 }
 
-impl BoundTx {
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = self.tx.to_bytes();
-        bytes.extend(self.bind.input.commit().to_bytes());
-        bytes
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Tx {
     Withdraw(Withdraw),
