@@ -1,5 +1,23 @@
-use common::{BoundTx, StateWitness};
+use common::{BoundTx, StateWitness, ZoneMetadata};
 use goas_proof_statements::{zone_funds::SpendFundsPrivate, zone_state::ZoneStatePrivate};
+
+pub fn zone_state_death_constraint() -> [u8; 32] {
+    ledger::death_constraint::risc0_id_to_cl_death_constraint(goas_risc0_proofs::ZONE_STATE_ID)
+}
+
+pub fn zone_fund_death_constraint() -> [u8; 32] {
+    ledger::death_constraint::risc0_id_to_cl_death_constraint(
+        goas_risc0_proofs::SPEND_ZONE_FUNDS_ID,
+    )
+}
+
+pub fn zone_metadata(zone_mnemonic: &str) -> ZoneMetadata {
+    ZoneMetadata {
+        zone_vk: zone_state_death_constraint(),
+        funds_vk: zone_fund_death_constraint(),
+        unit: cl::note::unit_point(zone_mnemonic),
+    }
+}
 
 pub fn prove_zone_stf(
     state: StateWitness,

@@ -5,16 +5,6 @@ use common::{BoundTx, StateWitness, Tx, ZoneMetadata, ZONE_CL_FUNDS_UNIT};
 use ledger::death_constraint::DeathProof;
 use rand_core::CryptoRngCore;
 
-fn zone_state_death_constraint() -> [u8; 32] {
-    ledger::death_constraint::risc0_id_to_cl_death_constraint(goas_risc0_proofs::ZONE_STATE_ID)
-}
-
-fn zone_fund_death_constraint() -> [u8; 32] {
-    ledger::death_constraint::risc0_id_to_cl_death_constraint(
-        goas_risc0_proofs::SPEND_ZONE_FUNDS_ID,
-    )
-}
-
 fn zone_fund_note(value: u64, zone_meta: ZoneMetadata) -> cl::NoteWitness {
     cl::NoteWitness {
         value,
@@ -46,11 +36,7 @@ fn test_deposit() {
     let init_state = StateWitness {
         balances: BTreeMap::new(),
         included_txs: vec![],
-        zone_metadata: ZoneMetadata {
-            zone_vk: zone_state_death_constraint(),
-            funds_vk: zone_fund_death_constraint(),
-            unit: cl::note::unit_point("ZONE_STATE"),
-        },
+        zone_metadata: executor::zone_metadata("ZONE"),
         nonce: [0; 32],
     };
 
