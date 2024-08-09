@@ -60,17 +60,12 @@ fn test_deposit() {
         zone_fund_note(78, init_state.zone_metadata),
         NullifierNonce::from_bytes(end_state.nonce),
     );
-
-    let mut alice_state = [0u8; 32];
-    alice_state[..4].copy_from_slice(&alice.to_le_bytes());
-
     let alice_deposit = cl::InputWitness::random(
         cl::OutputWitness::random(
-            NoteWitness::new(
+            NoteWitness::stateless(
                 78,
                 *ZONE_CL_FUNDS_UNIT,
                 DeathProof::nop_constraint(), // alice should demand a tx inclusion proof for the deposit
-                alice_state,
             ),
             alice_sk.commit(),
             &mut rng,
