@@ -44,21 +44,17 @@ pub struct StateWitness {
 }
 
 impl StateWitness {
-    /// Merkle tree over:
-    ///                  root
-    ///              /        \
-    ///            io          state
-    ///          /   \        /     \
-    ///      nonce   txs   zoneid  balances
     pub fn commit(&self) -> StateCommitment {
-        let root = cl::merkle::root([
-            self.nonce,
-            self.included_txs_root(),
-            self.zone_metadata.id(),
-            self.balances_root(),
-        ]);
+        self.state_roots().commit()
+    }
 
-        StateCommitment(root)
+    pub fn state_roots(&self) -> StateRoots {
+        StateRoots {
+            nonce: self.nonce,
+            tx_root: self.included_txs_root(),
+            zone_id: self.zone_metadata.id(),
+            balance_root: self.balances_root(),
+        }
     }
 
     pub fn withdraw(mut self, w: Withdraw) -> Self {
@@ -206,4 +202,36 @@ impl Tx {
 pub struct IncludedTxWitness {
     pub tx: Tx,
     pub path: Vec<merkle::PathNode>,
+}
+
+impl IncludedTxWitness {
+    pub fn tx_root(&self) -> [u8; 32] {
+        let leaf = merkle::leaf(&self.tx.to_bytes());
+        merkle::path_root(leaf, &self.path)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StateRoots {
+    pub nonce: [u8; 32],
+    pub tx_root: [u8; 32],
+    pub zone_id: [u8; 32],
+    pub balance_root: [u8; 32],
+}
+
+impl StateRoots {
+    /// Merkle tree over:
+    ///                  root
+    ///              /        \
+    ///            io          state
+    ///          /   \        /     \
+    ///      nonce   txs   zoneid  balances
+    pub fn commit(&self) -> StateCommitment {
+        StateCommitment(cl::merkle::root([
+            self.nonce,
+            self.tx_root,
+            self.zone_id,
+            self.balance_root,
+        ]))
+    }
 }
