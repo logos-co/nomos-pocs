@@ -129,8 +129,8 @@ fn main() {
 
     for input in inputs {
         state = match input {
-            Input::Withdraw(w) => withdraw(state, output_root, w, withdrawals.pop_front().unwrap()),
-            Input::Deposit(d) => deposit(state, input_root, d, deposits.pop_front().unwrap()),
+            Tx::Withdraw(w) => withdraw(state, output_root, w, withdrawals.pop_front().unwrap()),
+            Tx::Deposit(d) => deposit(state, input_root, d, deposits.pop_front().unwrap()),
         }
     }
 

@@ -17,7 +17,7 @@ enum Action {
     },
 }
 
-fn stf_prove_stark(state: StateWitness, inputs: Vec<Input>) {
+fn stf_prove_stark(state: StateWitness, inputs: Vec<Tx>) {
     let env = ExecutorEnv::builder()
         .write(&inputs)
         .unwrap()
