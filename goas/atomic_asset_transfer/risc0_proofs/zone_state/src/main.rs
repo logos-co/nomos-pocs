@@ -1,17 +1,30 @@
-use cl::{note::NoteWitness, nullifier::NullifierNonce, output::OutputWitness, PtxRoot};
+use cl::{
+    note::NoteWitness, nullifier::NullifierNonce, output::OutputWitness, PartialTxInputWitness,
+    PtxRoot,
+};
 
 use common::*;
 use goas_proof_statements::zone_state::ZoneStatePrivate;
 use ledger_proof_statements::death_constraint::DeathConstraintPublic;
 use risc0_zkvm::guest::env;
 
-fn withdraw(state: StateWitness, input_root: [u8; 32], withdrawal: Withdraw) -> StateWitness {
-    assert_eq!(input_root, withdrawal.bind.input_root());
+fn withdraw(
+    state: StateWitness,
+    input_root: [u8; 32],
+    withdrawal: Withdraw,
+    bind: PartialTxInputWitness,
+) -> StateWitness {
+    assert_eq!(bind.input_root(), input_root);
     state.withdraw(withdrawal)
 }
 
-fn deposit(state: StateWitness, input_root: [u8; 32], deposit: Deposit) -> StateWitness {
-    assert_eq!(deposit.bind.input_root(), input_root);
+fn deposit(
+    state: StateWitness,
+    input_root: [u8; 32],
+    deposit: Deposit,
+    bind: PartialTxInputWitness,
+) -> StateWitness {
+    assert_eq!(bind.input_root(), input_root);
     state.deposit(deposit)
 }
 
@@ -87,8 +100,14 @@ fn main() {
 
     for input in inputs {
         state = match input {
-            Tx::Withdraw(w) => withdraw(state, input_root, w),
-            Tx::Deposit(d) => deposit(state, input_root, d),
+            BoundTx {
+                tx: Tx::Withdraw(w),
+                bind,
+            } => withdraw(state, input_root, w, bind),
+            BoundTx {
+                tx: Tx::Deposit(d),
+                bind,
+            } => deposit(state, input_root, d, bind),
         }
     }
 

@@ -1,10 +1,10 @@
-use common::{StateWitness, Tx};
+use common::{BoundTx, StateWitness};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ZoneStatePrivate {
     pub state: StateWitness,
-    pub inputs: Vec<Tx>,
+    pub inputs: Vec<BoundTx>,
     pub zone_in: cl::PartialTxInputWitness,
     pub zone_out: cl::PartialTxOutputWitness,
     /// While the absence of birth constraints does not guarantee uniqueness of a note that can be used as

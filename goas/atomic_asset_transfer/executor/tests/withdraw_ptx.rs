@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use cl::{NoteWitness, NullifierNonce, NullifierSecret};
-use common::{StateWitness, Tx, ZoneMetadata, ZONE_CL_FUNDS_UNIT};
+use common::{BoundTx, StateWitness, Tx, ZoneMetadata, ZONE_CL_FUNDS_UNIT};
 use ledger::death_constraint::DeathProof;
 use rand_core::CryptoRngCore;
 
@@ -75,15 +75,9 @@ fn test_withdrawal() {
         &mut rng,
     );
 
-    let mut withdraw_ptx = cl::PartialTxWitness {
-        inputs: vec![zone_state_in, zone_fund_in, alice_intent],
-        outputs: vec![],
-    };
-
     let withdraw = common::Withdraw {
         from: alice,
         amount: 78,
-        bind: withdraw_ptx.input_witness(2),
     };
 
     let end_state = init_state.clone().withdraw(withdraw.clone()).evolve_nonce();
@@ -113,14 +107,20 @@ fn test_withdrawal() {
         &mut rng,
     );
 
-    withdraw_ptx.outputs = vec![zone_state_out, zone_fund_out, alice_withdrawal];
+    let withdraw_ptx = cl::PartialTxWitness {
+        inputs: vec![zone_state_in, zone_fund_in, alice_intent],
+        outputs: vec![zone_state_out, zone_fund_out, alice_withdrawal],
+    };
 
     let death_proofs = BTreeMap::from_iter([
         (
             zone_state_in.nullifier(),
             executor::prove_zone_stf(
                 init_state.clone(),
-                vec![Tx::Withdraw(withdraw.clone())],
+                vec![BoundTx {
+                    tx: Tx::Withdraw(withdraw.clone()),
+                    bind: withdraw_ptx.input_witness(2),
+                }],
                 withdraw_ptx.input_witness(0), // input state note (input #0)
                 withdraw_ptx.output_witness(0), // output state note (output #0)
                 withdraw_ptx.output_witness(1), // output funds note (output #1)
@@ -139,8 +139,6 @@ fn test_withdrawal() {
             DeathProof::prove_nop(alice_intent.nullifier(), withdraw_ptx.commit().root()),
         ),
     ]);
-
-    println!("done");
 
     let note_commitments = vec![
         zone_state_in.note_commitment(),

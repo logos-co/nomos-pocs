@@ -62,15 +62,11 @@ impl StateWitness {
     }
 
     pub fn withdraw(mut self, w: Withdraw) -> Self {
-        let Withdraw {
-            from,
-            amount,
-            bind: _,
-        } = &w;
+        let Withdraw { from, amount } = w;
 
-        let from_balance = self.balances.entry(*from).or_insert(0);
+        let from_balance = self.balances.entry(from).or_insert(0);
         *from_balance = from_balance
-            .checked_sub(*amount)
+            .checked_sub(amount)
             .expect("insufficient funds in account");
 
         self.included_txs.push(Tx::Withdraw(w));
@@ -79,15 +75,11 @@ impl StateWitness {
     }
 
     pub fn deposit(mut self, d: Deposit) -> Self {
-        let Deposit {
-            to,
-            amount,
-            bind: _,
-        } = &d;
+        let Deposit { to, amount } = d;
 
-        let to_balance = self.balances.entry(*to).or_insert(0);
+        let to_balance = self.balances.entry(to).or_insert(0);
         *to_balance += to_balance
-            .checked_add(*amount)
+            .checked_add(amount)
             .expect("overflow in account balance");
 
         self.included_txs.push(Tx::Deposit(d));
@@ -148,37 +140,49 @@ impl From<StateCommitment> for [u8; 32] {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Withdraw {
     pub from: AccountId,
     pub amount: u64,
-    pub bind: PartialTxInputWitness,
 }
 
 impl Withdraw {
-    pub fn to_bytes(&self) -> [u8; 108] {
-        let mut bytes = [0; 108];
+    pub fn to_bytes(&self) -> [u8; 12] {
+        let mut bytes = [0; 12];
         bytes[0..4].copy_from_slice(&self.from.to_le_bytes());
         bytes[4..12].copy_from_slice(&self.amount.to_le_bytes());
-        bytes[12..108].copy_from_slice(&self.bind.input.commit().to_bytes());
         bytes
     }
 }
 
 /// A deposit of funds into the zone
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Deposit {
     pub to: AccountId,
     pub amount: u64,
-    pub bind: PartialTxInputWitness,
 }
 
 impl Deposit {
-    pub fn to_bytes(&self) -> [u8; 108] {
-        let mut bytes = [0; 108];
+    pub fn to_bytes(&self) -> [u8; 12] {
+        let mut bytes = [0; 12];
         bytes[0..4].copy_from_slice(&self.to.to_le_bytes());
         bytes[4..12].copy_from_slice(&self.amount.to_le_bytes());
-        bytes[12..108].copy_from_slice(&self.bind.input.commit().to_bytes());
+        bytes
+    }
+}
+
+/// A Tx that is executed in the zone if and only if the bind is
+/// present is the same partial transaction
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BoundTx {
+    pub tx: Tx,
+    pub bind: PartialTxInputWitness,
+}
+
+impl BoundTx {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = self.tx.to_bytes();
+        bytes.extend(self.bind.input.commit().to_bytes());
         bytes
     }
 }

@@ -1,9 +1,9 @@
-use common::{StateWitness, Tx};
+use common::{BoundTx, StateWitness};
 use goas_proof_statements::{zone_funds::SpendFundsPrivate, zone_state::ZoneStatePrivate};
 
 pub fn prove_zone_stf(
     state: StateWitness,
-    inputs: Vec<Tx>,
+    inputs: Vec<BoundTx>,
     zone_in: cl::PartialTxInputWitness,
     zone_out: cl::PartialTxOutputWitness,
     funds_out: cl::PartialTxOutputWitness,
