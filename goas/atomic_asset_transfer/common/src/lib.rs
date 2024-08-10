@@ -57,7 +57,18 @@ impl StateWitness {
         }
     }
 
-    pub fn withdraw(mut self, w: Withdraw) -> Self {
+    pub fn apply(self, tx: Tx) -> Self {
+        let mut state = match tx {
+            Tx::Withdraw(w) => self.withdraw(w),
+            Tx::Deposit(d) => self.deposit(d),
+        };
+
+        state.included_txs.push(tx);
+
+        state
+    }
+
+    fn withdraw(mut self, w: Withdraw) -> Self {
         let Withdraw { from, amount } = w;
 
         let from_balance = self.balances.entry(from).or_insert(0);
@@ -65,12 +76,10 @@ impl StateWitness {
             .checked_sub(amount)
             .expect("insufficient funds in account");
 
-        self.included_txs.push(Tx::Withdraw(w));
-
         self
     }
 
-    pub fn deposit(mut self, d: Deposit) -> Self {
+    fn deposit(mut self, d: Deposit) -> Self {
         let Deposit { to, amount } = d;
 
         let to_balance = self.balances.entry(to).or_insert(0);
@@ -78,7 +87,6 @@ impl StateWitness {
             .checked_add(amount)
             .expect("overflow in account balance");
 
-        self.included_txs.push(Tx::Deposit(d));
         self
     }
 

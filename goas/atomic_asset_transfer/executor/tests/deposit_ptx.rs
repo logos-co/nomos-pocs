@@ -47,7 +47,10 @@ fn test_deposit() {
         amount: 78,
     };
 
-    let end_state = init_state.clone().deposit(deposit).evolve_nonce();
+    let end_state = init_state
+        .clone()
+        .apply(Tx::Deposit(deposit))
+        .evolve_nonce();
 
     let zone_state_out = cl::OutputWitness::public(
         cl::NoteWitness {

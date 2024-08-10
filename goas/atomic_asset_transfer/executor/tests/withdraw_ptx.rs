@@ -66,7 +66,10 @@ fn test_withdrawal() {
         amount: 78,
     };
 
-    let end_state = init_state.clone().withdraw(withdraw.clone()).evolve_nonce();
+    let end_state = init_state
+        .clone()
+        .apply(Tx::Withdraw(withdraw.clone()))
+        .evolve_nonce();
 
     let zone_state_out = cl::OutputWitness::public(
         cl::NoteWitness {
