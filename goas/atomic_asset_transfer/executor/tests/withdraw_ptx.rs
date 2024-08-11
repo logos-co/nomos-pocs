@@ -1,10 +1,9 @@
 use std::collections::BTreeMap;
 
-use cl::{NoteWitness, NullifierNonce, NullifierSecret};
-use common::{BoundTx, StateWitness, Tx, ZoneMetadata, ZONE_CL_FUNDS_UNIT};
+use cl::{NoteWitness, NullifierSecret};
+use common::{BoundTx, StateWitness, Tx, ZONE_CL_FUNDS_UNIT};
 use executor::ZoneNotes;
 use ledger::death_constraint::DeathProof;
-use rand_core::CryptoRngCore;
 
 #[test]
 fn test_withdrawal() {
@@ -58,7 +57,7 @@ fn test_withdrawal() {
             executor::prove_zone_stf(
                 zone_start.state.clone(),
                 vec![BoundTx {
-                    tx: Tx::Withdraw(withdraw.clone()),
+                    tx: Tx::Withdraw(withdraw),
                     bind: withdraw_ptx.input_witness(2),
                 }],
                 withdraw_ptx.input_witness(0), // input state note (input #0)

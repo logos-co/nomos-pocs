@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use cl::{BundleWitness, NoteWitness, NullifierNonce};
 use common::{BoundTx, Deposit, Tx, Withdraw};
 use executor::ZoneNotes;
-use goas_proof_statements::user_note::UserIntent;
+use goas_proof_statements::user_note::{UserAtomicTransfer, UserIntent};
 
 #[test]
 fn test_atomic_transfer() {
@@ -72,16 +72,16 @@ fn test_atomic_transfer() {
     let death_proofs = BTreeMap::from_iter([
         (
             alice_intent_in.nullifier(),
-            executor::prove_user_atomic_transfer(
-                atomic_transfer_ptx.input_witness(0),
-                alice_intent,
-                atomic_transfer_ptx.output_witness(0),
-                atomic_transfer_ptx.output_witness(2),
-                zone_a_end.state.state_roots(),
-                zone_b_end.state.state_roots(),
-                zone_a_end.state.included_tx_witness(0),
-                zone_b_end.state.included_tx_witness(0),
-            ),
+            executor::prove_user_atomic_transfer(UserAtomicTransfer {
+                user_note: atomic_transfer_ptx.input_witness(0),
+                user_intent: alice_intent,
+                zone_a: atomic_transfer_ptx.output_witness(0),
+                zone_b: atomic_transfer_ptx.output_witness(2),
+                zone_a_roots: zone_a_end.state.state_roots(),
+                zone_b_roots: zone_b_end.state.state_roots(),
+                withdraw_tx: zone_a_end.state.included_tx_witness(0),
+                deposit_tx: zone_b_end.state.included_tx_witness(0),
+            }),
         ),
         (
             zone_a_start.state_input_witness().nullifier(),

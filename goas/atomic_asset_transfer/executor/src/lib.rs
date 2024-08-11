@@ -1,11 +1,8 @@
 use std::collections::BTreeMap;
 
-use cl::{PartialTxInputWitness, PartialTxOutputWitness};
-use common::{BoundTx, IncludedTxWitness, StateRoots, StateWitness, Tx, ZoneMetadata};
+use common::{BoundTx, StateWitness, Tx, ZoneMetadata};
 use goas_proof_statements::{
-    user_note::{UserAtomicTransfer, UserIntent},
-    zone_funds::SpendFundsPrivate,
-    zone_state::ZoneStatePrivate,
+    user_note::UserAtomicTransfer, zone_funds::SpendFundsPrivate, zone_state::ZoneStatePrivate,
 };
 use rand_core::CryptoRngCore;
 
@@ -153,7 +150,11 @@ pub fn prove_zone_stf(
     let prove_info = prover
         .prove_with_opts(env, goas_risc0_proofs::ZONE_STATE_ELF, &opts)
         .unwrap();
-    println!("STARK 'zone_stf' prover time: {:.2?}", start_t.elapsed());
+    println!(
+        "STARK 'zone_stf' prover time: {:.2?}, total_cycles: {}",
+        start_t.elapsed(),
+        prove_info.stats.total_cycles
+    );
     let receipt = prove_info.receipt;
     ledger::DeathProof::from_risc0(goas_risc0_proofs::ZONE_STATE_ID, receipt)
 }
@@ -183,34 +184,18 @@ pub fn prove_zone_fund_withdraw(
     let prove_info = prover
         .prove_with_opts(env, goas_risc0_proofs::SPEND_ZONE_FUNDS_ELF, &opts)
         .unwrap();
-    println!("STARK 'zone_fund' prover time: {:.2?}", start_t.elapsed());
+    println!(
+        "STARK 'zone_fund' prover time: {:.2?}, total_cycles: {}",
+        start_t.elapsed(),
+        prove_info.stats.total_cycles
+    );
     let receipt = prove_info.receipt;
     ledger::DeathProof::from_risc0(goas_risc0_proofs::SPEND_ZONE_FUNDS_ID, receipt)
 }
 
-pub fn prove_user_atomic_transfer(
-    user_note: PartialTxInputWitness,
-    user_intent: UserIntent,
-    zone_a: PartialTxOutputWitness,
-    zone_b: PartialTxOutputWitness,
-    zone_a_roots: StateRoots,
-    zone_b_roots: StateRoots,
-    withdraw_tx: IncludedTxWitness,
-    deposit_tx: IncludedTxWitness,
-) -> ledger::DeathProof {
-    let private_inputs = UserAtomicTransfer {
-        user_note,
-        user_intent,
-        zone_a,
-        zone_b,
-        zone_a_roots,
-        zone_b_roots,
-        withdraw_tx,
-        deposit_tx,
-    };
-
+pub fn prove_user_atomic_transfer(atomic_transfer: UserAtomicTransfer) -> ledger::DeathProof {
     let env = risc0_zkvm::ExecutorEnv::builder()
-        .write(&private_inputs)
+        .write(&atomic_transfer)
         .unwrap()
         .build()
         .unwrap();
@@ -224,8 +209,9 @@ pub fn prove_user_atomic_transfer(
         .prove_with_opts(env, goas_risc0_proofs::USER_ATOMIC_TRANSFER_ELF, &opts)
         .unwrap();
     println!(
-        "STARK 'user atomic transfer' prover time: {:.2?}",
-        start_t.elapsed()
+        "STARK 'user atomic transfer' prover time: {:.2?}, total_cycles: {}",
+        start_t.elapsed(),
+        prove_info.stats.total_cycles
     );
     let receipt = prove_info.receipt;
     ledger::DeathProof::from_risc0(goas_risc0_proofs::USER_ATOMIC_TRANSFER_ID, receipt)
