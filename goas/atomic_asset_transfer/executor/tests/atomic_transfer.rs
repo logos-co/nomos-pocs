@@ -1,100 +1,9 @@
 use std::collections::BTreeMap;
 
 use cl::{BundleWitness, NoteWitness, NullifierNonce};
-use common::{BoundTx, Deposit, StateWitness, Tx, Withdraw, ZoneMetadata};
+use common::{BoundTx, Deposit, Tx, Withdraw};
+use executor::ZoneNotes;
 use goas_proof_statements::user_note::UserIntent;
-use rand_core::CryptoRngCore;
-
-fn zone_fund_utxo(
-    value: u64,
-    zone_meta: ZoneMetadata,
-    mut rng: impl CryptoRngCore,
-) -> cl::OutputWitness {
-    cl::OutputWitness::public(
-        cl::NoteWitness {
-            value,
-            unit: *common::ZONE_CL_FUNDS_UNIT,
-            death_constraint: zone_meta.funds_vk,
-            state: zone_meta.id(),
-        },
-        NullifierNonce::random(&mut rng),
-    )
-}
-
-fn zone_state_utxo(zone: &StateWitness, mut rng: impl CryptoRngCore) -> cl::OutputWitness {
-    cl::OutputWitness::public(
-        cl::NoteWitness {
-            value: 1,
-            unit: zone.zone_metadata.unit,
-            death_constraint: zone.zone_metadata.zone_vk,
-            state: zone.commit().0,
-        },
-        NullifierNonce::random(&mut rng),
-    )
-}
-
-#[derive(Debug, Clone)]
-struct ZoneNotes {
-    state: StateWitness,
-    state_note: cl::OutputWitness,
-    fund_note: cl::OutputWitness,
-}
-
-impl ZoneNotes {
-    fn new_with_balances(
-        zone_name: &str,
-        balances: BTreeMap<u32, u64>,
-        mut rng: impl CryptoRngCore,
-    ) -> Self {
-        let state = StateWitness {
-            balances,
-            included_txs: vec![],
-            zone_metadata: executor::zone_metadata(zone_name),
-            nonce: [0; 32],
-        };
-        let state_note = zone_state_utxo(&state, &mut rng);
-        let fund_note = zone_fund_utxo(state.total_balance(), state.zone_metadata, &mut rng);
-        Self {
-            state,
-            state_note,
-            fund_note,
-        }
-    }
-
-    fn state_input_witness(&self) -> cl::InputWitness {
-        cl::InputWitness::public(self.state_note)
-    }
-
-    fn fund_input_witness(&self) -> cl::InputWitness {
-        cl::InputWitness::public(self.fund_note)
-    }
-
-    fn run(mut self, txs: Vec<Tx>) -> Self {
-        for tx in txs {
-            self.state = self.state.apply(tx);
-        }
-        self.state = self.state.evolve_nonce();
-
-        let state_in = self.state_input_witness();
-        self.state_note = cl::OutputWitness::public(
-            cl::NoteWitness {
-                state: self.state.commit().0,
-                ..state_in.note
-            },
-            state_in.evolved_nonce(),
-        );
-
-        let fund_in = self.fund_input_witness();
-        self.fund_note = cl::OutputWitness::public(
-            cl::NoteWitness {
-                value: self.state.total_balance(),
-                ..fund_in.note
-            },
-            NullifierNonce::from_bytes(self.state.nonce),
-        );
-        self
-    }
-}
 
 #[test]
 fn test_atomic_transfer() {
@@ -137,11 +46,11 @@ fn test_atomic_transfer() {
 
     let zone_a_end = zone_a_start
         .clone()
-        .run(vec![Tx::Withdraw(alice_intent.withdraw)]);
+        .run([Tx::Withdraw(alice_intent.withdraw)]);
 
     let zone_b_end = zone_b_start
         .clone()
-        .run(vec![Tx::Deposit(alice_intent.deposit)]);
+        .run([Tx::Deposit(alice_intent.deposit)]);
 
     let alice_intent_in = cl::InputWitness::public(alice_intent_out);
     let atomic_transfer_ptx = cl::PartialTxWitness {

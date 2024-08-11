@@ -28,8 +28,8 @@ pub struct ZoneMetadata {
 impl ZoneMetadata {
     pub fn id(&self) -> [u8; 32] {
         let mut hasher = Sha256::new();
-        hasher.update(&self.zone_vk);
-        hasher.update(&self.funds_vk);
+        hasher.update(self.zone_vk);
+        hasher.update(self.funds_vk);
         hasher.update(self.unit.compress().as_bytes());
         hasher.finalize().into()
     }
@@ -118,7 +118,7 @@ impl StateWitness {
     pub fn evolve_nonce(self) -> Self {
         let updated_nonce = {
             let mut hasher = Sha256::new();
-            hasher.update(&self.nonce);
+            hasher.update(self.nonce);
             hasher.update(b"NOMOS_ZONE_NONCE_EVOLVE");
             hasher.finalize().into()
         };
