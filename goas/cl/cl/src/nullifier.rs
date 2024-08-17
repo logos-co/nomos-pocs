@@ -9,6 +9,8 @@ use rand_core::RngCore;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+use crate::NoteCommitment;
+
 // TODO: create a nullifier witness and use it throughout.
 // struct NullifierWitness {
 //     nf_sk: NullifierSecret,
@@ -102,11 +104,12 @@ impl NullifierNonce {
 }
 
 impl Nullifier {
-    pub fn new(sk: NullifierSecret, nonce: NullifierNonce) -> Self {
+    pub fn new(sk: NullifierSecret, nonce: NullifierNonce, note_cm: NoteCommitment) -> Self {
         let mut hasher = Sha256::new();
         hasher.update(b"NOMOS_CL_NULLIFIER");
         hasher.update(sk.0);
         hasher.update(nonce.0);
+        hasher.update(note_cm.0);
 
         let nf_bytes: [u8; 32] = hasher.finalize().into();
         Self(nf_bytes)
@@ -144,8 +147,24 @@ mod test {
         let sk = NullifierSecret::random(&mut rng);
         let nonce_1 = NullifierNonce::random(&mut rng);
         let nonce_2 = NullifierNonce::random(&mut rng);
-        let nf_1 = Nullifier::new(sk, nonce_1);
-        let nf_2 = Nullifier::new(sk, nonce_2);
+        let note_cm = NoteCommitment::random(&mut rng);
+
+        let nf_1 = Nullifier::new(sk, nonce_1, note_cm);
+        let nf_2 = Nullifier::new(sk, nonce_2, note_cm);
+
+        assert_ne!(nf_1, nf_2);
+    }
+
+    #[test]
+    fn test_same_sk_same_nonce_different_note() {
+        let mut rng = rand::thread_rng();
+        let sk = NullifierSecret::random(&mut rng);
+        let nonce = NullifierNonce::random(&mut rng);
+        let note_cm_1 = NoteCommitment::random(&mut rng);
+        let note_cm_2 = NoteCommitment::random(&mut rng);
+
+        let nf_1 = Nullifier::new(sk, nonce, note_cm_1);
+        let nf_2 = Nullifier::new(sk, nonce, note_cm_2);
 
         assert_ne!(nf_1, nf_2);
     }

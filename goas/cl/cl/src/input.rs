@@ -66,7 +66,7 @@ impl InputWitness {
     }
 
     pub fn nullifier(&self) -> Nullifier {
-        Nullifier::new(self.nf_sk, self.nonce)
+        Nullifier::new(self.nf_sk, self.nonce, self.note_commitment())
     }
 
     pub fn commit(&self) -> Input {
