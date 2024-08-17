@@ -40,7 +40,6 @@ pub struct StateWitness {
     pub balances: BTreeMap<AccountId, u64>,
     pub included_txs: Vec<Tx>,
     pub zone_metadata: ZoneMetadata,
-    pub nonce: [u8; 32],
 }
 
 impl StateWitness {
@@ -50,7 +49,6 @@ impl StateWitness {
 
     pub fn state_roots(&self) -> StateRoots {
         StateRoots {
-            nonce: self.nonce,
             tx_root: self.included_txs_root(),
             zone_id: self.zone_metadata.id(),
             balance_root: self.balances_root(),
@@ -113,19 +111,6 @@ impl StateWitness {
 
     pub fn total_balance(&self) -> u64 {
         self.balances.values().sum()
-    }
-
-    pub fn evolve_nonce(self) -> Self {
-        let updated_nonce = {
-            let mut hasher = Sha256::new();
-            hasher.update(self.nonce);
-            hasher.update(b"NOMOS_ZONE_NONCE_EVOLVE");
-            hasher.finalize().into()
-        };
-        Self {
-            nonce: updated_nonce,
-            ..self
-        }
     }
 
     fn included_tx_merkle_leaves(&self) -> [[u8; 32]; MAX_TXS] {
@@ -221,25 +206,19 @@ impl IncludedTxWitness {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StateRoots {
-    pub nonce: [u8; 32],
     pub tx_root: [u8; 32],
     pub zone_id: [u8; 32],
     pub balance_root: [u8; 32],
 }
 
 impl StateRoots {
-    /// Merkle tree over:
-    ///                  root
-    ///              /        \
-    ///            io          state
-    ///          /   \        /     \
-    ///      nonce   txs   zoneid  balances
+    /// Merkle tree over: [txs, zoneid, balances]
     pub fn commit(&self) -> StateCommitment {
-        StateCommitment(cl::merkle::root([
-            self.nonce,
-            self.tx_root,
-            self.zone_id,
-            self.balance_root,
-        ]))
+        let leaves = cl::merkle::padded_leaves::<4>(&[
+            self.tx_root.to_vec(),
+            self.zone_id.to_vec(),
+            self.balance_root.to_vec(),
+        ]);
+        StateCommitment(cl::merkle::root(leaves))
     }
 }

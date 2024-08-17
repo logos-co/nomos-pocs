@@ -101,7 +101,6 @@ fn test_withdrawal() {
             balances: BTreeMap::from_iter([(alice, 22)]),
             included_txs: vec![Tx::Withdraw(withdraw)],
             zone_metadata: zone_start.state.zone_metadata,
-            nonce: zone_start.state.evolve_nonce().nonce,
         }
         .commit()
         .0

@@ -81,7 +81,6 @@ fn test_deposit() {
             balances: BTreeMap::from_iter([(alice, 78)]),
             included_txs: vec![Tx::Deposit(deposit)],
             zone_metadata: zone_start.state.zone_metadata,
-            nonce: zone_start.state.evolve_nonce().nonce,
         }
         .commit()
         .0

@@ -9,7 +9,7 @@ use rand_core::RngCore;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::NoteCommitment;
+use crate::{NoteCommitment, NoteWitness};
 
 // TODO: create a nullifier witness and use it throughout.
 // struct NullifierWitness {
@@ -92,11 +92,12 @@ impl NullifierNonce {
         Self(bytes)
     }
 
-    pub fn evolve(&self, nf_sk: &NullifierSecret) -> Self {
+    pub fn evolve(&self, domain: &[u8], nf_sk: &NullifierSecret, note: &NoteWitness) -> Self {
         let mut hasher = Sha256::new();
         hasher.update(b"NOMOS_COIN_EVOLVE");
-        hasher.update(&self.0);
+        hasher.update(domain);
         hasher.update(nf_sk.0);
+        hasher.update(note.commit(nf_sk.commit(), *self).0);
 
         let nonce_bytes: [u8; 32] = hasher.finalize().into();
         Self(nonce_bytes)

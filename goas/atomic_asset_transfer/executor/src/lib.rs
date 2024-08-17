@@ -23,7 +23,6 @@ impl ZoneNotes {
             balances,
             included_txs: vec![],
             zone_metadata: zone_metadata(zone_name),
-            nonce: [0; 32],
         };
         let state_note = zone_state_utxo(&state, &mut rng);
         let fund_note = zone_fund_utxo(state.total_balance(), state.zone_metadata, &mut rng);
@@ -46,7 +45,6 @@ impl ZoneNotes {
         for tx in txs {
             self.state = self.state.apply(tx);
         }
-        self.state = self.state.evolve_nonce();
 
         let state_in = self.state_input_witness();
         self.state_note = cl::OutputWitness::public(
@@ -54,7 +52,7 @@ impl ZoneNotes {
                 state: self.state.commit().0,
                 ..state_in.note
             },
-            state_in.evolved_nonce(),
+            state_in.evolved_nonce(b"STATE_NONCE"),
         );
 
         let fund_in = self.fund_input_witness();
@@ -63,7 +61,7 @@ impl ZoneNotes {
                 value: self.state.total_balance(),
                 ..fund_in.note
             },
-            cl::NullifierNonce::from_bytes(self.state.nonce),
+            state_in.evolved_nonce(b"FUND_NONCE"),
         );
         self
     }

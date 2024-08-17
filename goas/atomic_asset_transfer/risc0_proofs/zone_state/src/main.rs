@@ -1,5 +1,5 @@
 use cl::{
-    note::NoteWitness, nullifier::NullifierNonce, output::OutputWitness,
+    note::NoteWitness, output::OutputWitness,
     PtxRoot,
 };
 
@@ -39,7 +39,7 @@ fn validate_zone_transition(
     );
 
     // the nonce is correctly evolved
-    assert_eq!(in_note.input.evolved_nonce(), out_note.output.nonce);
+    assert_eq!(in_note.input.evolved_nonce(b"STATE_NONCE"), out_note.output.nonce);
 
     // funds are still under control of the zone
     let expected_note_witness = NoteWitness::new(
@@ -52,7 +52,7 @@ fn validate_zone_transition(
         out_funds.output,
         OutputWitness::public(
             expected_note_witness,
-            NullifierNonce::from_bytes(out_state.nonce)
+            in_note.input.evolved_nonce(b"FUND_NONCE")
         )
     );
     // funds belong to the same partial tx
@@ -83,7 +83,6 @@ fn main() {
         state = state.apply(tx)
     }
 
-    let state = state.evolve_nonce();
     validate_zone_transition(zone_in, zone_out, funds_out, in_state_cm, state);
 
     env::commit(&pub_inputs);
