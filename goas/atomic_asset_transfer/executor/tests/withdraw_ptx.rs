@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use cl::{NoteWitness, NullifierSecret};
-use common::{BoundTx, StateWitness, Tx, ZONE_CL_FUNDS_UNIT};
+use common::{new_account, BoundTx, SignedBoundTx, StateWitness, Tx, ZONE_CL_FUNDS_UNIT};
 use executor::ZoneNotes;
 use ledger::death_constraint::DeathProof;
 
@@ -9,24 +9,25 @@ use ledger::death_constraint::DeathProof;
 fn test_withdrawal() {
     let mut rng = rand::thread_rng();
 
-    let alice = 42;
-    let alice_sk = NullifierSecret::random(&mut rng);
+    let mut alice = new_account(&mut rng);
+    let alice_vk = alice.verifying_key().to_bytes();
+    let alice_cl_sk = NullifierSecret::random(&mut rng);
 
     let zone_start =
-        ZoneNotes::new_with_balances("ZONE", BTreeMap::from_iter([(alice, 100)]), &mut rng);
+        ZoneNotes::new_with_balances("ZONE", BTreeMap::from_iter([(alice_vk, 100)]), &mut rng);
 
     let alice_intent = cl::InputWitness::random(
         cl::OutputWitness::random(
             NoteWitness::stateless(1, *ZONE_CL_FUNDS_UNIT, DeathProof::nop_constraint()), // TODO, intent should be in the death constraint
-            alice_sk.commit(),
+            alice_cl_sk.commit(),
             &mut rng,
         ),
-        alice_sk,
+        alice_cl_sk,
         &mut rng,
     );
 
     let withdraw = common::Withdraw {
-        from: alice,
+        from: alice_vk,
         amount: 78,
     };
 
@@ -38,7 +39,7 @@ fn test_withdrawal() {
             *ZONE_CL_FUNDS_UNIT,
             DeathProof::nop_constraint(),
         ),
-        alice_sk.commit(),
+        alice_cl_sk.commit(),
         &mut rng,
     );
 
@@ -51,15 +52,20 @@ fn test_withdrawal() {
         outputs: vec![zone_end.state_note, zone_end.fund_note, alice_withdrawal],
     };
 
+    let signed_withdraw = SignedBoundTx::sign(
+        BoundTx {
+            tx: Tx::Withdraw(withdraw),
+            bind: alice_intent.note_commitment(),
+        },
+        &mut alice,
+    );
+
     let death_proofs = BTreeMap::from_iter([
         (
             zone_start.state_input_witness().nullifier(),
             executor::prove_zone_stf(
                 zone_start.state.clone(),
-                vec![BoundTx {
-                    tx: Tx::Withdraw(withdraw),
-                    bind: withdraw_ptx.input_witness(2),
-                }],
+                vec![(signed_withdraw, withdraw_ptx.input_witness(2))],
                 withdraw_ptx.input_witness(0), // input state note (input #0)
                 withdraw_ptx.output_witness(0), // output state note (output #0)
                 withdraw_ptx.output_witness(1), // output funds note (output #1)
@@ -98,7 +104,7 @@ fn test_withdrawal() {
     assert_eq!(
         zone_end.state_note.note.state,
         StateWitness {
-            balances: BTreeMap::from_iter([(alice, 22)]),
+            balances: BTreeMap::from_iter([(alice_vk, 22)]),
             included_txs: vec![Tx::Withdraw(withdraw)],
             zone_metadata: zone_start.state.zone_metadata,
         }
