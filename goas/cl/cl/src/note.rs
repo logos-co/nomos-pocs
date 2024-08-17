@@ -1,4 +1,3 @@
-use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -27,12 +26,6 @@ pub fn unit_point(unit: &str) -> Unit {
 pub struct NoteCommitment(pub [u8; 32]);
 
 impl NoteCommitment {
-    pub fn random(mut rng: impl CryptoRngCore) -> Self {
-        let mut cm = [0u8; 32];
-        rng.fill_bytes(&mut cm);
-        Self(cm)
-    }
-
     pub fn as_bytes(&self) -> &[u8; 32] {
         &self.0
     }
