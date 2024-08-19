@@ -23,15 +23,13 @@ pub fn unit_point(unit: &str) -> Unit {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct NoteCommitment([u8; 32]);
+pub struct NoteCommitment(pub [u8; 32]);
 
 impl NoteCommitment {
     pub fn as_bytes(&self) -> &[u8; 32] {
         &self.0
     }
 }
-
-// TODO: Rename Note to NoteWitness and NoteCommitment to Note
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct NoteWitness {

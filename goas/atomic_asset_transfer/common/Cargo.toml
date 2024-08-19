@@ -9,3 +9,7 @@ cl = { path = "../../cl/cl" }
 ledger_proof_statements = { path = "../../cl/ledger_proof_statements" }
 once_cell = "1"
 sha2 = "0.10"
+curve25519-dalek = { version = "4.1", features = ["serde", "digest", "rand_core"] }
+ed25519-dalek = { version = "2.1.1", features = ["rand_core"] }
+rand_core = "0.6.0"
+serde_arrays = "0.1.0"
