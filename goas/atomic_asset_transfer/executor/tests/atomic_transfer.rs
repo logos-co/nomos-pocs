@@ -111,7 +111,7 @@ fn test_atomic_transfer() {
         ),
         (
             zone_a_start.fund_input_witness().nullifier(),
-            executor::prove_zone_fund_withdraw(
+            executor::prove_zone_fund_constraint(
                 atomic_transfer_ptx.input_witness(2),  // input fund note
                 atomic_transfer_ptx.output_witness(0), // output state note
                 &zone_a_end.state,
@@ -129,7 +129,7 @@ fn test_atomic_transfer() {
         ),
         (
             zone_b_start.fund_input_witness().nullifier(),
-            executor::prove_zone_fund_withdraw(
+            executor::prove_zone_fund_constraint(
                 atomic_transfer_ptx.input_witness(4), // input fund note (input #1)
                 atomic_transfer_ptx.output_witness(2), // output state note (output #0)
                 &zone_b_end.state,
