@@ -1,14 +1,8 @@
-use curve25519_dalek::{ristretto::RistrettoPoint, traits::VartimeMultiscalarMul, Scalar};
-use lazy_static::lazy_static;
+use curve25519_dalek::{ristretto::RistrettoPoint, Scalar};
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 
 use crate::NoteWitness;
-
-lazy_static! {
-    // Precompute of ``
-    static ref PEDERSON_COMMITMENT_BLINDING_POINT: RistrettoPoint = crate::crypto::hash_to_curve(b"NOMOS_CL_PEDERSON_COMMITMENT_BLINDING");
-}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct Balance(pub RistrettoPoint);
@@ -56,27 +50,13 @@ impl BalanceWitness {
 pub fn balance(value: u64, unit: Unit, blinding: Scalar) -> Unit {
     let value_scalar = Scalar::from(value);
     // can vartime leak the number of cycles through the stark proof?
-    RistrettoPoint::vartime_multiscalar_mul(
-        &[value_scalar, blinding],
-        &[unit, *PEDERSON_COMMITMENT_BLINDING_POINT],
-    )
+    RistrettoPoint::vartime_double_scalar_mul_basepoint(&value_scalar, &unit, &blinding)
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::note::unit_point;
-
-    #[test]
-    fn test_pederson_blinding_point_pre_compute() {
-        // use k256::elliptic_curve::group::GroupEncoding;
-        // println!("{:?}", <[u8;33]>::from((*PEDERSON_COMMITMENT_BLINDING_POINT).to_bytes()));
-
-        assert_eq!(
-            *PEDERSON_COMMITMENT_BLINDING_POINT,
-            crate::crypto::hash_to_curve(b"NOMOS_CL_PEDERSON_COMMITMENT_BLINDING")
-        );
-    }
 
     #[test]
     fn test_balance_zero_unitless() {
