@@ -9,6 +9,8 @@ use rand_core::RngCore;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+use crate::{NoteCommitment, NoteWitness};
+
 // TODO: create a nullifier witness and use it throughout.
 // struct NullifierWitness {
 //     nf_sk: NullifierSecret,
@@ -90,11 +92,12 @@ impl NullifierNonce {
         Self(bytes)
     }
 
-    pub fn evolve(&self, nf_sk: &NullifierSecret) -> Self {
+    pub fn evolve(&self, domain: &[u8], nf_sk: &NullifierSecret, note: &NoteWitness) -> Self {
         let mut hasher = Sha256::new();
         hasher.update(b"NOMOS_COIN_EVOLVE");
-        hasher.update(&self.0);
+        hasher.update(domain);
         hasher.update(nf_sk.0);
+        hasher.update(note.commit(nf_sk.commit(), *self).0);
 
         let nonce_bytes: [u8; 32] = hasher.finalize().into();
         Self(nonce_bytes)
@@ -102,11 +105,11 @@ impl NullifierNonce {
 }
 
 impl Nullifier {
-    pub fn new(sk: NullifierSecret, nonce: NullifierNonce) -> Self {
+    pub fn new(sk: NullifierSecret, note_cm: NoteCommitment) -> Self {
         let mut hasher = Sha256::new();
         hasher.update(b"NOMOS_CL_NULLIFIER");
         hasher.update(sk.0);
-        hasher.update(nonce.0);
+        hasher.update(note_cm.0);
 
         let nf_bytes: [u8; 32] = hasher.finalize().into();
         Self(nf_bytes)
@@ -119,6 +122,8 @@ impl Nullifier {
 
 #[cfg(test)]
 mod test {
+    use crate::{note::unit_point, NoteWitness};
+
     use super::*;
 
     #[ignore = "nullifier test vectors not stable yet"]
@@ -142,10 +147,31 @@ mod test {
     fn test_nullifier_same_sk_different_nonce() {
         let mut rng = rand::thread_rng();
         let sk = NullifierSecret::random(&mut rng);
+        let note = NoteWitness::basic(1, unit_point("NMO"));
+
         let nonce_1 = NullifierNonce::random(&mut rng);
         let nonce_2 = NullifierNonce::random(&mut rng);
-        let nf_1 = Nullifier::new(sk, nonce_1);
-        let nf_2 = Nullifier::new(sk, nonce_2);
+        let note_cm_1 = note.commit(sk.commit(), nonce_1);
+        let note_cm_2 = note.commit(sk.commit(), nonce_2);
+
+        let nf_1 = Nullifier::new(sk, note_cm_1);
+        let nf_2 = Nullifier::new(sk, note_cm_2);
+
+        assert_ne!(nf_1, nf_2);
+    }
+
+    #[test]
+    fn test_same_sk_same_nonce_different_note() {
+        let mut rng = rand::thread_rng();
+        let sk = NullifierSecret::random(&mut rng);
+        let note_1 = NoteWitness::basic(1, unit_point("NMO"));
+        let note_2 = NoteWitness::basic(1, unit_point("ETH"));
+        let nonce = NullifierNonce::random(&mut rng);
+        let note_cm_1 = note_1.commit(sk.commit(), nonce);
+        let note_cm_2 = note_2.commit(sk.commit(), nonce);
+
+        let nf_1 = Nullifier::new(sk, note_cm_1);
+        let nf_2 = Nullifier::new(sk, note_cm_2);
 
         assert_ne!(nf_1, nf_2);
     }

@@ -26,7 +26,7 @@ use ledger_proof_statements::death_constraint::DeathConstraintPublic;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UserIntent {
     pub zone_a_meta: common::ZoneMetadata,
     pub zone_b_meta: common::ZoneMetadata,

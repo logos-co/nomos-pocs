@@ -127,7 +127,7 @@ mod test {
                 input: cl::Input {
                     nullifier: cl::Nullifier::new(
                         cl::NullifierSecret::random(&mut rng),
-                        cl::NullifierNonce::random(&mut rng),
+                        input.note_commitment(),
                     ),
                     ..expected_public_inputs.input
                 },
