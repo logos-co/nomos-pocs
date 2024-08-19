@@ -217,8 +217,9 @@ pub fn prove_user_atomic_transfer(atomic_transfer: UserAtomicTransfer) -> ledger
 
 #[cfg(test)]
 mod tests {
-    use cl::{NoteWitness, OutputWitness, PartialTxWitness};
+    use cl::{note::unit_point, NoteWitness, NullifierNonce, OutputWitness, PartialTxWitness};
     use common::{BoundTx, Deposit, Withdraw};
+    use goas_proof_statements::user_note::UserIntent;
     use ledger_proof_statements::death_constraint::DeathConstraintPublic;
 
     use super::*;
@@ -305,6 +306,61 @@ mod tests {
 
         assert!(proof.verify(DeathConstraintPublic {
             nf: zone.fund_input_witness().nullifier(),
+            ptx_root: ptx.commit().root(),
+        }))
+    }
+
+    #[test]
+    fn test_prove_user_atomic_transfer() {
+        let mut rng = rand::thread_rng();
+
+        let alice = common::new_account(&mut rng);
+        let alice_vk = alice.verifying_key().to_bytes();
+
+        let mut zone_a =
+            ZoneNotes::new_with_balances("ZONE_A", BTreeMap::from_iter([(alice_vk, 40)]), &mut rng);
+        let mut zone_b = ZoneNotes::new_with_balances("ZONE_B", BTreeMap::new(), &mut rng);
+
+        let user_intent = UserIntent {
+            zone_a_meta: zone_a.state.zone_metadata,
+            zone_b_meta: zone_b.state.zone_metadata,
+            withdraw: Withdraw {
+                from: alice_vk,
+                amount: 32,
+            },
+            deposit: Deposit {
+                to: alice_vk,
+                amount: 32,
+            },
+        };
+        let user_note = cl::InputWitness::public(cl::OutputWitness::public(
+            NoteWitness::new(1, unit_point("INTENT"), [0u8; 32], user_intent.commit()),
+            NullifierNonce::random(&mut rng),
+        ));
+
+        zone_a = zone_a.run([Tx::Withdraw(user_intent.withdraw)]);
+        zone_b = zone_b.run([Tx::Deposit(user_intent.deposit)]);
+
+        let ptx = PartialTxWitness {
+            inputs: vec![user_note],
+            outputs: vec![zone_a.state_note, zone_b.state_note],
+        };
+
+        let user_atomic_transfer = UserAtomicTransfer {
+            user_note: ptx.input_witness(0),
+            user_intent,
+            zone_a: ptx.output_witness(0),
+            zone_b: ptx.output_witness(1),
+            zone_a_roots: zone_a.state.state_roots(),
+            zone_b_roots: zone_b.state.state_roots(),
+            withdraw_tx: zone_a.state.included_tx_witness(0),
+            deposit_tx: zone_b.state.included_tx_witness(0),
+        };
+
+        let proof = prove_user_atomic_transfer(user_atomic_transfer);
+
+        assert!(proof.verify(DeathConstraintPublic {
+            nf: user_note.nullifier(),
             ptx_root: ptx.commit().root(),
         }))
     }
