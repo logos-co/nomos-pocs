@@ -52,16 +52,20 @@ impl InputWitness {
         }
     }
 
-    pub fn evolved_nonce(&self) -> NullifierNonce {
-        self.nonce.evolve(&self.nf_sk)
+    pub fn evolved_nonce(&self, domain: &[u8]) -> NullifierNonce {
+        self.nonce.evolve(domain, &self.nf_sk, &self.note)
     }
 
-    pub fn evolve_output(&self, balance_blinding: BalanceWitness) -> crate::OutputWitness {
+    pub fn evolve_output(
+        &self,
+        domain: &[u8],
+        balance_blinding: BalanceWitness,
+    ) -> crate::OutputWitness {
         crate::OutputWitness {
             note: self.note,
             balance_blinding,
             nf_pk: self.nf_sk.commit(),
-            nonce: self.evolved_nonce(),
+            nonce: self.evolved_nonce(domain),
         }
     }
 

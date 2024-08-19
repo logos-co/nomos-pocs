@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use cl::{BundleWitness, NoteWitness, NullifierNonce};
-use common::{BoundTx, Deposit, Tx, Withdraw};
+use common::{new_account, BoundTx, Deposit, SignedBoundTx, Tx, Withdraw};
 use executor::ZoneNotes;
 use goas_proof_statements::user_note::{UserAtomicTransfer, UserIntent};
 
@@ -9,10 +9,11 @@ use goas_proof_statements::user_note::{UserAtomicTransfer, UserIntent};
 fn test_atomic_transfer() {
     let mut rng = rand::thread_rng();
 
-    let alice = 42;
+    let mut alice = new_account(&mut rng);
+    let alice_vk = alice.verifying_key().to_bytes();
 
     let zone_a_start =
-        ZoneNotes::new_with_balances("ZONE_A", BTreeMap::from_iter([(alice, 100)]), &mut rng);
+        ZoneNotes::new_with_balances("ZONE_A", BTreeMap::from_iter([(alice_vk, 100)]), &mut rng);
 
     let zone_b_start = ZoneNotes::new_with_balances("ZONE_B", BTreeMap::from_iter([]), &mut rng);
 
@@ -20,11 +21,11 @@ fn test_atomic_transfer() {
         zone_a_meta: zone_a_start.state.zone_metadata,
         zone_b_meta: zone_b_start.state.zone_metadata,
         withdraw: Withdraw {
-            from: alice,
+            from: alice_vk,
             amount: 75,
         },
         deposit: Deposit {
-            to: alice,
+            to: alice_vk,
             amount: 75,
         },
     };
@@ -69,6 +70,21 @@ fn test_atomic_transfer() {
         ],
     };
 
+    let signed_withdraw = SignedBoundTx::sign(
+        BoundTx {
+            tx: Tx::Withdraw(alice_intent.withdraw),
+            bind: alice_intent_in.note_commitment(),
+        },
+        &mut alice,
+    );
+    let signed_deposit = SignedBoundTx::sign(
+        BoundTx {
+            tx: Tx::Deposit(alice_intent.deposit),
+            bind: alice_intent_in.note_commitment(),
+        },
+        &mut alice,
+    );
+
     let death_proofs = BTreeMap::from_iter([
         (
             alice_intent_in.nullifier(),
@@ -87,13 +103,10 @@ fn test_atomic_transfer() {
             zone_a_start.state_input_witness().nullifier(),
             executor::prove_zone_stf(
                 zone_a_start.state.clone(),
-                vec![BoundTx {
-                    tx: Tx::Withdraw(alice_intent.withdraw),
-                    bind: atomic_transfer_ptx.input_witness(0), // input intent note
-                }],
-                atomic_transfer_ptx.input_witness(1), // input state note
-                atomic_transfer_ptx.output_witness(0), // output state note
-                atomic_transfer_ptx.output_witness(1), // output funds note
+                vec![(signed_withdraw, atomic_transfer_ptx.input_witness(0))], // withdraw bound to input intent note
+                atomic_transfer_ptx.input_witness(1),                          // input state note
+                atomic_transfer_ptx.output_witness(0),                         // output state note
+                atomic_transfer_ptx.output_witness(1),                         // output funds note
             ),
         ),
         (
@@ -108,13 +121,10 @@ fn test_atomic_transfer() {
             zone_b_start.state_input_witness().nullifier(),
             executor::prove_zone_stf(
                 zone_b_start.state.clone(),
-                vec![BoundTx {
-                    tx: Tx::Deposit(alice_intent.deposit),
-                    bind: atomic_transfer_ptx.input_witness(0), // input intent note
-                }],
-                atomic_transfer_ptx.input_witness(3), // input state note
-                atomic_transfer_ptx.output_witness(2), // output state note
-                atomic_transfer_ptx.output_witness(3), // output funds note
+                vec![(signed_deposit, atomic_transfer_ptx.input_witness(0))], // deposit bound to input intent note
+                atomic_transfer_ptx.input_witness(3),                         // input state note
+                atomic_transfer_ptx.output_witness(2),                        // output state note
+                atomic_transfer_ptx.output_witness(3),                        // output funds note
             ),
         ),
         (

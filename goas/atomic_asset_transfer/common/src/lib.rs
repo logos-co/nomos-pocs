@@ -1,5 +1,10 @@
-use cl::{balance::Unit, merkle, PartialTxInputWitness};
+use cl::{balance::Unit, merkle, NoteCommitment};
+use ed25519_dalek::{
+    ed25519::{signature::SignerMut, SignatureBytes},
+    Signature, SigningKey, VerifyingKey, PUBLIC_KEY_LENGTH,
+};
 use once_cell::sync::Lazy;
+use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
@@ -13,10 +18,14 @@ pub const MAX_EVENTS: usize = 1 << 8;
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct StateCommitment(pub [u8; 32]);
 
-pub type AccountId = u32;
+pub type AccountId = [u8; PUBLIC_KEY_LENGTH];
 
 // PLACEHOLDER: this is probably going to be NMO?
 pub static ZONE_CL_FUNDS_UNIT: Lazy<Unit> = Lazy::new(|| cl::note::unit_point("NMO"));
+
+pub fn new_account(mut rng: impl CryptoRngCore) -> SigningKey {
+    SigningKey::generate(&mut rng)
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ZoneMetadata {
@@ -40,7 +49,6 @@ pub struct StateWitness {
     pub balances: BTreeMap<AccountId, u64>,
     pub included_txs: Vec<Tx>,
     pub zone_metadata: ZoneMetadata,
-    pub nonce: [u8; 32],
 }
 
 impl StateWitness {
@@ -50,7 +58,6 @@ impl StateWitness {
 
     pub fn state_roots(&self) -> StateRoots {
         StateRoots {
-            nonce: self.nonce,
             tx_root: self.included_txs_root(),
             zone_id: self.zone_metadata.id(),
             balance_root: self.balances_root(),
@@ -95,7 +102,7 @@ impl StateWitness {
     }
 
     pub fn included_tx_witness(&self, idx: usize) -> IncludedTxWitness {
-        let tx = self.included_txs.get(idx).unwrap().clone();
+        let tx = *self.included_txs.get(idx).unwrap();
         let path = merkle::path(self.included_tx_merkle_leaves(), idx);
         IncludedTxWitness { tx, path }
     }
@@ -103,7 +110,7 @@ impl StateWitness {
     pub fn balances_root(&self) -> [u8; 32] {
         let balance_bytes = Vec::from_iter(self.balances.iter().map(|(owner, balance)| {
             let mut bytes: Vec<u8> = vec![];
-            bytes.extend(owner.to_le_bytes());
+            bytes.extend(owner);
             bytes.extend(balance.to_le_bytes());
             bytes
         }));
@@ -113,19 +120,6 @@ impl StateWitness {
 
     pub fn total_balance(&self) -> u64 {
         self.balances.values().sum()
-    }
-
-    pub fn evolve_nonce(self) -> Self {
-        let updated_nonce = {
-            let mut hasher = Sha256::new();
-            hasher.update(self.nonce);
-            hasher.update(b"NOMOS_ZONE_NONCE_EVOLVE");
-            hasher.finalize().into()
-        };
-        Self {
-            nonce: updated_nonce,
-            ..self
-        }
     }
 
     fn included_tx_merkle_leaves(&self) -> [[u8; 32]; MAX_TXS] {
@@ -151,10 +145,10 @@ pub struct Withdraw {
 }
 
 impl Withdraw {
-    pub fn to_bytes(&self) -> [u8; 12] {
-        let mut bytes = [0; 12];
-        bytes[0..4].copy_from_slice(&self.from.to_le_bytes());
-        bytes[4..12].copy_from_slice(&self.amount.to_le_bytes());
+    pub fn to_bytes(&self) -> [u8; 40] {
+        let mut bytes = [0; 40];
+        bytes[0..PUBLIC_KEY_LENGTH].copy_from_slice(&self.from);
+        bytes[PUBLIC_KEY_LENGTH..PUBLIC_KEY_LENGTH + 8].copy_from_slice(&self.amount.to_le_bytes());
         bytes
     }
 }
@@ -167,31 +161,58 @@ pub struct Deposit {
 }
 
 impl Deposit {
-    pub fn to_bytes(&self) -> [u8; 12] {
-        let mut bytes = [0; 12];
-        bytes[0..4].copy_from_slice(&self.to.to_le_bytes());
-        bytes[4..12].copy_from_slice(&self.amount.to_le_bytes());
+    pub fn to_bytes(&self) -> [u8; 40] {
+        let mut bytes = [0; 40];
+        bytes[0..PUBLIC_KEY_LENGTH].copy_from_slice(&self.to);
+        bytes[PUBLIC_KEY_LENGTH..PUBLIC_KEY_LENGTH + 8].copy_from_slice(&self.amount.to_le_bytes());
         bytes
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SignedBoundTx {
+    pub bound_tx: BoundTx,
+    #[serde(with = "serde_arrays")]
+    pub sig: SignatureBytes,
+}
+
+impl SignedBoundTx {
+    pub fn sign(bound_tx: BoundTx, signing_key: &mut SigningKey) -> Self {
+        let msg = bound_tx.to_bytes();
+        let sig = signing_key.sign(&msg).to_bytes();
+
+        Self { bound_tx, sig }
+    }
+
+    pub fn verify_and_unwrap(&self) -> BoundTx {
+        let msg = self.bound_tx.to_bytes();
+
+        let sig = Signature::from_bytes(&self.sig);
+        let vk = self.bound_tx.tx.verifying_key();
+        vk.verify_strict(&msg, &sig).expect("Invalid tx signature");
+
+        self.bound_tx
     }
 }
 
 /// A Tx that is executed in the zone if and only if the bind is
 /// present is the same partial transaction
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BoundTx {
     pub tx: Tx,
-    pub bind: PartialTxInputWitness,
+    pub bind: NoteCommitment,
 }
 
 impl BoundTx {
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = self.tx.to_bytes();
-        bytes.extend(self.bind.input.commit().to_bytes());
+        let mut bytes = Vec::new();
+        bytes.extend(self.tx.to_bytes());
+        bytes.extend(self.bind.as_bytes());
         bytes
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Tx {
     Withdraw(Withdraw),
     Deposit(Deposit),
@@ -202,6 +223,13 @@ impl Tx {
         match self {
             Tx::Withdraw(withdraw) => withdraw.to_bytes().to_vec(),
             Tx::Deposit(deposit) => deposit.to_bytes().to_vec(),
+        }
+    }
+
+    pub fn verifying_key(&self) -> VerifyingKey {
+        match self {
+            Tx::Withdraw(w) => VerifyingKey::from_bytes(&w.from).unwrap(),
+            Tx::Deposit(d) => VerifyingKey::from_bytes(&d.to).unwrap(),
         }
     }
 }
@@ -221,25 +249,19 @@ impl IncludedTxWitness {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StateRoots {
-    pub nonce: [u8; 32],
     pub tx_root: [u8; 32],
     pub zone_id: [u8; 32],
     pub balance_root: [u8; 32],
 }
 
 impl StateRoots {
-    /// Merkle tree over:
-    ///                  root
-    ///              /        \
-    ///            io          state
-    ///          /   \        /     \
-    ///      nonce   txs   zoneid  balances
+    /// Merkle tree over: [txs, zoneid, balances]
     pub fn commit(&self) -> StateCommitment {
-        StateCommitment(cl::merkle::root([
-            self.nonce,
-            self.tx_root,
-            self.zone_id,
-            self.balance_root,
-        ]))
+        let leaves = cl::merkle::padded_leaves::<4>(&[
+            self.tx_root.to_vec(),
+            self.zone_id.to_vec(),
+            self.balance_root.to_vec(),
+        ]);
+        StateCommitment(cl::merkle::root(leaves))
     }
 }

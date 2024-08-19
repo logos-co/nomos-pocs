@@ -1,5 +1,5 @@
 use cl::{
-    note::NoteWitness, nullifier::NullifierNonce, output::OutputWitness,
+    note::NoteWitness, output::OutputWitness,
     PtxRoot,
 };
 
@@ -39,7 +39,7 @@ fn validate_zone_transition(
     );
 
     // the nonce is correctly evolved
-    assert_eq!(in_note.input.evolved_nonce(), out_note.output.nonce);
+    assert_eq!(in_note.input.evolved_nonce(b"STATE_NONCE"), out_note.output.nonce);
 
     // funds are still under control of the zone
     let expected_note_witness = NoteWitness::new(
@@ -52,7 +52,7 @@ fn validate_zone_transition(
         out_funds.output,
         OutputWitness::public(
             expected_note_witness,
-            NullifierNonce::from_bytes(out_state.nonce)
+            in_note.input.evolved_nonce(b"FUND_NONCE")
         )
     );
     // funds belong to the same partial tx
@@ -78,12 +78,18 @@ fn main() {
 
     let in_state_cm = state.commit();
 
-    for BoundTx { tx, bind } in inputs {
-        assert_eq!(bind.input_root(), input_root);
-        state = state.apply(tx)
+    for (signed_bound_tx, ptx_input_witness) in inputs {
+        // verify the signature
+        let bound_tx = signed_bound_tx.verify_and_unwrap();
+
+        // ensure the note this tx is bound to is present in the ptx
+        assert_eq!(bound_tx.bind, ptx_input_witness.input.note_commitment());
+        assert_eq!(ptx_input_witness.input_root(), input_root);
+
+        // apply the ptx
+        state = state.apply(bound_tx.tx)
     }
 
-    let state = state.evolve_nonce();
     validate_zone_transition(zone_in, zone_out, funds_out, in_state_cm, state);
 
     env::commit(&pub_inputs);
