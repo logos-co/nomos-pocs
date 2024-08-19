@@ -25,13 +25,13 @@ pub struct NullifierSecret(pub [u8; 16]);
 // can be provided to anyone wishing to transfer
 // you a note
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NullifierCommitment([u8; 32]);
+pub struct NullifierCommitment(pub [u8; 32]);
 
 // To allow users to maintain fewer nullifier secrets, we
 // provide a nonce to differentiate notes controlled by the same
 // secret. Each note is assigned a unique nullifier nonce.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NullifierNonce([u8; 32]);
+pub struct NullifierNonce(pub [u8; 32]);
 
 // The nullifier attached to input notes to prove an input has not
 // already been spent.

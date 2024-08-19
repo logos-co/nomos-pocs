@@ -214,3 +214,79 @@ pub fn prove_user_atomic_transfer(atomic_transfer: UserAtomicTransfer) -> ledger
     let receipt = prove_info.receipt;
     ledger::DeathProof::from_risc0(goas_risc0_proofs::USER_ATOMIC_TRANSFER_ID, receipt)
 }
+
+#[cfg(test)]
+mod tests {
+    use cl::{NoteWitness, OutputWitness, PartialTxWitness};
+    use common::{BoundTx, Deposit, Withdraw};
+    use ledger_proof_statements::death_constraint::DeathConstraintPublic;
+
+    use super::*;
+
+    #[test]
+    pub fn test_prove_zone_stf() {
+        let mut rng = rand::thread_rng();
+
+        let zone_start = ZoneNotes::new_with_balances("ZONE", BTreeMap::from_iter([]), &mut rng);
+
+        let bind = OutputWitness::public(
+            NoteWitness::basic(32, *common::ZONE_CL_FUNDS_UNIT),
+            cl::NullifierNonce([0u8; 32]),
+        );
+
+        let mut alice = common::new_account(&mut rng);
+        let alice_vk = alice.verifying_key().to_bytes();
+
+        let signed_deposit = SignedBoundTx::sign(
+            BoundTx {
+                tx: Tx::Deposit(Deposit {
+                    to: alice_vk,
+                    amount: 32,
+                }),
+                bind: bind.commit_note(),
+            },
+            &mut alice,
+        );
+        let signed_withdraw = SignedBoundTx::sign(
+            BoundTx {
+                tx: Tx::Withdraw(Withdraw {
+                    from: alice_vk,
+                    amount: 10,
+                }),
+                bind: bind.commit_note(),
+            },
+            &mut alice,
+        );
+
+        let zone_end = zone_start
+            .clone()
+            .run([signed_deposit.bound_tx.tx, signed_withdraw.bound_tx.tx]);
+
+        let ptx = PartialTxWitness {
+            inputs: vec![
+                cl::InputWitness::public(bind),
+                zone_start.state_input_witness(),
+                zone_start.fund_input_witness(),
+            ],
+            outputs: vec![zone_end.state_note, zone_end.fund_note],
+        };
+
+        let txs = vec![
+            (signed_deposit, ptx.input_witness(0)),
+            (signed_withdraw, ptx.input_witness(0)),
+        ];
+
+        let proof = prove_zone_stf(
+            zone_start.state.clone(),
+            txs,
+            ptx.input_witness(1),
+            ptx.output_witness(0),
+            ptx.output_witness(1),
+        );
+
+        assert!(proof.verify(DeathConstraintPublic {
+            nf: zone_start.state_input_witness().nullifier(),
+            ptx_root: ptx.commit().root(),
+        }))
+    }
+}
