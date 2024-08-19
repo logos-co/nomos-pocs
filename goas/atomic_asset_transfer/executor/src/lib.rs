@@ -157,7 +157,7 @@ pub fn prove_zone_stf(
     ledger::DeathProof::from_risc0(goas_risc0_proofs::ZONE_STATE_ID, receipt)
 }
 
-pub fn prove_zone_fund_withdraw(
+pub fn prove_zone_fund_constraint(
     in_zone_funds: cl::PartialTxInputWitness,
     zone_note: cl::PartialTxOutputWitness,
     out_zone_state: &StateWitness,
@@ -286,6 +286,25 @@ mod tests {
 
         assert!(proof.verify(DeathConstraintPublic {
             nf: zone_start.state_input_witness().nullifier(),
+            ptx_root: ptx.commit().root(),
+        }))
+    }
+
+    #[test]
+    fn test_prove_zone_fund_constraint() {
+        let zone =
+            ZoneNotes::new_with_balances("ZONE", BTreeMap::from_iter([]), &mut rand::thread_rng());
+
+        let ptx = PartialTxWitness {
+            inputs: vec![zone.fund_input_witness()],
+            outputs: vec![zone.state_note],
+        };
+
+        let proof =
+            prove_zone_fund_constraint(ptx.input_witness(0), ptx.output_witness(0), &zone.state);
+
+        assert!(proof.verify(DeathConstraintPublic {
+            nf: zone.fund_input_witness().nullifier(),
             ptx_root: ptx.commit().root(),
         }))
     }

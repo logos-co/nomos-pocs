@@ -73,7 +73,7 @@ fn test_withdrawal() {
         ),
         (
             zone_start.fund_input_witness().nullifier(),
-            executor::prove_zone_fund_withdraw(
+            executor::prove_zone_fund_constraint(
                 withdraw_ptx.input_witness(1),  // input fund note (input #1)
                 withdraw_ptx.output_witness(0), // output state note (output #0)
                 &zone_end.state,
