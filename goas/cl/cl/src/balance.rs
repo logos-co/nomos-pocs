@@ -1,14 +1,29 @@
-use curve25519_dalek::{ristretto::RistrettoPoint, traits::VartimeMultiscalarMul, Scalar};
-use lazy_static::lazy_static;
+use curve25519_dalek::{
+    ristretto::{CompressedRistretto, RistrettoPoint},
+    traits::VartimeMultiscalarMul,
+    Scalar,
+};
+use once_cell::sync::Lazy;
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 
 use crate::NoteWitness;
-
-lazy_static! {
-    // Precompute of ``
-    static ref PEDERSON_COMMITMENT_BLINDING_POINT: RistrettoPoint = crate::crypto::hash_to_curve(b"NOMOS_CL_PEDERSON_COMMITMENT_BLINDING");
-}
+// Precompute of 'crate::crypto::hash_to_curve(b"NOMOS_CL_PEDERSON_COMMITMENT_BLINDING")'
+pub static PEDERSON_COMMITMENT_BLINDING_POINT: Lazy<RistrettoPoint> = Lazy::new(|| {
+    let res = CompressedRistretto::from_slice(&[
+        194, 113, 61, 46, 252, 245, 84, 140, 48, 142, 70, 139, 136, 59, 43, 66, 72, 107, 86, 62,
+        159, 223, 229, 53, 73, 152, 89, 13, 152, 73, 150, 117,
+    ])
+    .unwrap()
+    .decompress()
+    .unwrap();
+    // Precompute of 'crate::crypto::hash_to_curve(b"NOMOS_CL_PEDERSON_COMMITMENT_BLINDING")'
+    debug_assert_eq!(
+        res,
+        crate::crypto::hash_to_curve(b"NOMOS_CL_PEDERSON_COMMITMENT_BLINDING")
+    );
+    res
+});
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct Balance(pub RistrettoPoint);
