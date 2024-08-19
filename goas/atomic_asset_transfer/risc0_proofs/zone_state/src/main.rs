@@ -78,9 +78,16 @@ fn main() {
 
     let in_state_cm = state.commit();
 
-    for BoundTx { tx, bind } in inputs {
-        assert_eq!(bind.input_root(), input_root);
-        state = state.apply(tx)
+    for (signed_bound_tx, ptx_input_witness) in inputs {
+        // verify the signature
+        let bound_tx = signed_bound_tx.verify_and_unwrap();
+
+        // ensure the note this tx is bound to is present in the ptx
+        assert_eq!(bound_tx.bind, ptx_input_witness.input.note_commitment());
+        assert_eq!(ptx_input_witness.input_root(), input_root);
+
+        // apply the ptx
+        state = state.apply(bound_tx.tx)
     }
 
     validate_zone_transition(zone_in, zone_out, funds_out, in_state_cm, state);

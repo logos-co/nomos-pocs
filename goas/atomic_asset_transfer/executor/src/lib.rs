@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use common::{BoundTx, StateWitness, Tx, ZoneMetadata};
+use common::{AccountId, SignedBoundTx, StateWitness, Tx, ZoneMetadata};
 use goas_proof_statements::{
     user_note::UserAtomicTransfer, zone_funds::SpendFundsPrivate, zone_state::ZoneStatePrivate,
 };
@@ -16,7 +16,7 @@ pub struct ZoneNotes {
 impl ZoneNotes {
     pub fn new_with_balances(
         zone_name: &str,
-        balances: BTreeMap<u32, u64>,
+        balances: BTreeMap<AccountId, u64>,
         mut rng: impl CryptoRngCore,
     ) -> Self {
         let state = StateWitness {
@@ -121,7 +121,7 @@ pub fn zone_metadata(zone_mnemonic: &str) -> ZoneMetadata {
 
 pub fn prove_zone_stf(
     state: StateWitness,
-    inputs: Vec<BoundTx>,
+    inputs: Vec<(SignedBoundTx, cl::PartialTxInputWitness)>,
     zone_in: cl::PartialTxInputWitness,
     zone_out: cl::PartialTxOutputWitness,
     funds_out: cl::PartialTxOutputWitness,

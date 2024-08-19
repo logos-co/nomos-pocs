@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use cl::{NoteWitness, NullifierSecret};
-use common::{BoundTx, StateWitness, Tx, ZONE_CL_FUNDS_UNIT};
+use common::{new_account, BoundTx, SignedBoundTx, StateWitness, Tx, ZONE_CL_FUNDS_UNIT};
 use executor::ZoneNotes;
 use ledger::death_constraint::DeathProof;
 
@@ -9,13 +9,14 @@ use ledger::death_constraint::DeathProof;
 fn test_deposit() {
     let mut rng = rand::thread_rng();
 
-    let alice = 42;
-    let alice_sk = NullifierSecret::random(&mut rng);
+    let mut alice = new_account(&mut rng);
+    let alice_vk = alice.verifying_key().to_bytes();
+    let alice_cl_sk = NullifierSecret::random(&mut rng);
 
     let zone_start = ZoneNotes::new_with_balances("ZONE", BTreeMap::new(), &mut rng);
 
     let deposit = common::Deposit {
-        to: alice,
+        to: alice_vk,
         amount: 78,
     };
 
@@ -28,10 +29,10 @@ fn test_deposit() {
                 *ZONE_CL_FUNDS_UNIT,
                 DeathProof::nop_constraint(), // alice should demand a tx inclusion proof for the deposit
             ),
-            alice_sk.commit(),
+            alice_cl_sk.commit(),
             &mut rng,
         ),
-        alice_sk,
+        alice_cl_sk,
         &mut rng,
     );
 
@@ -40,16 +41,21 @@ fn test_deposit() {
         outputs: vec![zone_end.state_note, zone_end.fund_note],
     };
 
+    let signed_deposit = SignedBoundTx::sign(
+        BoundTx {
+            tx: Tx::Deposit(deposit),
+            bind: alice_deposit.note_commitment(),
+        },
+        &mut alice,
+    );
+
     let death_proofs = BTreeMap::from_iter([
         (
             zone_start.state_input_witness().nullifier(),
             executor::prove_zone_stf(
                 zone_start.state.clone(),
-                vec![BoundTx {
-                    tx: Tx::Deposit(deposit),
-                    bind: deposit_ptx.input_witness(1), // bind it to the deposit note
-                }],
-                deposit_ptx.input_witness(0), // input state note (input #0)
+                vec![(signed_deposit, deposit_ptx.input_witness(1))], // bind it to the deposit note)],
+                deposit_ptx.input_witness(0),                         // input state note (input #0)
                 deposit_ptx.output_witness(0), // output state note (output #0)
                 deposit_ptx.output_witness(1), // output funds note (output #1)
             ),
@@ -78,7 +84,7 @@ fn test_deposit() {
     assert_eq!(
         zone_end.state_note.note.state,
         StateWitness {
-            balances: BTreeMap::from_iter([(alice, 78)]),
+            balances: BTreeMap::from_iter([(alice_vk, 78)]),
             included_txs: vec![Tx::Deposit(deposit)],
             zone_metadata: zone_start.state.zone_metadata,
         }
