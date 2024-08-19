@@ -232,7 +232,7 @@ mod tests {
 
         let bind = OutputWitness::public(
             NoteWitness::basic(32, *common::ZONE_CL_FUNDS_UNIT),
-            cl::NullifierNonce([0u8; 32]),
+            cl::NullifierNonce::random(&mut rng),
         );
 
         let mut alice = common::new_account(&mut rng);
