@@ -97,10 +97,7 @@ fn test_withdrawal() {
 
     assert!(withdraw_proof.verify());
 
-    assert_eq!(
-        withdraw_proof.outputs[0].output,
-        zone_end.state_note.commit()
-    );
+    assert_eq!(withdraw_proof.ptx.outputs[0], zone_end.state_note.commit());
     assert_eq!(
         zone_end.state_note.note.state,
         StateWitness {

@@ -1,76 +1,120 @@
 use std::collections::BTreeMap;
 
-use ledger_proof_statements::death_constraint::DeathConstraintPublic;
-
-use crate::{
-    death_constraint::DeathProof, error::Result, input::ProvedInput, output::ProvedOutput,
+use ledger_proof_statements::{
+    death_constraint::DeathConstraintPublic,
+    ptx::{PtxPrivate, PtxPublic},
 };
 
-#[derive(Debug, Clone)]
-pub struct PartialTxInput {
-    pub input: ProvedInput,
-    pub death: DeathProof,
-}
+use crate::{
+    death_constraint::DeathProof, error::{Error, Result}
+};
 
-impl PartialTxInput {
-    fn verify(&self, ptx_root: cl::PtxRoot) -> bool {
-        let nf = self.input.input.input.nullifier;
-        self.input.input.input.death_cm == self.death.death_commitment() // ensure the death proof is actually for this input
-            && self.input.verify() // ensure the input proof is valid
-            && self.death.verify(DeathConstraintPublic { nf, ptx_root }) // verify the death constraint was satisfied
-    }
-}
+const MAX_NOTE_COMMS: usize = 2usize.pow(8);
+
 
 pub struct ProvedPartialTx {
-    pub inputs: Vec<PartialTxInput>,
-    pub outputs: Vec<ProvedOutput>,
+    pub ptx: cl::PartialTx,
+    pub cm_root: [u8;32],
+    pub death_proofs: BTreeMap<cl::Nullifier, DeathProof>,
+    pub risc0_receipt: risc0_zkvm::Receipt,
 }
 
 impl ProvedPartialTx {
     pub fn prove(
         ptx: &cl::PartialTxWitness,
-        mut death_proofs: BTreeMap<cl::Nullifier, DeathProof>,
+        death_proofs: BTreeMap<cl::Nullifier, DeathProof>,
         note_commitments: &[cl::NoteCommitment],
     ) -> Result<ProvedPartialTx> {
-        let inputs = ptx
-            .inputs
-            .iter()
-            .map(|i| {
-                Ok(PartialTxInput {
-                    input: ProvedInput::prove(i, note_commitments)?,
-                    death: death_proofs
-                        .remove(&i.nullifier())
-                        .expect("Input missing death proof"),
-                })
-            })
-            .collect::<Result<_>>()?;
+        let cm_leaves = note_commitment_leaves(note_commitments);
 
-        let outputs = ptx
-            .outputs
-            .iter()
-            .map(ProvedOutput::prove)
-            .collect::<Result<_>>()?;
+        let input_cm_paths = Vec::from_iter(ptx.inputs.iter().map(|input| {
+            let output_cm = input.note_commitment();
 
-        Ok(Self { inputs, outputs })
+            let cm_idx = note_commitments
+                .iter()
+                .position(|c| c == &output_cm)
+                .unwrap();
+
+            cl::merkle::path(cm_leaves, cm_idx)
+        }));
+        let cm_root = cl::merkle::root(cm_leaves);
+        let ptx_private = PtxPrivate {
+            ptx: ptx.clone(),
+            input_cm_paths,
+            cm_root,
+        };
+
+        let env = risc0_zkvm::ExecutorEnv::builder()
+            .write(&ptx_private)
+            .unwrap()
+            .build()
+            .unwrap();
+
+        // Obtain the default prover.
+        let prover = risc0_zkvm::default_prover();
+
+        let start_t = std::time::Instant::now();
+
+        // Proof information by proving the specified ELF binary.
+        // This struct contains the receipt along with statistics about execution of the guest
+        let opts = risc0_zkvm::ProverOpts::succinct();
+        let prove_info = prover
+            .prove_with_opts(env, nomos_cl_risc0_proofs::PTX_ELF, &opts)
+            .map_err(|_| Error::Risc0ProofFailed)?;
+
+        println!(
+            "STARK 'ptx' prover time: {:.2?}, total_cycles: {}",
+            start_t.elapsed(),
+            prove_info.stats.total_cycles
+        );
+        // extract the receipt.
+        let receipt = prove_info.receipt;
+
+        Ok(Self {
+            ptx: ptx.commit(),
+            cm_root,
+            risc0_receipt: receipt,
+            death_proofs,
+        })
     }
 
-    pub fn ptx(&self) -> cl::PartialTx {
-        cl::PartialTx {
-            inputs: Vec::from_iter(self.inputs.iter().map(|i| i.input.input.input)),
-            outputs: Vec::from_iter(self.outputs.iter().map(|o| o.output)),
-        }
-    }
-
-    pub fn verify_inputs(&self) -> bool {
-        let ptx_root = self.ptx().root();
-        self.inputs.iter().all(|i| i.verify(ptx_root))
-    }
-
-    pub fn verify_outputs(&self) -> bool {
-        self.outputs.iter().all(|o| o.verify())
+    pub fn public(&self) -> Result<PtxPublic> {
+        Ok(self.risc0_receipt.journal.decode()?)
     }
 
     pub fn verify(&self) -> bool {
-        self.verify_inputs() && self.verify_outputs()
+        let Ok(proved_ptx_inputs) = self.public() else {
+            return false;
+        };
+        if (PtxPublic { ptx: self.ptx.clone(), cm_root: self.cm_root }) != proved_ptx_inputs {
+            return false;
+        }
+
+        let ptx_root = self.ptx.root();
+
+        for input in self.ptx.inputs.iter() {
+            let nf = input.nullifier;
+            let Some(death_proof) = self.death_proofs.get(&nf) else {
+                return false;
+            };
+            if input.death_cm != death_proof.death_commitment() {
+                // ensure the death proof is actually for this input
+                return false;
+            }
+            if !death_proof.verify(DeathConstraintPublic { nf, ptx_root }) {
+                // verify the death constraint was satisfied
+                return false;
+            }
+        }
+
+        self.risc0_receipt
+            .verify(nomos_cl_risc0_proofs::PTX_ID)
+            .is_ok()
     }
+}
+
+fn note_commitment_leaves(note_commitments: &[cl::NoteCommitment]) -> [[u8; 32]; MAX_NOTE_COMMS] {
+    let note_comm_bytes = Vec::from_iter(note_commitments.iter().map(|c| c.as_bytes().to_vec()));
+    let cm_leaves = cl::merkle::padded_leaves::<MAX_NOTE_COMMS>(&note_comm_bytes);
+    cm_leaves
 }

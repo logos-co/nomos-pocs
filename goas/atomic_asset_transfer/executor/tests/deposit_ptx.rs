@@ -77,10 +77,7 @@ fn test_deposit() {
 
     assert!(deposit_proof.verify());
 
-    assert_eq!(
-        deposit_proof.outputs[0].output,
-        zone_end.state_note.commit()
-    );
+    assert_eq!(deposit_proof.ptx.outputs[0], zone_end.state_note.commit());
     assert_eq!(
         zone_end.state_note.note.state,
         StateWitness {
