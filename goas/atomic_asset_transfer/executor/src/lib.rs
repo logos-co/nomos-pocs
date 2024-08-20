@@ -165,7 +165,7 @@ pub fn prove_zone_fund_constraint(
     let private_inputs = SpendFundsPrivate {
         in_zone_funds,
         zone_note,
-        state_witness: out_zone_state.clone(),
+        state_roots: out_zone_state.state_roots(),
     };
 
     let env = risc0_zkvm::ExecutorEnv::builder()

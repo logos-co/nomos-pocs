@@ -11,7 +11,7 @@ fn main() {
     let SpendFundsPrivate {
         in_zone_funds,
         zone_note,
-        state_witness,
+        state_roots,
     } = env::read();
 
     let input_root = in_zone_funds.input_root();
@@ -20,11 +20,8 @@ fn main() {
     let ptx_root = PtxRoot(merkle::node(input_root, output_root));
 
     // 1) Check the zone note is the correct one
-    assert_eq!(
-        in_zone_funds.input.note.state,
-        state_witness.zone_metadata.id()
-    );
-    assert_eq!(zone_note.output.note.state, state_witness.commit().0);
+    assert_eq!(in_zone_funds.input.note.state, state_roots.zone_id);
+    assert_eq!(zone_note.output.note.state, state_roots.commit().0);
 
     let nf = in_zone_funds.input.nullifier();
 
