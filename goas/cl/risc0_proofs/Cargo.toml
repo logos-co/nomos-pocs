@@ -7,5 +7,5 @@ edition = "2021"
 risc0-build = { version = "1.0" }
 
 [package.metadata.risc0]
-methods = ["input", "output", "bundle", "death_constraint_nop", "ptx"]
+methods = ["bundle", "death_constraint_nop", "ptx"]
 
