@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use cl::{NoteWitness, NullifierSecret};
+use cl::{BalanceWitness, NoteWitness, NullifierSecret};
 use common::{new_account, BoundTx, SignedBoundTx, StateWitness, Tx, ZONE_CL_FUNDS_UNIT};
 use executor::ZoneNotes;
 use ledger::death_constraint::DeathProof;
@@ -16,14 +16,13 @@ fn test_withdrawal() {
     let zone_start =
         ZoneNotes::new_with_balances("ZONE", BTreeMap::from_iter([(alice_vk, 100)]), &mut rng);
 
-    let alice_intent = cl::InputWitness::random(
+    let alice_intent = cl::InputWitness::from_output(
         cl::OutputWitness::random(
             NoteWitness::stateless(1, *ZONE_CL_FUNDS_UNIT, DeathProof::nop_constraint()), // TODO, intent should be in the death constraint
             alice_cl_sk.commit(),
             &mut rng,
         ),
         alice_cl_sk,
-        &mut rng,
     );
 
     let withdraw = common::Withdraw {
@@ -50,6 +49,7 @@ fn test_withdrawal() {
             alice_intent,
         ],
         outputs: vec![zone_end.state_note, zone_end.fund_note, alice_withdrawal],
+        balance_blinding: BalanceWitness::random(&mut rng),
     };
 
     let signed_withdraw = SignedBoundTx::sign(
@@ -97,10 +97,7 @@ fn test_withdrawal() {
 
     assert!(withdraw_proof.verify());
 
-    assert_eq!(
-        withdraw_proof.outputs[0].output,
-        zone_end.state_note.commit()
-    );
+    assert_eq!(withdraw_proof.ptx.outputs[0], zone_end.state_note.commit());
     assert_eq!(
         zone_end.state_note.note.state,
         StateWitness {

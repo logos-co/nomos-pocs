@@ -1,6 +1,4 @@
-use curve25519_dalek::ristretto::RistrettoPoint;
-use curve25519_dalek::Scalar;
-use rand_core::RngCore;
+use rand_core::{CryptoRngCore, RngCore};
 use serde::{Deserialize, Serialize};
 
 use crate::balance::{Balance, BalanceWitness};
@@ -34,31 +32,42 @@ impl PtxRoot {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PartialTx {
     pub inputs: Vec<Input>,
     pub outputs: Vec<Output>,
+    pub balance: Balance,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PartialTxWitness {
     pub inputs: Vec<InputWitness>,
     pub outputs: Vec<OutputWitness>,
+    pub balance_blinding: BalanceWitness,
 }
 
 impl PartialTxWitness {
+    pub fn random(
+        inputs: Vec<InputWitness>,
+        outputs: Vec<OutputWitness>,
+        mut rng: impl CryptoRngCore,
+    ) -> Self {
+        Self {
+            inputs,
+            outputs,
+            balance_blinding: BalanceWitness::random(&mut rng),
+        }
+    }
+
     pub fn commit(&self) -> PartialTx {
         PartialTx {
             inputs: Vec::from_iter(self.inputs.iter().map(InputWitness::commit)),
             outputs: Vec::from_iter(self.outputs.iter().map(OutputWitness::commit)),
+            balance: self.balance_blinding.commit(
+                self.inputs.iter().map(|i| &i.note),
+                self.outputs.iter().map(|o| &o.note),
+            ),
         }
-    }
-
-    pub fn balance_blinding(&self) -> BalanceWitness {
-        let in_sum: Scalar = self.inputs.iter().map(|i| i.balance_blinding.0).sum();
-        let out_sum: Scalar = self.outputs.iter().map(|o| o.balance_blinding.0).sum();
-
-        BalanceWitness(out_sum - in_sum)
     }
 
     pub fn input_witness(&self, idx: usize) -> PartialTxInputWitness {
@@ -107,13 +116,6 @@ impl PartialTx {
         let root = merkle::node(input_root, output_root);
         PtxRoot(root)
     }
-
-    pub fn balance(&self) -> Balance {
-        let in_sum: RistrettoPoint = self.inputs.iter().map(|i| i.balance.0).sum();
-        let out_sum: RistrettoPoint = self.outputs.iter().map(|o| o.balance.0).sum();
-
-        Balance(out_sum - in_sum)
-    }
 }
 
 /// An input to a partial transaction
@@ -147,6 +149,8 @@ impl PartialTxOutputWitness {
 #[cfg(test)]
 mod test {
 
+    use curve25519_dalek::{constants::RISTRETTO_BASEPOINT_POINT, Scalar};
+
     use crate::{
         note::{unit_point, NoteWitness},
         nullifier::NullifierSecret,
@@ -165,11 +169,11 @@ mod test {
 
         let nmo_10_utxo =
             OutputWitness::random(NoteWitness::basic(10, nmo), nf_a.commit(), &mut rng);
-        let nmo_10 = InputWitness::random(nmo_10_utxo, nf_a, &mut rng);
+        let nmo_10 = InputWitness::from_output(nmo_10_utxo, nf_a);
 
         let eth_23_utxo =
             OutputWitness::random(NoteWitness::basic(23, eth), nf_b.commit(), &mut rng);
-        let eth_23 = InputWitness::random(eth_23_utxo, nf_b, &mut rng);
+        let eth_23 = InputWitness::from_output(eth_23_utxo, nf_b);
 
         let crv_4840 =
             OutputWitness::random(NoteWitness::basic(4840, crv), nf_c.commit(), &mut rng);
@@ -177,13 +181,18 @@ mod test {
         let ptx_witness = PartialTxWitness {
             inputs: vec![nmo_10, eth_23],
             outputs: vec![crv_4840],
+            balance_blinding: BalanceWitness::random(&mut rng),
         };
 
         let ptx = ptx_witness.commit();
 
+        let crv_4840_bal = crv_4840.note.unit * Scalar::from(crv_4840.note.value);
+        let nmo_10_bal = nmo_10.note.unit * Scalar::from(nmo_10.note.value);
+        let eth_23_bal = eth_23.note.unit * Scalar::from(eth_23.note.value);
+        let blinding = RISTRETTO_BASEPOINT_POINT * ptx_witness.balance_blinding.0;
         assert_eq!(
-            ptx.balance().0,
-            crv_4840.commit().balance.0 - (nmo_10.commit().balance.0 + eth_23.commit().balance.0)
+            ptx.balance.0,
+            crv_4840_bal - (nmo_10_bal + eth_23_bal) + blinding,
         );
     }
 }

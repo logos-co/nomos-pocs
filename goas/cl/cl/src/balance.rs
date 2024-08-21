@@ -1,4 +1,7 @@
-use curve25519_dalek::{ristretto::RistrettoPoint, Scalar};
+use curve25519_dalek::{
+    constants::RISTRETTO_BASEPOINT_POINT, ristretto::RistrettoPoint, traits::VartimeMultiscalarMul,
+    Scalar,
+};
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 
@@ -42,8 +45,33 @@ impl BalanceWitness {
         Self::new(Scalar::random(&mut rng))
     }
 
-    pub fn commit(&self, note: &NoteWitness) -> Balance {
-        Balance(balance(note.value, note.unit, self.0))
+    pub fn commit<'a>(
+        &self,
+        inputs: impl IntoIterator<Item = &'a NoteWitness>,
+        outputs: impl IntoIterator<Item = &'a NoteWitness>,
+    ) -> Balance {
+        let (input_points, input_scalars): (Vec<_>, Vec<_>) = inputs
+            .into_iter()
+            .map(|i| (i.unit, -Scalar::from(i.value)))
+            .unzip();
+
+        let (output_points, output_scalars): (Vec<_>, Vec<_>) = outputs
+            .into_iter()
+            .map(|o| (o.unit, Scalar::from(o.value)))
+            .unzip();
+
+        let points = input_points
+            .into_iter()
+            .chain(output_points)
+            .chain([RISTRETTO_BASEPOINT_POINT]);
+        let scalars = input_scalars
+            .into_iter()
+            .chain(output_scalars)
+            .chain([self.0]);
+
+        let blinded_balance = RistrettoPoint::vartime_multiscalar_mul(scalars, points);
+
+        Balance(blinded_balance)
     }
 }
 
@@ -66,8 +94,8 @@ mod test {
         let mut rng = rand::thread_rng();
         let b = BalanceWitness::random(&mut rng);
         assert_eq!(
-            b.commit(&NoteWitness::basic(0, nmo)),
-            b.commit(&NoteWitness::basic(0, eth)),
+            b.commit([&NoteWitness::basic(0, nmo)], []),
+            b.commit([&NoteWitness::basic(0, eth)], []),
         );
     }
 
@@ -83,15 +111,15 @@ mod test {
 
         let note = NoteWitness::basic(10, nmo);
 
-        let a = bal_a.commit(&note);
-        let b = bal_b.commit(&note);
+        let a = bal_a.commit([&note], []);
+        let b = bal_b.commit([&note], []);
 
         assert_ne!(a, b);
 
         let diff_note = NoteWitness::basic(0, nmo);
         assert_eq!(
             a.0 - b.0,
-            BalanceWitness::new(r_a - r_b).commit(&diff_note).0
+            BalanceWitness::new(r_a - r_b).commit([&diff_note], []).0
         );
     }
 
@@ -104,7 +132,7 @@ mod test {
 
         let nmo = NoteWitness::basic(10, nmo);
         let eth = NoteWitness::basic(10, eth);
-        assert_ne!(b.commit(&nmo), b.commit(&eth));
+        assert_ne!(b.commit([&nmo], []), b.commit([&eth], []));
     }
 
     #[test]
@@ -123,14 +151,14 @@ mod test {
 
         // Values of same unit are homomorphic
         assert_eq!(
-            (b1.commit(&ten).0 - b1.commit(&eight).0),
-            b_zero.commit(&two).0
+            (b1.commit([&ten], []).0 - b1.commit([&eight], []).0),
+            b_zero.commit([&two], []).0
         );
 
         // Blinding factors are also homomorphic.
         assert_eq!(
-            b1.commit(&ten).0 - b2.commit(&ten).0,
-            BalanceWitness::new(b1.0 - b2.0).commit(&zero).0
+            b1.commit([&ten], []).0 - b2.commit([&ten], []).0,
+            BalanceWitness::new(b1.0 - b2.0).commit([&zero], []).0
         );
     }
 }
