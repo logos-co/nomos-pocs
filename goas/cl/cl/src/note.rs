@@ -18,8 +18,12 @@ pub fn death_commitment(death_constraint: &[u8]) -> DeathCommitment {
     DeathCommitment(death_cm)
 }
 
-pub fn unit_point(unit: &str) -> Unit {
-    crate::crypto::hash_to_curve(format!("NOMOS_CL_UNIT{unit}").as_bytes())
+pub fn derive_unit(unit: &str) -> Unit {
+    let mut hasher = Sha256::new();
+    hasher.update(b"NOMOS_CL_UNIT");
+    hasher.update(unit.as_bytes());
+    let unit: Unit = hasher.finalize().into();
+    unit
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -63,7 +67,7 @@ impl NoteWitness {
 
         // COMMIT TO BALANCE
         hasher.update(self.value.to_le_bytes());
-        hasher.update(self.unit.compress().to_bytes());
+        hasher.update(self.unit);
         // Important! we don't commit to the balance blinding factor as that may make the notes linkable.
 
         // COMMIT TO STATE
@@ -92,7 +96,7 @@ mod test {
 
     #[test]
     fn test_note_commit_permutations() {
-        let (nmo, eth) = (unit_point("NMO"), unit_point("ETH"));
+        let (nmo, eth) = (derive_unit("NMO"), derive_unit("ETH"));
 
         let mut rng = rand::thread_rng();
 

@@ -21,7 +21,7 @@ pub struct StateCommitment(pub [u8; 32]);
 pub type AccountId = [u8; PUBLIC_KEY_LENGTH];
 
 // PLACEHOLDER: this is probably going to be NMO?
-pub static ZONE_CL_FUNDS_UNIT: Lazy<Unit> = Lazy::new(|| cl::note::unit_point("NMO"));
+pub static ZONE_CL_FUNDS_UNIT: Lazy<Unit> = Lazy::new(|| cl::note::derive_unit("NMO"));
 
 pub fn new_account(mut rng: impl CryptoRngCore) -> SigningKey {
     SigningKey::generate(&mut rng)
@@ -39,7 +39,7 @@ impl ZoneMetadata {
         let mut hasher = Sha256::new();
         hasher.update(self.zone_vk);
         hasher.update(self.funds_vk);
-        hasher.update(self.unit.compress().as_bytes());
+        hasher.update(self.unit);
         hasher.finalize().into()
     }
 }

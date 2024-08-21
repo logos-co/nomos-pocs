@@ -43,7 +43,7 @@ pub struct PartialTx {
 pub struct PartialTxWitness {
     pub inputs: Vec<InputWitness>,
     pub outputs: Vec<OutputWitness>,
-    pub balance_blinding: BalanceWitness,
+    pub balance_blinding: [u8; 16],
 }
 
 impl PartialTxWitness {
@@ -55,18 +55,19 @@ impl PartialTxWitness {
         Self {
             inputs,
             outputs,
-            balance_blinding: BalanceWitness::random(&mut rng),
+            balance_blinding: BalanceWitness::random_blinding(&mut rng),
         }
+    }
+
+    pub fn balance(&self) -> BalanceWitness {
+        BalanceWitness::from_ptx(self, self.balance_blinding)
     }
 
     pub fn commit(&self) -> PartialTx {
         PartialTx {
             inputs: Vec::from_iter(self.inputs.iter().map(InputWitness::commit)),
             outputs: Vec::from_iter(self.outputs.iter().map(OutputWitness::commit)),
-            balance: self.balance_blinding.commit(
-                self.inputs.iter().map(|i| &i.note),
-                self.outputs.iter().map(|o| &o.note),
-            ),
+            balance: self.balance().commit(),
         }
     }
 
@@ -149,10 +150,9 @@ impl PartialTxOutputWitness {
 #[cfg(test)]
 mod test {
 
-    use curve25519_dalek::{constants::RISTRETTO_BASEPOINT_POINT, Scalar};
-
     use crate::{
-        note::{unit_point, NoteWitness},
+        balance::UnitBalance,
+        note::{derive_unit, NoteWitness},
         nullifier::NullifierSecret,
     };
 
@@ -160,7 +160,7 @@ mod test {
 
     #[test]
     fn test_partial_tx_balance() {
-        let (nmo, eth, crv) = (unit_point("NMO"), unit_point("ETH"), unit_point("CRV"));
+        let (nmo, eth, crv) = (derive_unit("NMO"), derive_unit("ETH"), derive_unit("CRV"));
         let mut rng = rand::thread_rng();
 
         let nf_a = NullifierSecret::random(&mut rng);
@@ -181,18 +181,34 @@ mod test {
         let ptx_witness = PartialTxWitness {
             inputs: vec![nmo_10, eth_23],
             outputs: vec![crv_4840],
-            balance_blinding: BalanceWitness::random(&mut rng),
+            balance_blinding: BalanceWitness::random_blinding(&mut rng),
         };
 
         let ptx = ptx_witness.commit();
 
-        let crv_4840_bal = crv_4840.note.unit * Scalar::from(crv_4840.note.value);
-        let nmo_10_bal = nmo_10.note.unit * Scalar::from(nmo_10.note.value);
-        let eth_23_bal = eth_23.note.unit * Scalar::from(eth_23.note.value);
-        let blinding = RISTRETTO_BASEPOINT_POINT * ptx_witness.balance_blinding.0;
         assert_eq!(
-            ptx.balance.0,
-            crv_4840_bal - (nmo_10_bal + eth_23_bal) + blinding,
+            ptx.balance,
+            BalanceWitness {
+                balances: vec![
+                    UnitBalance {
+                        unit: nmo,
+                        pos: 0,
+                        neg: 10
+                    },
+                    UnitBalance {
+                        unit: eth,
+                        pos: 0,
+                        neg: 23
+                    },
+                    UnitBalance {
+                        unit: crv,
+                        pos: 4840,
+                        neg: 0
+                    },
+                ],
+                blinding: ptx_witness.balance_blinding
+            }
+            .commit()
         );
     }
 }

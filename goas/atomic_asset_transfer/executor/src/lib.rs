@@ -115,7 +115,7 @@ pub fn zone_metadata(zone_mnemonic: &str) -> ZoneMetadata {
     ZoneMetadata {
         zone_vk: zone_state_death_constraint(),
         funds_vk: zone_fund_death_constraint(),
-        unit: cl::note::unit_point(zone_mnemonic),
+        unit: cl::note::derive_unit(zone_mnemonic),
     }
 }
 
@@ -218,7 +218,7 @@ pub fn prove_user_atomic_transfer(atomic_transfer: UserAtomicTransfer) -> ledger
 #[cfg(test)]
 mod tests {
     use cl::{
-        note::unit_point, BalanceWitness, NoteWitness, NullifierNonce, OutputWitness,
+        note::derive_unit, BalanceWitness, NoteWitness, NullifierNonce, OutputWitness,
         PartialTxWitness,
     };
     use common::{BoundTx, Deposit, Withdraw};
@@ -273,7 +273,7 @@ mod tests {
                 zone_start.fund_input_witness(),
             ],
             outputs: vec![zone_end.state_note, zone_end.fund_note],
-            balance_blinding: BalanceWitness::random(&mut rng),
+            balance_blinding: BalanceWitness::random_blinding(&mut rng),
         };
 
         let txs = vec![
@@ -303,7 +303,7 @@ mod tests {
         let ptx = PartialTxWitness {
             inputs: vec![zone.fund_input_witness()],
             outputs: vec![zone.state_note],
-            balance_blinding: BalanceWitness::random(&mut rng),
+            balance_blinding: BalanceWitness::random_blinding(&mut rng),
         };
 
         let proof =
@@ -339,7 +339,7 @@ mod tests {
             },
         };
         let user_note = cl::InputWitness::public(cl::OutputWitness::public(
-            NoteWitness::new(1, unit_point("INTENT"), [0u8; 32], user_intent.commit()),
+            NoteWitness::new(1, derive_unit("INTENT"), [0u8; 32], user_intent.commit()),
             NullifierNonce::random(&mut rng),
         ));
 
@@ -349,7 +349,7 @@ mod tests {
         let ptx = PartialTxWitness {
             inputs: vec![user_note],
             outputs: vec![zone_a.state_note, zone_b.state_note],
-            balance_blinding: BalanceWitness::random(&mut rng),
+            balance_blinding: BalanceWitness::random_blinding(&mut rng),
         };
 
         let user_atomic_transfer = UserAtomicTransfer {

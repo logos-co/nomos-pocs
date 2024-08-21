@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use cl::{note::unit_point, BalanceWitness};
+use cl::{note::derive_unit, BalanceWitness};
 use ledger::{bundle::ProvedBundle, death_constraint::DeathProof, partial_tx::ProvedPartialTx};
 use rand_core::CryptoRngCore;
 
@@ -30,7 +30,7 @@ fn receive_utxo(
 
 #[test]
 fn test_simple_transfer() {
-    let nmo = unit_point("NMO");
+    let nmo = derive_unit("NMO");
 
     let mut rng = rand::thread_rng();
 
@@ -58,7 +58,7 @@ fn test_simple_transfer() {
     let ptx_witness = cl::PartialTxWitness {
         inputs: vec![alices_input],
         outputs: vec![bobs_output, change_output],
-        balance_blinding: BalanceWitness::random(&mut rng),
+        balance_blinding: BalanceWitness::random_blinding(&mut rng),
     };
 
     // Prove the death constraints for alices input (she uses the no-op death constraint)
@@ -75,14 +75,10 @@ fn test_simple_transfer() {
 
     assert!(proved_ptx.verify()); // It's a valid ptx.
 
-    let bundle = cl::Bundle {
-        partials: vec![ptx_witness.commit()],
-    };
-
     let bundle_witness = cl::BundleWitness {
-        balance_blinding: ptx_witness.balance_blinding,
+        partials: vec![ptx_witness],
     };
 
-    let proved_bundle = ProvedBundle::prove(&bundle, &bundle_witness).unwrap();
+    let proved_bundle = ProvedBundle::prove(&bundle_witness).unwrap();
     assert!(proved_bundle.verify()); // The bundle is balanced.
 }

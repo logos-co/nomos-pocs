@@ -38,7 +38,7 @@ fn test_deposit() {
     let deposit_ptx = cl::PartialTxWitness {
         inputs: vec![zone_start.state_input_witness(), alice_deposit],
         outputs: vec![zone_end.state_note, zone_end.fund_note],
-        balance_blinding: BalanceWitness::random(&mut rng),
+        balance_blinding: BalanceWitness::random_blinding(&mut rng),
     };
 
     let signed_deposit = SignedBoundTx::sign(
@@ -88,8 +88,5 @@ fn test_deposit() {
         .commit()
         .0
     );
-    assert_eq!(
-        deposit_ptx.commit().balance,
-        cl::Balance::zero(deposit_ptx.balance_blinding)
-    );
+    assert!(deposit_ptx.balance().is_zero());
 }

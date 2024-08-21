@@ -49,7 +49,7 @@ fn test_withdrawal() {
             alice_intent,
         ],
         outputs: vec![zone_end.state_note, zone_end.fund_note, alice_withdrawal],
-        balance_blinding: BalanceWitness::random(&mut rng),
+        balance_blinding: BalanceWitness::random_blinding(&mut rng),
     };
 
     let signed_withdraw = SignedBoundTx::sign(
