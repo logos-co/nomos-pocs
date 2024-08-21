@@ -32,12 +32,6 @@ fn validate_zone_transition(
     // nullifier secret is propagated
     assert_eq!(in_note.input.nf_sk.commit(), out_note.output.nf_pk);
 
-    // balance blinding is propagated
-    assert_eq!(
-        in_note.input.balance_blinding,
-        out_note.output.balance_blinding
-    );
-
     // the nonce is correctly evolved
     assert_eq!(in_note.input.evolved_nonce(b"STATE_NONCE"), out_note.output.nonce);
 

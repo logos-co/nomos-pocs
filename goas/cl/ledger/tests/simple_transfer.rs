@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use cl::note::unit_point;
+use cl::{note::unit_point, BalanceWitness};
 use ledger::{bundle::ProvedBundle, death_constraint::DeathProof, partial_tx::ProvedPartialTx};
 use rand_core::CryptoRngCore;
 
@@ -45,7 +45,7 @@ fn test_simple_transfer() {
         alice.pk(),
         &mut rng,
     );
-    let alices_input = cl::InputWitness::random(utxo, alice.sk(), &mut rng);
+    let alices_input = cl::InputWitness::from_output(utxo, alice.sk());
 
     // Alice wants to send 8 NMO to bob
     let bobs_output = cl::OutputWitness::random(cl::NoteWitness::basic(8, nmo), bob.pk(), &mut rng);
@@ -58,6 +58,7 @@ fn test_simple_transfer() {
     let ptx_witness = cl::PartialTxWitness {
         inputs: vec![alices_input],
         outputs: vec![bobs_output, change_output],
+        balance_blinding: BalanceWitness::random(&mut rng),
     };
 
     // Prove the death constraints for alices input (she uses the no-op death constraint)
@@ -79,7 +80,7 @@ fn test_simple_transfer() {
     };
 
     let bundle_witness = cl::BundleWitness {
-        balance_blinding: ptx_witness.balance_blinding(),
+        balance_blinding: ptx_witness.balance_blinding,
     };
 
     let proved_bundle = ProvedBundle::prove(&bundle, &bundle_witness).unwrap();

@@ -3,39 +3,29 @@
 /// Partial transactions, as the name suggests, are transactions
 /// which on their own may not balance (i.e. \sum inputs != \sum outputs)
 use crate::{
-    balance::Balance,
     note::{DeathCommitment, NoteWitness},
     nullifier::{Nullifier, NullifierNonce, NullifierSecret},
-    BalanceWitness,
 };
-use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Input {
     pub nullifier: Nullifier,
-    pub balance: Balance,
     pub death_cm: DeathCommitment,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InputWitness {
     pub note: NoteWitness,
-    pub balance_blinding: BalanceWitness,
     pub nf_sk: NullifierSecret,
     pub nonce: NullifierNonce,
 }
 
 impl InputWitness {
-    pub fn random(
-        output: crate::OutputWitness,
-        nf_sk: NullifierSecret,
-        mut rng: impl CryptoRngCore,
-    ) -> Self {
+    pub fn from_output(output: crate::OutputWitness, nf_sk: NullifierSecret) -> Self {
         assert_eq!(nf_sk.commit(), output.nf_pk);
         Self {
             note: output.note,
-            balance_blinding: BalanceWitness::random(&mut rng),
             nf_sk,
             nonce: output.nonce,
         }
@@ -46,7 +36,6 @@ impl InputWitness {
         assert_eq!(nf_sk.commit(), output.nf_pk); // ensure the output was a public UTXO
         Self {
             note: output.note,
-            balance_blinding: BalanceWitness::unblinded(),
             nf_sk,
             nonce: output.nonce,
         }
@@ -56,14 +45,9 @@ impl InputWitness {
         self.nonce.evolve(domain, &self.nf_sk, &self.note)
     }
 
-    pub fn evolve_output(
-        &self,
-        domain: &[u8],
-        balance_blinding: BalanceWitness,
-    ) -> crate::OutputWitness {
+    pub fn evolve_output(&self, domain: &[u8]) -> crate::OutputWitness {
         crate::OutputWitness {
             note: self.note,
-            balance_blinding,
             nf_pk: self.nf_sk.commit(),
             nonce: self.evolved_nonce(domain),
         }
@@ -76,7 +60,6 @@ impl InputWitness {
     pub fn commit(&self) -> Input {
         Input {
             nullifier: self.nullifier(),
-            balance: self.balance_blinding.commit(&self.note),
             death_cm: self.note.death_commitment(),
         }
     }
@@ -87,11 +70,10 @@ impl InputWitness {
 }
 
 impl Input {
-    pub fn to_bytes(&self) -> [u8; 96] {
-        let mut bytes = [0u8; 96];
+    pub fn to_bytes(&self) -> [u8; 64] {
+        let mut bytes = [0u8; 64];
         bytes[..32].copy_from_slice(self.nullifier.as_bytes());
-        bytes[32..64].copy_from_slice(&self.balance.to_bytes());
-        bytes[64..96].copy_from_slice(&self.death_cm.0);
+        bytes[32..64].copy_from_slice(&self.death_cm.0);
         bytes
     }
 }

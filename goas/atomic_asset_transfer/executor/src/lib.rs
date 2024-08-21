@@ -217,7 +217,10 @@ pub fn prove_user_atomic_transfer(atomic_transfer: UserAtomicTransfer) -> ledger
 
 #[cfg(test)]
 mod tests {
-    use cl::{note::unit_point, NoteWitness, NullifierNonce, OutputWitness, PartialTxWitness};
+    use cl::{
+        note::unit_point, BalanceWitness, NoteWitness, NullifierNonce, OutputWitness,
+        PartialTxWitness,
+    };
     use common::{BoundTx, Deposit, Withdraw};
     use goas_proof_statements::user_note::UserIntent;
     use ledger_proof_statements::death_constraint::DeathConstraintPublic;
@@ -270,6 +273,7 @@ mod tests {
                 zone_start.fund_input_witness(),
             ],
             outputs: vec![zone_end.state_note, zone_end.fund_note],
+            balance_blinding: BalanceWitness::random(&mut rng),
         };
 
         let txs = vec![
@@ -293,12 +297,13 @@ mod tests {
 
     #[test]
     fn test_prove_zone_fund_constraint() {
-        let zone =
-            ZoneNotes::new_with_balances("ZONE", BTreeMap::from_iter([]), &mut rand::thread_rng());
+        let mut rng = rand::thread_rng();
+        let zone = ZoneNotes::new_with_balances("ZONE", BTreeMap::from_iter([]), &mut rng);
 
         let ptx = PartialTxWitness {
             inputs: vec![zone.fund_input_witness()],
             outputs: vec![zone.state_note],
+            balance_blinding: BalanceWitness::random(&mut rng),
         };
 
         let proof =
@@ -344,6 +349,7 @@ mod tests {
         let ptx = PartialTxWitness {
             inputs: vec![user_note],
             outputs: vec![zone_a.state_note, zone_b.state_note],
+            balance_blinding: BalanceWitness::random(&mut rng),
         };
 
         let user_atomic_transfer = UserAtomicTransfer {
