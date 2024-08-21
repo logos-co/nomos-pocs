@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use cl::{BundleWitness, NoteWitness, NullifierNonce};
+use cl::{BalanceWitness, BundleWitness, NoteWitness, NullifierNonce};
 use common::{new_account, BoundTx, Deposit, SignedBoundTx, Tx, Withdraw};
 use executor::ZoneNotes;
 use goas_proof_statements::user_note::{UserAtomicTransfer, UserIntent};
@@ -43,6 +43,7 @@ fn test_atomic_transfer() {
     let user_ptx = cl::PartialTxWitness {
         inputs: vec![],
         outputs: vec![alice_intent_out],
+        balance_blinding: BalanceWitness::random(&mut rng),
     };
 
     let zone_a_end = zone_a_start
@@ -68,6 +69,7 @@ fn test_atomic_transfer() {
             zone_b_end.state_note,
             zone_b_end.fund_note,
         ],
+        balance_blinding: BalanceWitness::random(&mut rng),
     };
 
     let signed_withdraw = SignedBoundTx::sign(
@@ -165,7 +167,7 @@ fn test_atomic_transfer() {
 
     let bundle_witness = BundleWitness {
         balance_blinding: cl::BalanceWitness(
-            user_ptx.balance_blinding().0 + atomic_transfer_ptx.balance_blinding().0,
+            user_ptx.balance_blinding.0 + atomic_transfer_ptx.balance_blinding.0,
         ),
     };
 

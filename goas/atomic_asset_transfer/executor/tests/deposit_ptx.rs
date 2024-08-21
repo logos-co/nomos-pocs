@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use cl::{NoteWitness, NullifierSecret};
+use cl::{BalanceWitness, NoteWitness, NullifierSecret};
 use common::{new_account, BoundTx, SignedBoundTx, StateWitness, Tx, ZONE_CL_FUNDS_UNIT};
 use executor::ZoneNotes;
 use ledger::death_constraint::DeathProof;
@@ -22,7 +22,7 @@ fn test_deposit() {
 
     let zone_end = zone_start.clone().run([Tx::Deposit(deposit)]);
 
-    let alice_deposit = cl::InputWitness::random(
+    let alice_deposit = cl::InputWitness::from_output(
         cl::OutputWitness::random(
             NoteWitness::stateless(
                 78,
@@ -33,12 +33,12 @@ fn test_deposit() {
             &mut rng,
         ),
         alice_cl_sk,
-        &mut rng,
     );
 
     let deposit_ptx = cl::PartialTxWitness {
         inputs: vec![zone_start.state_input_witness(), alice_deposit],
         outputs: vec![zone_end.state_note, zone_end.fund_note],
+        balance_blinding: BalanceWitness::random(&mut rng),
     };
 
     let signed_deposit = SignedBoundTx::sign(
@@ -89,7 +89,7 @@ fn test_deposit() {
         .0
     );
     assert_eq!(
-        deposit_ptx.commit().balance(),
-        cl::Balance::zero(deposit_ptx.balance_blinding())
+        deposit_ptx.commit().balance,
+        cl::Balance::zero(deposit_ptx.balance_blinding)
     );
 }
