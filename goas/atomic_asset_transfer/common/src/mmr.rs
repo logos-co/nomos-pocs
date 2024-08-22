@@ -1,39 +1,3 @@
-// use ckb_merkle_mountain_range::{util::MemStore, Merge, Result, MMR};
-// use sha2::{Digest, Sha256};
-
-// #[derive(Eq, PartialEq, Clone, Debug, Default)]
-// struct NumberHash(pub [u8; 32]);
-// impl From<u32> for NumberHash {
-//     fn from(num: u32) -> Self {
-//         let mut hasher = Sha256::new();
-//         hasher.update(num.to_le_bytes());
-//         NumberHash(hasher.finalize().into())
-//     }
-// }
-
-// struct MergeNumberHash;
-
-// impl Merge for MergeNumberHash {
-//     type Item = NumberHash;
-//     fn merge(lhs: &Self::Item, rhs: &Self::Item) -> Result<Self::Item> {
-//         let mut hasher = Sha256::new();
-//         hasher.update(lhs.0);
-//         hasher.update(rhs.0);
-//         Ok(NumberHash(hasher.finalize().into()))
-//     }
-// }
-
-// fn prepare_mmr(count: u32) -> (u64, MemStore<NumberHash>, Vec<u64>) {
-//     let store = MemStore::default();
-//     let mut mmr = MMR::<_, MergeNumberHash, _>::new(0, &store);
-//     let positions: Vec<u64> = (0u32..count)
-//         .map(|i| mmr.push(NumberHash::from(i)).unwrap())
-//         .collect();
-//     let mmr_size = mmr.mmr_size();
-//     mmr.commit().expect("write to store");
-//     (mmr_size, store, positions)
-// }
-
 use cl::merkle;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
