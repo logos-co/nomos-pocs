@@ -46,13 +46,12 @@ fn test_atomic_transfer() {
         balance_blinding: BalanceWitness::random_blinding(&mut rng),
     };
 
-    let zone_a_end = zone_a_start
+    let (zone_a_end, withdraw_inclusion) = zone_a_start
         .clone()
-        .run([Tx::Withdraw(alice_intent.withdraw)]);
+        .run(Tx::Withdraw(alice_intent.withdraw));
 
-    let zone_b_end = zone_b_start
-        .clone()
-        .run([Tx::Deposit(alice_intent.deposit)]);
+    let (zone_b_end, deposit_inclusion) =
+        zone_b_start.clone().run(Tx::Deposit(alice_intent.deposit));
 
     let alice_intent_in = cl::InputWitness::public(alice_intent_out);
     let atomic_transfer_ptx = cl::PartialTxWitness {
@@ -97,8 +96,8 @@ fn test_atomic_transfer() {
                 zone_b: atomic_transfer_ptx.output_witness(2),
                 zone_a_roots: zone_a_end.state.state_roots(),
                 zone_b_roots: zone_b_end.state.state_roots(),
-                withdraw_tx: zone_a_end.state.included_tx_witness(0),
-                deposit_tx: zone_b_end.state.included_tx_witness(0),
+                withdraw_tx: withdraw_inclusion,
+                deposit_tx: deposit_inclusion,
             }),
         ),
         (

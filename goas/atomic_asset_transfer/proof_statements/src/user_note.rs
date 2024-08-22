@@ -7,9 +7,9 @@
 ///
 /// The Alice will create a partial tx that looks like this:
 ///
-///     [fee note] -> [user note]
+///   [] -> [user note]
 ///
-/// The User Note will encode the logic that orchestrates the withdrawal from zone A
+/// Thep User Note will encode the logic that orchestrates the withdrawal from zone A
 /// and deposit to zone B.
 ///
 /// The User Notes death constraint requires the following statements to be satisfied
@@ -84,8 +84,8 @@ impl UserAtomicTransfer {
         );
 
         // ensure txs were included in the respective zones
-        assert_eq!(self.withdraw_tx.tx_root(), self.zone_a_roots.tx_root);
-        assert_eq!(self.deposit_tx.tx_root(), self.zone_b_roots.tx_root);
+        assert!(self.zone_a_roots.verify_tx_inclusion(&self.withdraw_tx));
+        assert!(self.zone_b_roots.verify_tx_inclusion(&self.deposit_tx));
 
         // ensure the txs are the same ones the user requested
         assert_eq!(
