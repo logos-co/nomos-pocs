@@ -1,3 +1,5 @@
+use ledger_proof_statements::bundle::BundlePrivate;
+
 use crate::error::{Error, Result};
 
 pub struct ProvedBundle {
@@ -6,12 +8,20 @@ pub struct ProvedBundle {
 }
 
 impl ProvedBundle {
-    pub fn prove(bundle: &cl::Bundle, bundle_witness: &cl::BundleWitness) -> Result<Self> {
+    pub fn prove(bundle_witness: &cl::BundleWitness) -> Result<Self> {
         // need to show that bundle is balanced.
         // i.e. the sum of ptx balances is 0
 
+        let bundle_private = BundlePrivate {
+            balances: bundle_witness
+                .partials
+                .iter()
+                .map(|ptx| ptx.balance())
+                .collect(),
+        };
+
         let env = risc0_zkvm::ExecutorEnv::builder()
-            .write(&bundle_witness)
+            .write(&bundle_private)
             .unwrap()
             .build()
             .unwrap();
@@ -34,21 +44,21 @@ impl ProvedBundle {
         let receipt = prove_info.receipt;
 
         Ok(Self {
-            bundle: bundle.clone(),
+            bundle: bundle_witness.commit(),
             risc0_receipt: receipt,
         })
     }
 
-    pub fn public(&self) -> Result<cl::Balance> {
+    pub fn public(&self) -> Result<ledger_proof_statements::bundle::BundlePublic> {
         Ok(self.risc0_receipt.journal.decode()?)
     }
 
     pub fn verify(&self) -> bool {
-        let Ok(zero_commitment) = self.public() else {
+        let Ok(bundle_public) = self.public() else {
             return false;
         };
 
-        self.bundle.balance() == zero_commitment
+        Vec::from_iter(self.bundle.partials.iter().map(|ptx| ptx.balance)) == bundle_public.balances
             && self
                 .risc0_receipt
                 .verify(nomos_cl_risc0_proofs::BUNDLE_ID)

@@ -81,7 +81,7 @@ fn main() {
         assert_eq!(ptx_input_witness.input_root(), input_root);
 
         // apply the ptx
-        state = state.apply(bound_tx.tx)
+        state = state.apply(bound_tx.tx).0
     }
 
     validate_zone_transition(zone_in, zone_out, funds_out, in_state_cm, state);

@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use cl::{BalanceWitness, NoteWitness, NullifierSecret};
-use common::{new_account, BoundTx, SignedBoundTx, StateWitness, Tx, ZONE_CL_FUNDS_UNIT};
+use common::{mmr::MMR, new_account, BoundTx, SignedBoundTx, StateWitness, Tx, ZONE_CL_FUNDS_UNIT};
 use executor::ZoneNotes;
 use ledger::death_constraint::DeathProof;
 
@@ -30,7 +30,7 @@ fn test_withdrawal() {
         amount: 78,
     };
 
-    let zone_end = zone_start.clone().run([Tx::Withdraw(withdraw)]);
+    let zone_end = zone_start.clone().run(Tx::Withdraw(withdraw)).0;
 
     let alice_withdrawal = cl::OutputWitness::random(
         NoteWitness::stateless(
@@ -49,7 +49,7 @@ fn test_withdrawal() {
             alice_intent,
         ],
         outputs: vec![zone_end.state_note, zone_end.fund_note, alice_withdrawal],
-        balance_blinding: BalanceWitness::random(&mut rng),
+        balance_blinding: BalanceWitness::random_blinding(&mut rng),
     };
 
     let signed_withdraw = SignedBoundTx::sign(
@@ -102,7 +102,11 @@ fn test_withdrawal() {
         zone_end.state_note.note.state,
         StateWitness {
             balances: BTreeMap::from_iter([(alice_vk, 22)]),
-            included_txs: vec![Tx::Withdraw(withdraw)],
+            included_txs: {
+                let mut mmr = MMR::new();
+                mmr.push(&Tx::Withdraw(withdraw).to_bytes());
+                mmr
+            },
             zone_metadata: zone_start.state.zone_metadata,
         }
         .commit()

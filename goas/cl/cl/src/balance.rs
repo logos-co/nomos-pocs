@@ -1,164 +1,149 @@
-use curve25519_dalek::{
-    constants::RISTRETTO_BASEPOINT_POINT, ristretto::RistrettoPoint, traits::VartimeMultiscalarMul,
-    Scalar,
-};
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
-use crate::NoteWitness;
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
-pub struct Balance(pub RistrettoPoint);
+use crate::PartialTxWitness;
 
 pub type Value = u64;
-pub type Unit = RistrettoPoint;
+pub type Unit = [u8; 32];
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
-pub struct BalanceWitness(pub Scalar);
+pub struct Balance([u8; 32]);
 
 impl Balance {
-    /// A commitment to zero, blinded by the provided balance witness
-    pub fn zero(blinding: BalanceWitness) -> Self {
-        // Since, balance commitments are `value * UnitPoint + blinding * H`, when value=0, the commmitment is unitless.
-        // So we use the generator point as a stand in for the unit point.
-        //
-        // TAI: we can optimize this further from `0*G + r*H` to just `r*H` to save a point scalar mult + point addition.
-        let unit = curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
-        Self(balance(0, unit, blinding.0))
-    }
-
     pub fn to_bytes(&self) -> [u8; 32] {
-        self.0.compress().to_bytes()
+        self.0
     }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct UnitBalance {
+    pub unit: Unit,
+    pub pos: u64,
+    pub neg: u64,
+}
+
+impl UnitBalance {
+    pub fn is_zero(&self) -> bool {
+        return self.pos == self.neg;
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct BalanceWitness {
+    pub balances: Vec<UnitBalance>,
+    pub blinding: [u8; 16],
 }
 
 impl BalanceWitness {
-    pub fn new(blinding: Scalar) -> Self {
-        Self(blinding)
+    pub fn random_blinding(mut rng: impl CryptoRngCore) -> [u8; 16] {
+        let mut blinding = [0u8; 16];
+        rng.fill_bytes(&mut blinding);
+
+        blinding
     }
 
-    pub fn unblinded() -> Self {
-        Self::new(Scalar::ZERO)
+    pub fn zero(blinding: [u8; 16]) -> Self {
+        Self {
+            balances: Default::default(),
+            blinding,
+        }
     }
 
-    pub fn random(mut rng: impl CryptoRngCore) -> Self {
-        Self::new(Scalar::random(&mut rng))
+    pub fn from_ptx(ptx: &PartialTxWitness, blinding: [u8; 16]) -> Self {
+        let mut balance = Self::zero(blinding);
+
+        for input in ptx.inputs.iter() {
+            balance.insert_negative(input.note.unit, input.note.value);
+        }
+
+        for output in ptx.outputs.iter() {
+            balance.insert_positive(output.note.unit, output.note.value);
+        }
+
+        balance.clear_zeros();
+
+        balance
     }
 
-    pub fn commit<'a>(
-        &self,
-        inputs: impl IntoIterator<Item = &'a NoteWitness>,
-        outputs: impl IntoIterator<Item = &'a NoteWitness>,
-    ) -> Balance {
-        let (input_points, input_scalars): (Vec<_>, Vec<_>) = inputs
-            .into_iter()
-            .map(|i| (i.unit, -Scalar::from(i.value)))
-            .unzip();
+    pub fn insert_positive(&mut self, unit: Unit, value: Value) {
+        for unit_bal in self.balances.iter_mut() {
+            if unit_bal.unit == unit {
+                unit_bal.pos += value;
+                return;
+            }
+        }
 
-        let (output_points, output_scalars): (Vec<_>, Vec<_>) = outputs
-            .into_iter()
-            .map(|o| (o.unit, Scalar::from(o.value)))
-            .unzip();
-
-        let points = input_points
-            .into_iter()
-            .chain(output_points)
-            .chain([RISTRETTO_BASEPOINT_POINT]);
-        let scalars = input_scalars
-            .into_iter()
-            .chain(output_scalars)
-            .chain([self.0]);
-
-        let blinded_balance = RistrettoPoint::vartime_multiscalar_mul(scalars, points);
-
-        Balance(blinded_balance)
-    }
-}
-
-pub fn balance(value: u64, unit: Unit, blinding: Scalar) -> Unit {
-    let value_scalar = Scalar::from(value);
-    // can vartime leak the number of cycles through the stark proof?
-    RistrettoPoint::vartime_double_scalar_mul_basepoint(&value_scalar, &unit, &blinding)
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use crate::note::unit_point;
-
-    #[test]
-    fn test_balance_zero_unitless() {
-        // Zero is the same across all units
-        let (nmo, eth) = (unit_point("NMO"), unit_point("ETH"));
-
-        let mut rng = rand::thread_rng();
-        let b = BalanceWitness::random(&mut rng);
-        assert_eq!(
-            b.commit([&NoteWitness::basic(0, nmo)], []),
-            b.commit([&NoteWitness::basic(0, eth)], []),
-        );
+        // Unit was not found, so we must create one.
+        self.balances.push(UnitBalance {
+            unit,
+            pos: value,
+            neg: 0,
+        });
     }
 
-    #[test]
-    fn test_balance_blinding() {
-        // balances are blinded
-        let nmo = unit_point("NMO");
+    pub fn insert_negative(&mut self, unit: Unit, value: Value) {
+        for unit_bal in self.balances.iter_mut() {
+            if unit_bal.unit == unit {
+                unit_bal.neg += value;
+                return;
+            }
+        }
 
-        let r_a = Scalar::from(12u32);
-        let r_b = Scalar::from(8u32);
-        let bal_a = BalanceWitness::new(r_a);
-        let bal_b = BalanceWitness::new(r_b);
-
-        let note = NoteWitness::basic(10, nmo);
-
-        let a = bal_a.commit([&note], []);
-        let b = bal_b.commit([&note], []);
-
-        assert_ne!(a, b);
-
-        let diff_note = NoteWitness::basic(0, nmo);
-        assert_eq!(
-            a.0 - b.0,
-            BalanceWitness::new(r_a - r_b).commit([&diff_note], []).0
-        );
+        self.balances.push(UnitBalance {
+            unit,
+            pos: 0,
+            neg: value,
+        });
     }
 
-    #[test]
-    fn test_balance_units() {
-        // Unit's differentiate between values.
-        let (nmo, eth) = (unit_point("NMO"), unit_point("ETH"));
-
-        let b = BalanceWitness::new(Scalar::from(1337u32));
-
-        let nmo = NoteWitness::basic(10, nmo);
-        let eth = NoteWitness::basic(10, eth);
-        assert_ne!(b.commit([&nmo], []), b.commit([&eth], []));
+    pub fn clear_zeros(&mut self) {
+        let mut i = 0usize;
+        while i < self.balances.len() {
+            if self.balances[i].is_zero() {
+                self.balances.swap_remove(i);
+                // don't increment `i` since the last element has been swapped into the
+                // `i`'th place
+            } else {
+                i += 1;
+            }
+        }
     }
 
-    #[test]
-    fn test_balance_homomorphism() {
-        let nmo = unit_point("NMO");
+    pub fn combine(balances: impl IntoIterator<Item = Self>, blinding: [u8; 16]) -> Self {
+        let mut combined = BalanceWitness::zero(blinding);
 
-        let mut rng = rand::thread_rng();
-        let b1 = BalanceWitness::random(&mut rng);
-        let b2 = BalanceWitness::random(&mut rng);
-        let b_zero = BalanceWitness::new(Scalar::ZERO);
+        for balance in balances {
+            for unit_bal in balance.balances.iter() {
+                if unit_bal.pos > unit_bal.neg {
+                    combined.insert_positive(unit_bal.unit, unit_bal.pos - unit_bal.neg);
+                } else {
+                    combined.insert_negative(unit_bal.unit, unit_bal.neg - unit_bal.pos);
+                }
+            }
+        }
 
-        let ten = NoteWitness::basic(10, nmo);
-        let eight = NoteWitness::basic(8, nmo);
-        let two = NoteWitness::basic(2, nmo);
-        let zero = NoteWitness::basic(0, nmo);
+        combined.clear_zeros();
 
-        // Values of same unit are homomorphic
-        assert_eq!(
-            (b1.commit([&ten], []).0 - b1.commit([&eight], []).0),
-            b_zero.commit([&two], []).0
-        );
+        combined
+    }
 
-        // Blinding factors are also homomorphic.
-        assert_eq!(
-            b1.commit([&ten], []).0 - b2.commit([&ten], []).0,
-            BalanceWitness::new(b1.0 - b2.0).commit([&zero], []).0
-        );
+    pub fn is_zero(&self) -> bool {
+        self.balances.is_empty()
+    }
+
+    pub fn commit(&self) -> Balance {
+        let mut hasher = Sha256::new();
+        hasher.update(b"NOMOS_CL_BAL_COMMIT");
+
+        for unit_balance in self.balances.iter() {
+            hasher.update(unit_balance.unit);
+            hasher.update(unit_balance.pos.to_le_bytes());
+            hasher.update(unit_balance.neg.to_le_bytes());
+        }
+        hasher.update(self.blinding);
+
+        let commit_bytes: [u8; 32] = hasher.finalize().into();
+        Balance(commit_bytes)
     }
 }

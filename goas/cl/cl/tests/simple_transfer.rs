@@ -1,4 +1,4 @@
-use cl::{note::unit_point, BalanceWitness};
+use cl::{note::derive_unit, BalanceWitness};
 use rand_core::CryptoRngCore;
 
 fn receive_utxo(
@@ -11,7 +11,7 @@ fn receive_utxo(
 
 #[test]
 fn test_simple_transfer() {
-    let nmo = unit_point("NMO");
+    let nmo = derive_unit("NMO");
     let mut rng = rand::thread_rng();
 
     let sender_nf_sk = cl::NullifierSecret::random(&mut rng);
@@ -31,14 +31,12 @@ fn test_simple_transfer() {
     let ptx_witness = cl::PartialTxWitness {
         inputs: vec![cl::InputWitness::from_output(utxo, sender_nf_sk)],
         outputs: vec![recipient_output, change_output],
-        balance_blinding: BalanceWitness::random(&mut rng),
+        balance_blinding: BalanceWitness::random_blinding(&mut rng),
     };
 
-    let ptx = ptx_witness.commit();
-
-    let bundle = cl::Bundle {
-        partials: vec![ptx],
+    let bundle = cl::BundleWitness {
+        partials: vec![ptx_witness],
     };
 
-    assert!(bundle.is_balanced(ptx_witness.balance_blinding))
+    assert!(bundle.balance().is_zero())
 }

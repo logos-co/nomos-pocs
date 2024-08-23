@@ -1,8 +1,11 @@
+pub mod mmr;
+
 use cl::{balance::Unit, merkle, NoteCommitment};
 use ed25519_dalek::{
     ed25519::{signature::SignerMut, SignatureBytes},
     Signature, SigningKey, VerifyingKey, PUBLIC_KEY_LENGTH,
 };
+use mmr::{MMRProof, MMR};
 use once_cell::sync::Lazy;
 use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
@@ -21,7 +24,7 @@ pub struct StateCommitment(pub [u8; 32]);
 pub type AccountId = [u8; PUBLIC_KEY_LENGTH];
 
 // PLACEHOLDER: this is probably going to be NMO?
-pub static ZONE_CL_FUNDS_UNIT: Lazy<Unit> = Lazy::new(|| cl::note::unit_point("NMO"));
+pub static ZONE_CL_FUNDS_UNIT: Lazy<Unit> = Lazy::new(|| cl::note::derive_unit("NMO"));
 
 pub fn new_account(mut rng: impl CryptoRngCore) -> SigningKey {
     SigningKey::generate(&mut rng)
@@ -39,7 +42,7 @@ impl ZoneMetadata {
         let mut hasher = Sha256::new();
         hasher.update(self.zone_vk);
         hasher.update(self.funds_vk);
-        hasher.update(self.unit.compress().as_bytes());
+        hasher.update(self.unit);
         hasher.finalize().into()
     }
 }
@@ -47,7 +50,7 @@ impl ZoneMetadata {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StateWitness {
     pub balances: BTreeMap<AccountId, u64>,
-    pub included_txs: Vec<Tx>,
+    pub included_txs: MMR,
     pub zone_metadata: ZoneMetadata,
 }
 
@@ -58,21 +61,25 @@ impl StateWitness {
 
     pub fn state_roots(&self) -> StateRoots {
         StateRoots {
-            tx_root: self.included_txs_root(),
+            included_txs: self.included_txs.clone(),
             zone_id: self.zone_metadata.id(),
             balance_root: self.balances_root(),
         }
     }
 
-    pub fn apply(self, tx: Tx) -> Self {
+    pub fn apply(self, tx: Tx) -> (Self, IncludedTxWitness) {
         let mut state = match tx {
             Tx::Withdraw(w) => self.withdraw(w),
             Tx::Deposit(d) => self.deposit(d),
         };
 
-        state.included_txs.push(tx);
+        let inclusion_proof = state.included_txs.push(&tx.to_bytes());
+        let tx_inclusion_proof = IncludedTxWitness {
+            tx,
+            proof: inclusion_proof,
+        };
 
-        state
+        (state, tx_inclusion_proof)
     }
 
     fn withdraw(mut self, w: Withdraw) -> Self {
@@ -97,16 +104,6 @@ impl StateWitness {
         self
     }
 
-    pub fn included_txs_root(&self) -> [u8; 32] {
-        merkle::root::<MAX_TXS>(self.included_tx_merkle_leaves())
-    }
-
-    pub fn included_tx_witness(&self, idx: usize) -> IncludedTxWitness {
-        let tx = *self.included_txs.get(idx).unwrap();
-        let path = merkle::path(self.included_tx_merkle_leaves(), idx);
-        IncludedTxWitness { tx, path }
-    }
-
     pub fn balances_root(&self) -> [u8; 32] {
         let balance_bytes = Vec::from_iter(self.balances.iter().map(|(owner, balance)| {
             let mut bytes: Vec<u8> = vec![];
@@ -120,15 +117,6 @@ impl StateWitness {
 
     pub fn total_balance(&self) -> u64 {
         self.balances.values().sum()
-    }
-
-    fn included_tx_merkle_leaves(&self) -> [[u8; 32]; MAX_TXS] {
-        let tx_bytes = self
-            .included_txs
-            .iter()
-            .map(|t| t.to_bytes())
-            .collect::<Vec<_>>();
-        merkle::padded_leaves(&tx_bytes)
     }
 }
 
@@ -237,31 +225,28 @@ impl Tx {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IncludedTxWitness {
     pub tx: Tx,
-    pub path: Vec<merkle::PathNode>,
-}
-
-impl IncludedTxWitness {
-    pub fn tx_root(&self) -> [u8; 32] {
-        let leaf = merkle::leaf(&self.tx.to_bytes());
-        merkle::path_root(leaf, &self.path)
-    }
+    pub proof: MMRProof,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StateRoots {
-    pub tx_root: [u8; 32],
+    pub included_txs: MMR,
     pub zone_id: [u8; 32],
     pub balance_root: [u8; 32],
 }
 
 impl StateRoots {
-    /// Merkle tree over: [txs, zoneid, balances]
+    pub fn verify_tx_inclusion(&self, tx_inclusion: &IncludedTxWitness) -> bool {
+        self.included_txs
+            .verify_proof(&tx_inclusion.tx.to_bytes(), &tx_inclusion.proof)
+    }
+
+    /// Commitment to the state roots
     pub fn commit(&self) -> StateCommitment {
-        let leaves = cl::merkle::padded_leaves::<4>(&[
-            self.tx_root.to_vec(),
-            self.zone_id.to_vec(),
-            self.balance_root.to_vec(),
-        ]);
-        StateCommitment(cl::merkle::root(leaves))
+        let mut hasher = Sha256::new();
+        hasher.update(self.included_txs.commit());
+        hasher.update(self.zone_id);
+        hasher.update(self.balance_root);
+        StateCommitment(hasher.finalize().into())
     }
 }

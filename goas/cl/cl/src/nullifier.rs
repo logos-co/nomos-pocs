@@ -122,7 +122,7 @@ impl Nullifier {
 
 #[cfg(test)]
 mod test {
-    use crate::{note::unit_point, NoteWitness};
+    use crate::{note::derive_unit, NoteWitness};
 
     use super::*;
 
@@ -147,7 +147,7 @@ mod test {
     fn test_nullifier_same_sk_different_nonce() {
         let mut rng = rand::thread_rng();
         let sk = NullifierSecret::random(&mut rng);
-        let note = NoteWitness::basic(1, unit_point("NMO"));
+        let note = NoteWitness::basic(1, derive_unit("NMO"));
 
         let nonce_1 = NullifierNonce::random(&mut rng);
         let nonce_2 = NullifierNonce::random(&mut rng);
@@ -164,8 +164,8 @@ mod test {
     fn test_same_sk_same_nonce_different_note() {
         let mut rng = rand::thread_rng();
         let sk = NullifierSecret::random(&mut rng);
-        let note_1 = NoteWitness::basic(1, unit_point("NMO"));
-        let note_2 = NoteWitness::basic(1, unit_point("ETH"));
+        let note_1 = NoteWitness::basic(1, derive_unit("NMO"));
+        let note_2 = NoteWitness::basic(1, derive_unit("ETH"));
         let nonce = NullifierNonce::random(&mut rng);
         let note_cm_1 = note_1.commit(sk.commit(), nonce);
         let note_cm_2 = note_2.commit(sk.commit(), nonce);
