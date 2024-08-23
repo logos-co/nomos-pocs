@@ -10,7 +10,7 @@ pub struct MMR {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Root {
     pub root: [u8; 32],
-    pub height: u64,
+    pub height: u8,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -56,7 +56,7 @@ impl MMR {
         let root = merkle::path_root(leaf, &proof.path);
 
         for mmr_root in self.roots.iter() {
-            if mmr_root.height == (path_len + 1) as u64 {
+            if mmr_root.height == (path_len + 1) as u8 {
                 return mmr_root.root == root;
             }
         }
