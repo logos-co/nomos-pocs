@@ -1,9 +1,12 @@
 use std::collections::BTreeMap;
 
-use cl::{BalanceWitness, BundleWitness, NoteWitness, NullifierNonce};
+use cl::{BalanceWitness, BundleWitness, NoteWitness, Nullifier, NullifierNonce};
 use common::{new_account, BoundTx, Deposit, SignedBoundTx, Tx, Withdraw};
 use executor::ZoneNotes;
 use goas_proof_statements::user_note::{UserAtomicTransfer, UserIntent};
+
+use ledger::DeathProof;
+use rayon::prelude::*;
 
 #[test]
 fn test_atomic_transfer() {
@@ -86,57 +89,70 @@ fn test_atomic_transfer() {
         &mut alice,
     );
 
-    let death_proofs = BTreeMap::from_iter([
-        (
-            alice_intent_in.nullifier(),
-            executor::prove_user_atomic_transfer(UserAtomicTransfer {
-                user_note: atomic_transfer_ptx.input_witness(0),
-                user_intent: alice_intent,
-                zone_a: atomic_transfer_ptx.output_witness(0),
-                zone_b: atomic_transfer_ptx.output_witness(2),
-                zone_a_roots: zone_a_end.state.state_roots(),
-                zone_b_roots: zone_b_end.state.state_roots(),
-                withdraw_tx: withdraw_inclusion,
-                deposit_tx: deposit_inclusion,
-            }),
-        ),
-        (
-            zone_a_start.state_input_witness().nullifier(),
-            executor::prove_zone_stf(
-                zone_a_start.state.clone(),
-                vec![(signed_withdraw, atomic_transfer_ptx.input_witness(0))], // withdraw bound to input intent note
-                atomic_transfer_ptx.input_witness(1),                          // input state note
-                atomic_transfer_ptx.output_witness(0),                         // output state note
-                atomic_transfer_ptx.output_witness(1),                         // output funds note
+    let death_proof = |idx: usize| -> (Nullifier, DeathProof) {
+        match idx {
+            0 => (
+                alice_intent_in.nullifier(),
+                executor::prove_user_atomic_transfer(UserAtomicTransfer {
+                    user_note: atomic_transfer_ptx.input_witness(0),
+                    user_intent: alice_intent,
+                    zone_a: atomic_transfer_ptx.output_witness(0),
+                    zone_b: atomic_transfer_ptx.output_witness(2),
+                    zone_a_roots: zone_a_end.state.state_roots(),
+                    zone_b_roots: zone_b_end.state.state_roots(),
+                    withdraw_tx: withdraw_inclusion.clone(),
+                    deposit_tx: deposit_inclusion.clone(),
+                }),
             ),
-        ),
-        (
-            zone_a_start.fund_input_witness().nullifier(),
-            executor::prove_zone_fund_constraint(
-                atomic_transfer_ptx.input_witness(2),  // input fund note
-                atomic_transfer_ptx.output_witness(0), // output state note
-                &zone_a_end.state,
-            ),
-        ),
-        (
-            zone_b_start.state_input_witness().nullifier(),
-            executor::prove_zone_stf(
-                zone_b_start.state.clone(),
-                vec![(signed_deposit, atomic_transfer_ptx.input_witness(0))], // deposit bound to input intent note
-                atomic_transfer_ptx.input_witness(3),                         // input state note
-                atomic_transfer_ptx.output_witness(2),                        // output state note
-                atomic_transfer_ptx.output_witness(3),                        // output funds note
-            ),
-        ),
-        (
-            zone_b_start.fund_input_witness().nullifier(),
-            executor::prove_zone_fund_constraint(
-                atomic_transfer_ptx.input_witness(4), // input fund note (input #1)
-                atomic_transfer_ptx.output_witness(2), // output state note (output #0)
-                &zone_b_end.state,
-            ),
-        ),
-    ]);
+            1 => {
+                (
+                    zone_a_start.state_input_witness().nullifier(),
+                    executor::prove_zone_stf(
+                        zone_a_start.state.clone(),
+                        vec![(signed_withdraw, atomic_transfer_ptx.input_witness(0))], // withdraw bound to input intent note
+                        atomic_transfer_ptx.input_witness(1), // input state note
+                        atomic_transfer_ptx.output_witness(0), // output state note
+                        atomic_transfer_ptx.output_witness(1), // output funds note
+                    ),
+                )
+            }
+            2 => {
+                (
+                    zone_a_start.fund_input_witness().nullifier(),
+                    executor::prove_zone_fund_constraint(
+                        atomic_transfer_ptx.input_witness(2),  // input fund note
+                        atomic_transfer_ptx.output_witness(0), // output state note
+                        &zone_a_end.state,
+                    ),
+                )
+            }
+            3 => {
+                (
+                    zone_b_start.state_input_witness().nullifier(),
+                    executor::prove_zone_stf(
+                        zone_b_start.state.clone(),
+                        vec![(signed_deposit, atomic_transfer_ptx.input_witness(0))], // deposit bound to input intent note
+                        atomic_transfer_ptx.input_witness(3), // input state note
+                        atomic_transfer_ptx.output_witness(2), // output state note
+                        atomic_transfer_ptx.output_witness(3), // output funds note
+                    ),
+                )
+            }
+            4 => {
+                (
+                    zone_b_start.fund_input_witness().nullifier(),
+                    executor::prove_zone_fund_constraint(
+                        atomic_transfer_ptx.input_witness(4), // input fund note (input #1)
+                        atomic_transfer_ptx.output_witness(2), // output state note (output #0)
+                        &zone_b_end.state,
+                    ),
+                )
+            }
+            _ => panic!("Invalid idx"),
+        }
+    };
+
+    let death_proofs = (0..5).into_par_iter().map(death_proof).collect();
 
     let user_ptx_proof =
         ledger::partial_tx::ProvedPartialTx::prove(&user_ptx, BTreeMap::new(), &[])

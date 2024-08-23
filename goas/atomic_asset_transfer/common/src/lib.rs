@@ -14,8 +14,6 @@ use std::collections::BTreeMap;
 
 // TODO: sparse merkle tree
 pub const MAX_BALANCES: usize = 1 << 8;
-pub const MAX_TXS: usize = 1 << 8;
-pub const MAX_EVENTS: usize = 1 << 8;
 
 // state of the zone
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
@@ -105,14 +103,19 @@ impl StateWitness {
     }
 
     pub fn balances_root(&self) -> [u8; 32] {
-        let balance_bytes = Vec::from_iter(self.balances.iter().map(|(owner, balance)| {
-            let mut bytes: Vec<u8> = vec![];
-            bytes.extend(owner);
-            bytes.extend(balance.to_le_bytes());
-            bytes
-        }));
-        let balance_merkle_leaves = cl::merkle::padded_leaves(&balance_bytes);
-        merkle::root::<MAX_BALANCES>(balance_merkle_leaves)
+        let mut hasher = Sha256::new();
+
+        for (owner, balance) in self.balances.iter() {
+            hasher.update(owner);
+            hasher.update(balance.to_le_bytes());
+        }
+
+        for _ in self.balances.len()..MAX_BALANCES {
+            hasher.update([0u8; PUBLIC_KEY_LENGTH]);
+            hasher.update(0u64.to_le_bytes());
+        }
+
+        hasher.finalize().into()
     }
 
     pub fn total_balance(&self) -> u64 {

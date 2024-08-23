@@ -21,3 +21,4 @@ cl = { path = "../../cl/cl" }
 ledger = { path = "../../cl/ledger" }
 ledger_proof_statements = { path = "../../cl/ledger_proof_statements" }
 goas_proof_statements = { path = "../proof_statements" }
+rayon = "1.10.0"
