@@ -67,41 +67,34 @@ impl BalanceWitness {
     }
 
     pub fn insert_positive(&mut self, unit: Unit, value: Value) {
-        let mut found = false;
         for unit_bal in self.balances.iter_mut() {
             if unit_bal.unit == unit {
-                found = true;
                 unit_bal.pos += value;
-                break;
+                return;
             }
         }
 
-        if !found {
-            self.balances.push(UnitBalance {
-                unit,
-                pos: value,
-                neg: 0,
-            });
-        }
+        // Unit was not found, so we must create one.
+        self.balances.push(UnitBalance {
+            unit,
+            pos: value,
+            neg: 0,
+        });
     }
 
     pub fn insert_negative(&mut self, unit: Unit, value: Value) {
-        let mut found = false;
         for unit_bal in self.balances.iter_mut() {
             if unit_bal.unit == unit {
-                found = true;
                 unit_bal.neg += value;
-                break;
+                return;
             }
         }
 
-        if !found {
-            self.balances.push(UnitBalance {
-                unit,
-                pos: 0,
-                neg: value,
-            });
-        }
+        self.balances.push(UnitBalance {
+            unit,
+            pos: 0,
+            neg: value,
+        });
     }
 
     pub fn clear_zeros(&mut self) {

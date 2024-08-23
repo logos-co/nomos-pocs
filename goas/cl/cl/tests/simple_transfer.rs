@@ -36,7 +36,6 @@ fn test_simple_transfer() {
 
     let bundle = cl::BundleWitness {
         partials: vec![ptx_witness],
-        balance_blinding: BalanceWitness::random_blinding(&mut rng),
     };
 
     assert!(bundle.balance().is_zero())
