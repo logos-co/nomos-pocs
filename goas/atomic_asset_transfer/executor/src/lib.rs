@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 
-use common::{AccountId, SignedBoundTx, StateWitness, Tx, ZoneMetadata};
+use common::{
+    mmr::MMR, AccountId, IncludedTxWitness, SignedBoundTx, StateWitness, Tx, ZoneMetadata,
+};
 use goas_proof_statements::{
     user_note::UserAtomicTransfer, zone_funds::SpendFundsPrivate, zone_state::ZoneStatePrivate,
 };
@@ -21,7 +23,7 @@ impl ZoneNotes {
     ) -> Self {
         let state = StateWitness {
             balances,
-            included_txs: vec![],
+            included_txs: MMR::new(),
             zone_metadata: zone_metadata(zone_name),
         };
         let state_note = zone_state_utxo(&state, &mut rng);
@@ -41,10 +43,9 @@ impl ZoneNotes {
         cl::InputWitness::public(self.fund_note)
     }
 
-    pub fn run(mut self, txs: impl IntoIterator<Item = Tx>) -> Self {
-        for tx in txs {
-            self.state = self.state.apply(tx);
-        }
+    pub fn run(mut self, tx: Tx) -> (Self, IncludedTxWitness) {
+        let (new_state, included_tx) = self.state.apply(tx);
+        self.state = new_state;
 
         let state_in = self.state_input_witness();
         self.state_note = cl::OutputWitness::public(
@@ -63,7 +64,8 @@ impl ZoneNotes {
             },
             state_in.evolved_nonce(b"FUND_NONCE"),
         );
-        self
+
+        (self, included_tx)
     }
 }
 
@@ -231,26 +233,17 @@ mod tests {
     pub fn test_prove_zone_stf() {
         let mut rng = rand::thread_rng();
 
-        let zone_start = ZoneNotes::new_with_balances("ZONE", BTreeMap::from_iter([]), &mut rng);
+        let mut alice = common::new_account(&mut rng);
+        let alice_vk = alice.verifying_key().to_bytes();
+
+        let zone_start =
+            ZoneNotes::new_with_balances("ZONE", BTreeMap::from_iter([(alice_vk, 32)]), &mut rng);
 
         let bind = OutputWitness::public(
             NoteWitness::basic(32, *common::ZONE_CL_FUNDS_UNIT),
             cl::NullifierNonce::random(&mut rng),
         );
 
-        let mut alice = common::new_account(&mut rng);
-        let alice_vk = alice.verifying_key().to_bytes();
-
-        let signed_deposit = SignedBoundTx::sign(
-            BoundTx {
-                tx: Tx::Deposit(Deposit {
-                    to: alice_vk,
-                    amount: 32,
-                }),
-                bind: bind.commit_note(),
-            },
-            &mut alice,
-        );
         let signed_withdraw = SignedBoundTx::sign(
             BoundTx {
                 tx: Tx::Withdraw(Withdraw {
@@ -262,9 +255,7 @@ mod tests {
             &mut alice,
         );
 
-        let zone_end = zone_start
-            .clone()
-            .run([signed_deposit.bound_tx.tx, signed_withdraw.bound_tx.tx]);
+        let zone_end = zone_start.clone().run(signed_withdraw.bound_tx.tx).0;
 
         let ptx = PartialTxWitness {
             inputs: vec![
@@ -276,10 +267,7 @@ mod tests {
             balance_blinding: BalanceWitness::random_blinding(&mut rng),
         };
 
-        let txs = vec![
-            (signed_deposit, ptx.input_witness(0)),
-            (signed_withdraw, ptx.input_witness(0)),
-        ];
+        let txs = vec![(signed_withdraw, ptx.input_witness(0))];
 
         let proof = prove_zone_stf(
             zone_start.state.clone(),
@@ -322,9 +310,9 @@ mod tests {
         let alice = common::new_account(&mut rng);
         let alice_vk = alice.verifying_key().to_bytes();
 
-        let mut zone_a =
+        let zone_a =
             ZoneNotes::new_with_balances("ZONE_A", BTreeMap::from_iter([(alice_vk, 40)]), &mut rng);
-        let mut zone_b = ZoneNotes::new_with_balances("ZONE_B", BTreeMap::new(), &mut rng);
+        let zone_b = ZoneNotes::new_with_balances("ZONE_B", BTreeMap::new(), &mut rng);
 
         let user_intent = UserIntent {
             zone_a_meta: zone_a.state.zone_metadata,
@@ -343,8 +331,8 @@ mod tests {
             NullifierNonce::random(&mut rng),
         ));
 
-        zone_a = zone_a.run([Tx::Withdraw(user_intent.withdraw)]);
-        zone_b = zone_b.run([Tx::Deposit(user_intent.deposit)]);
+        let (zone_a, withdraw_included_witnesss) = zone_a.run(Tx::Withdraw(user_intent.withdraw));
+        let (zone_b, deposit_included_witnesss) = zone_b.run(Tx::Deposit(user_intent.deposit));
 
         let ptx = PartialTxWitness {
             inputs: vec![user_note],
@@ -359,8 +347,8 @@ mod tests {
             zone_b: ptx.output_witness(1),
             zone_a_roots: zone_a.state.state_roots(),
             zone_b_roots: zone_b.state.state_roots(),
-            withdraw_tx: zone_a.state.included_tx_witness(0),
-            deposit_tx: zone_b.state.included_tx_witness(0),
+            withdraw_tx: withdraw_included_witnesss,
+            deposit_tx: deposit_included_witnesss,
         };
 
         let proof = prove_user_atomic_transfer(user_atomic_transfer);
