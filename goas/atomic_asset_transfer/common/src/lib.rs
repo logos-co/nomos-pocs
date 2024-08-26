@@ -12,11 +12,6 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
-// TODO: sparse merkle tree
-pub const MAX_BALANCES: usize = 1 << 8;
-pub const MAX_TXS: usize = 1 << 8;
-pub const MAX_EVENTS: usize = 1 << 8;
-
 // state of the zone
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct StateCommitment(pub [u8; 32]);
