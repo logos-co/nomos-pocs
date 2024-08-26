@@ -1,6 +1,6 @@
 pub mod mmr;
 
-use cl::{balance::Unit, merkle, NoteCommitment};
+use cl::{balance::Unit, NoteCommitment};
 use ed25519_dalek::{
     ed25519::{signature::SignerMut, SignatureBytes},
     Signature, SigningKey, VerifyingKey, PUBLIC_KEY_LENGTH,
@@ -105,14 +105,15 @@ impl StateWitness {
     }
 
     pub fn balances_root(&self) -> [u8; 32] {
-        let balance_bytes = Vec::from_iter(self.balances.iter().map(|(owner, balance)| {
-            let mut bytes: Vec<u8> = vec![];
-            bytes.extend(owner);
-            bytes.extend(balance.to_le_bytes());
-            bytes
-        }));
-        let balance_merkle_leaves = cl::merkle::padded_leaves(&balance_bytes);
-        merkle::root::<MAX_BALANCES>(balance_merkle_leaves)
+        let mut hasher = Sha256::new();
+        hasher.update(b"NOMOS_BALANCES_ROOT");
+
+        for (k, v) in self.balances.iter() {
+            hasher.update(k);
+            hasher.update(&v.to_le_bytes());
+        }
+
+        hasher.finalize().into()
     }
 
     pub fn total_balance(&self) -> u64 {
