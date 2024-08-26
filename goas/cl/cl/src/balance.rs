@@ -25,7 +25,7 @@ pub struct UnitBalance {
 
 impl UnitBalance {
     pub fn is_zero(&self) -> bool {
-        return self.pos == self.neg;
+        self.pos == self.neg
     }
 }
 

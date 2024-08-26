@@ -1,6 +1,6 @@
 pub mod bundle;
-pub mod death_constraint;
+pub mod constraint;
 pub mod error;
 pub mod partial_tx;
 
-pub use death_constraint::DeathProof;
+pub use constraint::ConstraintProof;

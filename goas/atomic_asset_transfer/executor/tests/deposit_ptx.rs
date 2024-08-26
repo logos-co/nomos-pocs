@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use cl::{BalanceWitness, NoteWitness, NullifierSecret};
 use common::{mmr::MMR, new_account, BoundTx, SignedBoundTx, StateWitness, Tx, ZONE_CL_FUNDS_UNIT};
 use executor::ZoneNotes;
-use ledger::death_constraint::DeathProof;
+use ledger::constraint::ConstraintProof;
 
 #[test]
 fn test_deposit() {
@@ -27,7 +27,7 @@ fn test_deposit() {
             NoteWitness::stateless(
                 78,
                 *ZONE_CL_FUNDS_UNIT,
-                DeathProof::nop_constraint(), // alice should demand a tx inclusion proof for the deposit
+                ConstraintProof::nop_constraint(), // alice should demand a tx inclusion proof for the deposit
             ),
             alice_cl_sk.commit(),
             &mut rng,
@@ -49,7 +49,7 @@ fn test_deposit() {
         &mut alice,
     );
 
-    let death_proofs = BTreeMap::from_iter([
+    let constraint_proofs = BTreeMap::from_iter([
         (
             zone_start.state_input_witness().nullifier(),
             executor::prove_zone_stf(
@@ -62,7 +62,10 @@ fn test_deposit() {
         ),
         (
             alice_deposit.nullifier(),
-            ledger::DeathProof::prove_nop(alice_deposit.nullifier(), deposit_ptx.commit().root()),
+            ledger::ConstraintProof::prove_nop(
+                alice_deposit.nullifier(),
+                deposit_ptx.commit().root(),
+            ),
         ),
     ]);
 
@@ -71,9 +74,12 @@ fn test_deposit() {
         alice_deposit.note_commitment(),
     ];
 
-    let deposit_proof =
-        ledger::partial_tx::ProvedPartialTx::prove(&deposit_ptx, death_proofs, &note_commitments)
-            .expect("deposit proof failed");
+    let deposit_proof = ledger::partial_tx::ProvedPartialTx::prove(
+        &deposit_ptx,
+        constraint_proofs,
+        &note_commitments,
+    )
+    .expect("deposit proof failed");
 
     assert!(deposit_proof.verify());
 

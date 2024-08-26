@@ -1,6 +1,6 @@
 pub mod mmr;
 
-use cl::{balance::Unit, NoteCommitment};
+use cl::{balance::Unit, ConstraintCommitment, NoteCommitment};
 use ed25519_dalek::{
     ed25519::{signature::SignerMut, SignatureBytes},
     Signature, SigningKey, VerifyingKey, PUBLIC_KEY_LENGTH,
@@ -27,16 +27,16 @@ pub fn new_account(mut rng: impl CryptoRngCore) -> SigningKey {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ZoneMetadata {
-    pub zone_vk: [u8; 32],
-    pub funds_vk: [u8; 32],
+    pub zone_constraint: ConstraintCommitment,
+    pub funds_constraint: ConstraintCommitment,
     pub unit: Unit,
 }
 
 impl ZoneMetadata {
     pub fn id(&self) -> [u8; 32] {
         let mut hasher = Sha256::new();
-        hasher.update(self.zone_vk);
-        hasher.update(self.funds_vk);
+        hasher.update(self.zone_constraint.0);
+        hasher.update(self.funds_constraint.0);
         hasher.update(self.unit);
         hasher.finalize().into()
     }

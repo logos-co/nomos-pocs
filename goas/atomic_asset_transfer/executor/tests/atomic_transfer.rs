@@ -34,7 +34,7 @@ fn test_atomic_transfer() {
         NoteWitness {
             value: 1,
             unit: cl::note::derive_unit("INTENT"),
-            death_constraint: executor::user_atomic_transfer_death_constraint(),
+            constraint: executor::user_atomic_transfer_constraint(),
             state: alice_intent.commit(),
         },
         NullifierNonce::random(&mut rng),
@@ -86,7 +86,7 @@ fn test_atomic_transfer() {
         &mut alice,
     );
 
-    let death_proofs = BTreeMap::from_iter([
+    let constraint_proofs = BTreeMap::from_iter([
         (
             alice_intent_in.nullifier(),
             executor::prove_user_atomic_transfer(UserAtomicTransfer {
@@ -153,7 +153,7 @@ fn test_atomic_transfer() {
 
     let atomic_transfer_proof = ledger::partial_tx::ProvedPartialTx::prove(
         &atomic_transfer_ptx,
-        death_proofs,
+        constraint_proofs,
         &note_commitments,
     )
     .expect("atomic transfer proof failed");

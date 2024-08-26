@@ -4,7 +4,7 @@
 use cl::merkle;
 use cl::partial_tx::PtxRoot;
 use goas_proof_statements::zone_funds::SpendFundsPrivate;
-use ledger_proof_statements::death_constraint::DeathConstraintPublic;
+use ledger_proof_statements::constraint::ConstraintPublic;
 use risc0_zkvm::guest::env;
 
 fn main() {
@@ -25,5 +25,5 @@ fn main() {
 
     let nf = in_zone_funds.input.nullifier();
 
-    env::commit(&DeathConstraintPublic { ptx_root, nf });
+    env::commit(&ConstraintPublic { ptx_root, nf });
 }

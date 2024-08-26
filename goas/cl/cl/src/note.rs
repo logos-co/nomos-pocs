@@ -7,15 +7,17 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct DeathCommitment(pub [u8; 32]);
+pub struct ConstraintCommitment(pub [u8; 32]);
 
-pub fn death_commitment(death_constraint: &[u8]) -> DeathCommitment {
-    let mut hasher = Sha256::new();
-    hasher.update(b"NOMOS_CL_DEATH_COMMIT");
-    hasher.update(death_constraint);
-    let death_cm: [u8; 32] = hasher.finalize().into();
+impl ConstraintCommitment {
+    pub fn from_vk(constraint_vk: &[u8]) -> Self {
+        let mut hasher = Sha256::new();
+        hasher.update(b"NOMOS_CL_CONSTRAINT_COMMIT");
+        hasher.update(constraint_vk);
+        let constraint_cm: [u8; 32] = hasher.finalize().into();
 
-    DeathCommitment(death_cm)
+        Self(constraint_cm)
+    }
 }
 
 pub fn derive_unit(unit: &str) -> Unit {
@@ -39,26 +41,26 @@ impl NoteCommitment {
 pub struct NoteWitness {
     pub value: u64,
     pub unit: Unit,
-    pub death_constraint: [u8; 32], // death constraint verification key
+    pub constraint: ConstraintCommitment,
     pub state: [u8; 32],
 }
 
 impl NoteWitness {
-    pub fn new(value: u64, unit: Unit, death_constraint: [u8; 32], state: [u8; 32]) -> Self {
+    pub fn new(value: u64, unit: Unit, constraint: ConstraintCommitment, state: [u8; 32]) -> Self {
         Self {
             value,
             unit,
-            death_constraint,
+            constraint,
             state,
         }
     }
 
     pub fn basic(value: u64, unit: Unit) -> Self {
-        Self::new(value, unit, [0u8; 32], [0u8; 32])
+        Self::new(value, unit, ConstraintCommitment([0u8; 32]), [0u8; 32])
     }
 
-    pub fn stateless(value: u64, unit: Unit, death_constraint: [u8; 32]) -> Self {
-        Self::new(value, unit, death_constraint, [0u8; 32])
+    pub fn stateless(value: u64, unit: Unit, constraint: ConstraintCommitment) -> Self {
+        Self::new(value, unit, constraint, [0u8; 32])
     }
 
     pub fn commit(&self, nf_pk: NullifierCommitment, nonce: NullifierNonce) -> NoteCommitment {
@@ -73,8 +75,8 @@ impl NoteWitness {
         // COMMIT TO STATE
         hasher.update(self.state);
 
-        // COMMIT TO DEATH CONSTRAINT
-        hasher.update(self.death_constraint);
+        // COMMIT TO CONSTRAINT
+        hasher.update(self.constraint.0);
 
         // COMMIT TO NULLIFIER
         hasher.update(nf_pk.as_bytes());
@@ -82,10 +84,6 @@ impl NoteWitness {
 
         let commit_bytes: [u8; 32] = hasher.finalize().into();
         NoteCommitment(commit_bytes)
-    }
-
-    pub fn death_commitment(&self) -> DeathCommitment {
-        death_commitment(&self.death_constraint)
     }
 }
 
@@ -116,7 +114,7 @@ mod test {
                 ..reference_note
             },
             NoteWitness {
-                death_constraint: [1u8; 32],
+                constraint: ConstraintCommitment::from_vk(&[1u8; 32]),
                 ..reference_note
             },
             NoteWitness {

@@ -1,5 +1,5 @@
 [package]
-name = "death_constraint_nop"
+name = "constraint_nop"
 version = "0.1.0"
 edition = "2021"
 

@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use cl::{BalanceWitness, NoteWitness, NullifierSecret};
 use common::{mmr::MMR, new_account, BoundTx, SignedBoundTx, StateWitness, Tx, ZONE_CL_FUNDS_UNIT};
 use executor::ZoneNotes;
-use ledger::death_constraint::DeathProof;
+use ledger::constraint::ConstraintProof;
 
 #[test]
 fn test_withdrawal() {
@@ -18,7 +18,7 @@ fn test_withdrawal() {
 
     let alice_intent = cl::InputWitness::from_output(
         cl::OutputWitness::random(
-            NoteWitness::stateless(1, *ZONE_CL_FUNDS_UNIT, DeathProof::nop_constraint()), // TODO, intent should be in the death constraint
+            NoteWitness::stateless(1, *ZONE_CL_FUNDS_UNIT, ConstraintProof::nop_constraint()), // TODO, intent should be in the constraint
             alice_cl_sk.commit(),
             &mut rng,
         ),
@@ -36,7 +36,7 @@ fn test_withdrawal() {
         NoteWitness::stateless(
             withdraw.amount,
             *ZONE_CL_FUNDS_UNIT,
-            DeathProof::nop_constraint(),
+            ConstraintProof::nop_constraint(),
         ),
         alice_cl_sk.commit(),
         &mut rng,
@@ -60,7 +60,7 @@ fn test_withdrawal() {
         &mut alice,
     );
 
-    let death_proofs = BTreeMap::from_iter([
+    let constraint_proofs = BTreeMap::from_iter([
         (
             zone_start.state_input_witness().nullifier(),
             executor::prove_zone_stf(
@@ -81,7 +81,7 @@ fn test_withdrawal() {
         ),
         (
             alice_intent.nullifier(),
-            DeathProof::prove_nop(alice_intent.nullifier(), withdraw_ptx.commit().root()),
+            ConstraintProof::prove_nop(alice_intent.nullifier(), withdraw_ptx.commit().root()),
         ),
     ]);
 
@@ -91,9 +91,12 @@ fn test_withdrawal() {
         alice_intent.note_commitment(),
     ];
 
-    let withdraw_proof =
-        ledger::partial_tx::ProvedPartialTx::prove(&withdraw_ptx, death_proofs, &note_commitments)
-            .expect("withdraw proof failed");
+    let withdraw_proof = ledger::partial_tx::ProvedPartialTx::prove(
+        &withdraw_ptx,
+        constraint_proofs,
+        &note_commitments,
+    )
+    .expect("withdraw proof failed");
 
     assert!(withdraw_proof.verify());
 

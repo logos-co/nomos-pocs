@@ -3,7 +3,7 @@
 /// Partial transactions, as the name suggests, are transactions
 /// which on their own may not balance (i.e. \sum inputs != \sum outputs)
 use crate::{
-    note::{DeathCommitment, NoteWitness},
+    note::{ConstraintCommitment, NoteWitness},
     nullifier::{Nullifier, NullifierNonce, NullifierSecret},
 };
 use serde::{Deserialize, Serialize};
@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Input {
     pub nullifier: Nullifier,
-    pub death_cm: DeathCommitment,
+    pub constraint: ConstraintCommitment,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -60,7 +60,7 @@ impl InputWitness {
     pub fn commit(&self) -> Input {
         Input {
             nullifier: self.nullifier(),
-            death_cm: self.note.death_commitment(),
+            constraint: self.note.constraint,
         }
     }
 
@@ -73,7 +73,7 @@ impl Input {
     pub fn to_bytes(&self) -> [u8; 64] {
         let mut bytes = [0u8; 64];
         bytes[..32].copy_from_slice(self.nullifier.as_bytes());
-        bytes[32..64].copy_from_slice(&self.death_cm.0);
+        bytes[32..64].copy_from_slice(&self.constraint.0);
         bytes
     }
 }

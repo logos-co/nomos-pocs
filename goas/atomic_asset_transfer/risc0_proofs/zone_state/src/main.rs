@@ -5,7 +5,7 @@ use cl::{
 
 use common::*;
 use goas_proof_statements::zone_state::ZoneStatePrivate;
-use ledger_proof_statements::death_constraint::DeathConstraintPublic;
+use ledger_proof_statements::constraint::ConstraintPublic;
 use risc0_zkvm::guest::env;
 
 fn validate_zone_transition(
@@ -26,8 +26,8 @@ fn validate_zone_transition(
     assert_eq!(out_note.output.note.unit, metadata.unit);
 
     // ensure constraints match metadata
-    assert_eq!(in_note.input.note.death_constraint, metadata.zone_vk);
-    assert_eq!(out_note.output.note.death_constraint, metadata.zone_vk);
+    assert_eq!(in_note.input.note.constraint, metadata.zone_constraint);
+    assert_eq!(out_note.output.note.constraint, metadata.zone_constraint);
 
     // nullifier secret is propagated
     assert_eq!(in_note.input.nf_sk.commit(), out_note.output.nf_pk);
@@ -39,7 +39,7 @@ fn validate_zone_transition(
     let expected_note_witness = NoteWitness::new(
         out_state.total_balance(),
         *ZONE_CL_FUNDS_UNIT,
-        metadata.funds_vk,
+        metadata.funds_constraint,
         metadata.id(),
     );
     assert_eq!(
@@ -65,7 +65,7 @@ fn main() {
     let input_root = zone_in.input_root();
     let output_root = zone_out.output_root();
 
-    let pub_inputs = DeathConstraintPublic {
+    let pub_inputs = ConstraintPublic {
         ptx_root: PtxRoot(cl::merkle::node(input_root, output_root)),
         nf: zone_in.input.nullifier(),
     };

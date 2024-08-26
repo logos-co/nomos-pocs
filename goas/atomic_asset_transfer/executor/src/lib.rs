@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use cl::ConstraintCommitment;
 use common::{
     mmr::MMR, AccountId, IncludedTxWitness, SignedBoundTx, StateWitness, Tx, ZoneMetadata,
 };
@@ -78,7 +79,7 @@ fn zone_fund_utxo(
         cl::NoteWitness {
             value,
             unit: *common::ZONE_CL_FUNDS_UNIT,
-            death_constraint: zone_meta.funds_vk,
+            constraint: zone_meta.funds_constraint,
             state: zone_meta.id(),
         },
         cl::NullifierNonce::random(&mut rng),
@@ -90,33 +91,29 @@ fn zone_state_utxo(zone: &StateWitness, mut rng: impl CryptoRngCore) -> cl::Outp
         cl::NoteWitness {
             value: 1,
             unit: zone.zone_metadata.unit,
-            death_constraint: zone.zone_metadata.zone_vk,
+            constraint: zone.zone_metadata.zone_constraint,
             state: zone.commit().0,
         },
         cl::NullifierNonce::random(&mut rng),
     )
 }
 
-pub fn user_atomic_transfer_death_constraint() -> [u8; 32] {
-    ledger::death_constraint::risc0_id_to_cl_death_constraint(
-        goas_risc0_proofs::USER_ATOMIC_TRANSFER_ID,
-    )
+pub fn user_atomic_transfer_constraint() -> ConstraintCommitment {
+    ledger::constraint::risc0_constraint(goas_risc0_proofs::USER_ATOMIC_TRANSFER_ID)
 }
 
-pub fn zone_state_death_constraint() -> [u8; 32] {
-    ledger::death_constraint::risc0_id_to_cl_death_constraint(goas_risc0_proofs::ZONE_STATE_ID)
+pub fn zone_state_constraint() -> ConstraintCommitment {
+    ledger::constraint::risc0_constraint(goas_risc0_proofs::ZONE_STATE_ID)
 }
 
-pub fn zone_fund_death_constraint() -> [u8; 32] {
-    ledger::death_constraint::risc0_id_to_cl_death_constraint(
-        goas_risc0_proofs::SPEND_ZONE_FUNDS_ID,
-    )
+pub fn zone_fund_constraint() -> ConstraintCommitment {
+    ledger::constraint::risc0_constraint(goas_risc0_proofs::SPEND_ZONE_FUNDS_ID)
 }
 
 pub fn zone_metadata(zone_mnemonic: &str) -> ZoneMetadata {
     ZoneMetadata {
-        zone_vk: zone_state_death_constraint(),
-        funds_vk: zone_fund_death_constraint(),
+        zone_constraint: zone_state_constraint(),
+        funds_constraint: zone_fund_constraint(),
         unit: cl::note::derive_unit(zone_mnemonic),
     }
 }
@@ -127,7 +124,7 @@ pub fn prove_zone_stf(
     zone_in: cl::PartialTxInputWitness,
     zone_out: cl::PartialTxOutputWitness,
     funds_out: cl::PartialTxOutputWitness,
-) -> ledger::DeathProof {
+) -> ledger::ConstraintProof {
     let private_inputs = ZoneStatePrivate {
         state,
         inputs,
@@ -156,14 +153,14 @@ pub fn prove_zone_stf(
         prove_info.stats.total_cycles
     );
     let receipt = prove_info.receipt;
-    ledger::DeathProof::from_risc0(goas_risc0_proofs::ZONE_STATE_ID, receipt)
+    ledger::ConstraintProof::from_risc0(goas_risc0_proofs::ZONE_STATE_ID, receipt)
 }
 
 pub fn prove_zone_fund_constraint(
     in_zone_funds: cl::PartialTxInputWitness,
     zone_note: cl::PartialTxOutputWitness,
     out_zone_state: &StateWitness,
-) -> ledger::DeathProof {
+) -> ledger::ConstraintProof {
     let private_inputs = SpendFundsPrivate {
         in_zone_funds,
         zone_note,
@@ -190,10 +187,10 @@ pub fn prove_zone_fund_constraint(
         prove_info.stats.total_cycles
     );
     let receipt = prove_info.receipt;
-    ledger::DeathProof::from_risc0(goas_risc0_proofs::SPEND_ZONE_FUNDS_ID, receipt)
+    ledger::ConstraintProof::from_risc0(goas_risc0_proofs::SPEND_ZONE_FUNDS_ID, receipt)
 }
 
-pub fn prove_user_atomic_transfer(atomic_transfer: UserAtomicTransfer) -> ledger::DeathProof {
+pub fn prove_user_atomic_transfer(atomic_transfer: UserAtomicTransfer) -> ledger::ConstraintProof {
     let env = risc0_zkvm::ExecutorEnv::builder()
         .write(&atomic_transfer)
         .unwrap()
@@ -214,7 +211,7 @@ pub fn prove_user_atomic_transfer(atomic_transfer: UserAtomicTransfer) -> ledger
         prove_info.stats.total_cycles
     );
     let receipt = prove_info.receipt;
-    ledger::DeathProof::from_risc0(goas_risc0_proofs::USER_ATOMIC_TRANSFER_ID, receipt)
+    ledger::ConstraintProof::from_risc0(goas_risc0_proofs::USER_ATOMIC_TRANSFER_ID, receipt)
 }
 
 #[cfg(test)]
@@ -225,7 +222,8 @@ mod tests {
     };
     use common::{BoundTx, Deposit, Withdraw};
     use goas_proof_statements::user_note::UserIntent;
-    use ledger_proof_statements::death_constraint::DeathConstraintPublic;
+    use ledger::ConstraintProof;
+    use ledger_proof_statements::constraint::ConstraintPublic;
 
     use super::*;
 
@@ -277,7 +275,7 @@ mod tests {
             ptx.output_witness(1),
         );
 
-        assert!(proof.verify(DeathConstraintPublic {
+        assert!(proof.verify(ConstraintPublic {
             nf: zone_start.state_input_witness().nullifier(),
             ptx_root: ptx.commit().root(),
         }))
@@ -297,7 +295,7 @@ mod tests {
         let proof =
             prove_zone_fund_constraint(ptx.input_witness(0), ptx.output_witness(0), &zone.state);
 
-        assert!(proof.verify(DeathConstraintPublic {
+        assert!(proof.verify(ConstraintPublic {
             nf: zone.fund_input_witness().nullifier(),
             ptx_root: ptx.commit().root(),
         }))
@@ -327,7 +325,12 @@ mod tests {
             },
         };
         let user_note = cl::InputWitness::public(cl::OutputWitness::public(
-            NoteWitness::new(1, derive_unit("INTENT"), [0u8; 32], user_intent.commit()),
+            NoteWitness::new(
+                1,
+                derive_unit("INTENT"),
+                ConstraintProof::nop_constraint(),
+                user_intent.commit(),
+            ),
             NullifierNonce::random(&mut rng),
         ));
 
@@ -353,7 +356,7 @@ mod tests {
 
         let proof = prove_user_atomic_transfer(user_atomic_transfer);
 
-        assert!(proof.verify(DeathConstraintPublic {
+        assert!(proof.verify(ConstraintPublic {
             nf: user_note.nullifier(),
             ptx_root: ptx.commit().root(),
         }))
