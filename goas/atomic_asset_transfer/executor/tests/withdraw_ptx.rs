@@ -17,10 +17,14 @@ fn test_withdrawal() {
         ZoneNotes::new_with_balances("ZONE", BTreeMap::from_iter([(alice_vk, 100)]), &mut rng);
 
     let alice_intent = cl::InputWitness::from_output(
-        cl::OutputWitness::random(
-            NoteWitness::stateless(1, *ZONE_CL_FUNDS_UNIT, ConstraintProof::nop_constraint()), // TODO, intent should be in the constraint
+        cl::OutputWitness::new(
+            NoteWitness::stateless(
+                1,
+                *ZONE_CL_FUNDS_UNIT,
+                ConstraintProof::nop_constraint(),
+                &mut rng,
+            ), // TODO, intent should be in the constraint
             alice_cl_sk.commit(),
-            &mut rng,
         ),
         alice_cl_sk,
     );
@@ -32,14 +36,14 @@ fn test_withdrawal() {
 
     let zone_end = zone_start.clone().run(Tx::Withdraw(withdraw)).0;
 
-    let alice_withdrawal = cl::OutputWitness::random(
+    let alice_withdrawal = cl::OutputWitness::new(
         NoteWitness::stateless(
             withdraw.amount,
             *ZONE_CL_FUNDS_UNIT,
             ConstraintProof::nop_constraint(),
+            &mut rng,
         ),
         alice_cl_sk.commit(),
-        &mut rng,
     );
 
     let withdraw_ptx = cl::PartialTxWitness {

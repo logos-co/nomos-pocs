@@ -23,14 +23,14 @@ fn test_deposit() {
     let zone_end = zone_start.clone().run(Tx::Deposit(deposit)).0;
 
     let alice_deposit = cl::InputWitness::from_output(
-        cl::OutputWitness::random(
+        cl::OutputWitness::new(
             NoteWitness::stateless(
                 78,
                 *ZONE_CL_FUNDS_UNIT,
                 ConstraintProof::nop_constraint(), // alice should demand a tx inclusion proof for the deposit
+                &mut rng,
             ),
             alice_cl_sk.commit(),
-            &mut rng,
         ),
         alice_cl_sk,
     );

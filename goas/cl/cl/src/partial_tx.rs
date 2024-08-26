@@ -167,16 +167,13 @@ mod test {
         let nf_b = NullifierSecret::random(&mut rng);
         let nf_c = NullifierSecret::random(&mut rng);
 
-        let nmo_10_utxo =
-            OutputWitness::random(NoteWitness::basic(10, nmo), nf_a.commit(), &mut rng);
+        let nmo_10_utxo = OutputWitness::new(NoteWitness::basic(10, nmo, &mut rng), nf_a.commit());
         let nmo_10 = InputWitness::from_output(nmo_10_utxo, nf_a);
 
-        let eth_23_utxo =
-            OutputWitness::random(NoteWitness::basic(23, eth), nf_b.commit(), &mut rng);
+        let eth_23_utxo = OutputWitness::new(NoteWitness::basic(23, eth, &mut rng), nf_b.commit());
         let eth_23 = InputWitness::from_output(eth_23_utxo, nf_b);
 
-        let crv_4840 =
-            OutputWitness::random(NoteWitness::basic(4840, crv), nf_c.commit(), &mut rng);
+        let crv_4840 = OutputWitness::new(NoteWitness::basic(4840, crv, &mut rng), nf_c.commit());
 
         let ptx_witness = PartialTxWitness {
             inputs: vec![nmo_10, eth_23],

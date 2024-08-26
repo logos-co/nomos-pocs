@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use cl::{BalanceWitness, BundleWitness, NoteWitness, NullifierNonce};
+use cl::{BalanceWitness, BundleWitness, Nonce, NoteWitness};
 use common::{new_account, BoundTx, Deposit, SignedBoundTx, Tx, Withdraw};
 use executor::ZoneNotes;
 use goas_proof_statements::user_note::{UserAtomicTransfer, UserIntent};
@@ -30,15 +30,13 @@ fn test_atomic_transfer() {
         },
     };
 
-    let alice_intent_out = cl::OutputWitness::public(
-        NoteWitness {
-            value: 1,
-            unit: cl::note::derive_unit("INTENT"),
-            constraint: executor::user_atomic_transfer_constraint(),
-            state: alice_intent.commit(),
-        },
-        NullifierNonce::random(&mut rng),
-    );
+    let alice_intent_out = cl::OutputWitness::public(NoteWitness {
+        value: 1,
+        unit: cl::note::derive_unit("INTENT"),
+        constraint: executor::user_atomic_transfer_constraint(),
+        state: alice_intent.commit(),
+        nonce: Nonce::random(&mut rng),
+    });
 
     let user_ptx = cl::PartialTxWitness {
         inputs: vec![],

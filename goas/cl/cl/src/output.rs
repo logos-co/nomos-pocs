@@ -1,9 +1,8 @@
-use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     note::{NoteCommitment, NoteWitness},
-    nullifier::{NullifierCommitment, NullifierNonce},
+    nullifier::NullifierCommitment,
     NullifierSecret,
 };
 
@@ -16,32 +15,20 @@ pub struct Output {
 pub struct OutputWitness {
     pub note: NoteWitness,
     pub nf_pk: NullifierCommitment,
-    pub nonce: NullifierNonce,
 }
 
 impl OutputWitness {
-    pub fn random(
-        note: NoteWitness,
-        owner: NullifierCommitment,
-        mut rng: impl CryptoRngCore,
-    ) -> Self {
-        Self {
-            note,
-            nf_pk: owner,
-            nonce: NullifierNonce::random(&mut rng),
-        }
+    pub fn new(note: NoteWitness, nf_pk: NullifierCommitment) -> Self {
+        Self { note, nf_pk }
     }
 
-    pub fn public(note: NoteWitness, nonce: NullifierNonce) -> Self {
-        Self {
-            note,
-            nf_pk: NullifierSecret::zero().commit(),
-            nonce,
-        }
+    pub fn public(note: NoteWitness) -> Self {
+        let nf_pk = NullifierSecret::zero().commit();
+        Self { note, nf_pk }
     }
 
     pub fn commit_note(&self) -> NoteCommitment {
-        self.note.commit(self.nf_pk, self.nonce)
+        self.note.commit(self.nf_pk)
     }
 
     pub fn commit(&self) -> Output {

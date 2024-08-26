@@ -33,21 +33,19 @@ fn validate_zone_transition(
     assert_eq!(in_note.input.nf_sk.commit(), out_note.output.nf_pk);
 
     // the nonce is correctly evolved
-    assert_eq!(in_note.input.evolved_nonce(b"STATE_NONCE"), out_note.output.nonce);
+    assert_eq!(in_note.input.evolved_nonce(b"STATE_NONCE"), out_note.output.note.nonce);
 
     // funds are still under control of the zone
-    let expected_note_witness = NoteWitness::new(
-        out_state.total_balance(),
-        *ZONE_CL_FUNDS_UNIT,
-        metadata.funds_constraint,
-        metadata.id(),
-    );
+    let expected_note_witness = NoteWitness {
+        value: out_state.total_balance(),
+        unit: *ZONE_CL_FUNDS_UNIT,
+        constraint: metadata.funds_constraint,
+        state: metadata.id(),
+        nonce: in_note.input.evolved_nonce(b"FUND_NONCE")
+    };
     assert_eq!(
         out_funds.output,
-        OutputWitness::public(
-            expected_note_witness,
-            in_note.input.evolved_nonce(b"FUND_NONCE")
-        )
+        OutputWitness::public(expected_note_witness)
     );
     // funds belong to the same partial tx
     assert_eq!(out_funds.output_root(), out_note.output_root());

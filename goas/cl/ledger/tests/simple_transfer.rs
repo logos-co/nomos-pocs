@@ -20,12 +20,8 @@ impl User {
     }
 }
 
-fn receive_utxo(
-    note: cl::NoteWitness,
-    nf_pk: cl::NullifierCommitment,
-    rng: impl CryptoRngCore,
-) -> cl::OutputWitness {
-    cl::OutputWitness::random(note, nf_pk, rng)
+fn receive_utxo(note: cl::NoteWitness, nf_pk: cl::NullifierCommitment) -> cl::OutputWitness {
+    cl::OutputWitness::new(note, nf_pk)
 }
 
 #[test]
@@ -41,18 +37,17 @@ fn test_simple_transfer() {
 
     // Alice has an unspent note worth 10 NMO
     let utxo = receive_utxo(
-        cl::NoteWitness::stateless(10, nmo, ConstraintProof::nop_constraint()),
+        cl::NoteWitness::stateless(10, nmo, ConstraintProof::nop_constraint(), &mut rng),
         alice.pk(),
-        &mut rng,
     );
     let alices_input = cl::InputWitness::from_output(utxo, alice.sk());
 
     // Alice wants to send 8 NMO to bob
-    let bobs_output = cl::OutputWitness::random(cl::NoteWitness::basic(8, nmo), bob.pk(), &mut rng);
+    let bobs_output = cl::OutputWitness::new(cl::NoteWitness::basic(8, nmo, &mut rng), bob.pk());
 
     // .. and return the 2 NMO in change to herself.
     let change_output =
-        cl::OutputWitness::random(cl::NoteWitness::basic(2, nmo), alice.pk(), &mut rng);
+        cl::OutputWitness::new(cl::NoteWitness::basic(2, nmo, &mut rng), alice.pk());
 
     // Construct the ptx consuming Alices inputs and producing the two outputs.
     let ptx_witness = cl::PartialTxWitness {

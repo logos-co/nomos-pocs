@@ -1,6 +1,6 @@
 pub mod mmr;
 
-use cl::{balance::Unit, ConstraintCommitment, NoteCommitment};
+use cl::{balance::Unit, Constraint, NoteCommitment};
 use ed25519_dalek::{
     ed25519::{signature::SignerMut, SignatureBytes},
     Signature, SigningKey, VerifyingKey, PUBLIC_KEY_LENGTH,
@@ -27,8 +27,8 @@ pub fn new_account(mut rng: impl CryptoRngCore) -> SigningKey {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ZoneMetadata {
-    pub zone_constraint: ConstraintCommitment,
-    pub funds_constraint: ConstraintCommitment,
+    pub zone_constraint: Constraint,
+    pub funds_constraint: Constraint,
     pub unit: Unit,
 }
 

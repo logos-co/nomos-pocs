@@ -1,4 +1,4 @@
-use cl::ConstraintCommitment;
+use cl::Constraint;
 use ledger_proof_statements::constraint::ConstraintPublic;
 
 use crate::error::Result;
@@ -9,20 +9,20 @@ pub struct ConstraintProof {
     pub risc0_receipt: risc0_zkvm::Receipt,
 }
 
-pub fn risc0_constraint(risc0_id: [u32; 8]) -> ConstraintCommitment {
+pub fn risc0_constraint(risc0_id: [u32; 8]) -> Constraint {
     // Commit to a RISC0 ID for use as a note constraint
 
     let mut bytes = [0u8; 32];
 
     for (i, word) in risc0_id.iter().enumerate() {
         let word_bytes = word.to_le_bytes();
-        bytes[i * 4 + 0] = word_bytes[0];
+        bytes[i * 4] = word_bytes[0];
         bytes[i * 4 + 1] = word_bytes[1];
         bytes[i * 4 + 2] = word_bytes[2];
         bytes[i * 4 + 3] = word_bytes[3];
     }
 
-    ConstraintCommitment::from_vk(&bytes)
+    Constraint::from_vk(&bytes)
 }
 
 impl ConstraintProof {
@@ -33,7 +33,7 @@ impl ConstraintProof {
         }
     }
 
-    pub fn constraint(&self) -> ConstraintCommitment {
+    pub fn constraint(&self) -> Constraint {
         risc0_constraint(self.risc0_id)
     }
 
@@ -49,7 +49,7 @@ impl ConstraintProof {
         expected_public == public && self.risc0_receipt.verify(self.risc0_id).is_ok()
     }
 
-    pub fn nop_constraint() -> ConstraintCommitment {
+    pub fn nop_constraint() -> Constraint {
         risc0_constraint(nomos_cl_risc0_proofs::CONSTRAINT_NOP_ID)
     }
 
