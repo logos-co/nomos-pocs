@@ -12,7 +12,7 @@
 /// Thep User Note will encode the logic that orchestrates the withdrawal from zone A
 /// and deposit to zone B.
 ///
-/// The User Notes death constraint requires the following statements to be satisfied
+/// The User Notes constraint requires the following statements to be satisfied
 /// in order for the fee to be captured.
 ///
 /// 1. w_tx = withdraw(amt=100 NMO, from=Alice) tx was included in Zone A.
@@ -22,7 +22,7 @@
 /// Details:
 /// - the withdrawal in zone A must not be a general withdrawal tx, it must be bound to the user note.
 ///   i.e. the user_note must be present in the ptx for the withdrawal to be valid in Zone A.
-use ledger_proof_statements::death_constraint::DeathConstraintPublic;
+use ledger_proof_statements::constraint::ConstraintPublic;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -67,7 +67,7 @@ pub struct UserAtomicTransfer {
 }
 
 impl UserAtomicTransfer {
-    pub fn assert_constraints(&self) -> DeathConstraintPublic {
+    pub fn assert_constraints(&self) -> ConstraintPublic {
         // user committed to these actions in the user note
         assert_eq!(self.user_intent.commit(), self.user_note.input.note.state);
 
@@ -103,6 +103,6 @@ impl UserAtomicTransfer {
 
         let ptx_root = cl::PtxRoot(cl::merkle::node(input_root, output_root));
         let nf = self.user_note.input.nullifier();
-        DeathConstraintPublic { ptx_root, nf }
+        ConstraintPublic { ptx_root, nf }
     }
 }

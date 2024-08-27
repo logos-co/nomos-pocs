@@ -9,6 +9,6 @@ pub fn assert_is_zone_note(
 ) {
     assert_eq!(state_roots.commit().0, note.state);
     assert_eq!(zone_meta.id(), state_roots.zone_id);
-    assert_eq!(zone_meta.zone_vk, note.death_constraint);
+    assert_eq!(zone_meta.zone_constraint, note.constraint);
     assert_eq!(zone_meta.unit, note.unit);
 }

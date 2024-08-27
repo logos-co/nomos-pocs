@@ -5,17 +5,12 @@
 // notes to allow users to hold fewer secrets. A note
 // nonce is used to disambiguate when the same nullifier
 // secret is used for multiple notes.
+
 use rand_core::RngCore;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{NoteCommitment, NoteWitness};
-
-// TODO: create a nullifier witness and use it throughout.
-// struct NullifierWitness {
-//     nf_sk: NullifierSecret,
-//     nonce: NullifierNonce
-// }
+use crate::NoteCommitment;
 
 // Maintained privately by note holder
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -26,12 +21,6 @@ pub struct NullifierSecret(pub [u8; 16]);
 // you a note
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NullifierCommitment([u8; 32]);
-
-// To allow users to maintain fewer nullifier secrets, we
-// provide a nonce to differentiate notes controlled by the same
-// secret. Each note is assigned a unique nullifier nonce.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NullifierNonce([u8; 32]);
 
 // The nullifier attached to input notes to prove an input has not
 // already been spent.
@@ -77,33 +66,6 @@ impl NullifierCommitment {
     }
 }
 
-impl NullifierNonce {
-    pub fn random(mut rng: impl RngCore) -> Self {
-        let mut nonce = [0u8; 32];
-        rng.fill_bytes(&mut nonce);
-        Self(nonce)
-    }
-
-    pub fn as_bytes(&self) -> &[u8; 32] {
-        &self.0
-    }
-
-    pub fn from_bytes(bytes: [u8; 32]) -> Self {
-        Self(bytes)
-    }
-
-    pub fn evolve(&self, domain: &[u8], nf_sk: &NullifierSecret, note: &NoteWitness) -> Self {
-        let mut hasher = Sha256::new();
-        hasher.update(b"NOMOS_COIN_EVOLVE");
-        hasher.update(domain);
-        hasher.update(nf_sk.0);
-        hasher.update(note.commit(nf_sk.commit(), *self).0);
-
-        let nonce_bytes: [u8; 32] = hasher.finalize().into();
-        Self(nonce_bytes)
-    }
-}
-
 impl Nullifier {
     pub fn new(sk: NullifierSecret, note_cm: NoteCommitment) -> Self {
         let mut hasher = Sha256::new();
@@ -122,7 +84,7 @@ impl Nullifier {
 
 #[cfg(test)]
 mod test {
-    use crate::{note::derive_unit, NoteWitness};
+    use crate::{note::derive_unit, Constraint, Nonce, NoteWitness};
 
     use super::*;
 
@@ -147,12 +109,20 @@ mod test {
     fn test_nullifier_same_sk_different_nonce() {
         let mut rng = rand::thread_rng();
         let sk = NullifierSecret::random(&mut rng);
-        let note = NoteWitness::basic(1, derive_unit("NMO"));
+        let note_1 = NoteWitness {
+            value: 1,
+            unit: derive_unit("NMO"),
+            constraint: Constraint::from_vk(&[]),
+            state: [0u8; 32],
+            nonce: Nonce::random(&mut rng),
+        };
+        let note_2 = NoteWitness {
+            nonce: Nonce::random(&mut rng),
+            ..note_1
+        };
 
-        let nonce_1 = NullifierNonce::random(&mut rng);
-        let nonce_2 = NullifierNonce::random(&mut rng);
-        let note_cm_1 = note.commit(sk.commit(), nonce_1);
-        let note_cm_2 = note.commit(sk.commit(), nonce_2);
+        let note_cm_1 = note_1.commit(sk.commit());
+        let note_cm_2 = note_2.commit(sk.commit());
 
         let nf_1 = Nullifier::new(sk, note_cm_1);
         let nf_2 = Nullifier::new(sk, note_cm_2);
@@ -163,12 +133,25 @@ mod test {
     #[test]
     fn test_same_sk_same_nonce_different_note() {
         let mut rng = rand::thread_rng();
+
         let sk = NullifierSecret::random(&mut rng);
-        let note_1 = NoteWitness::basic(1, derive_unit("NMO"));
-        let note_2 = NoteWitness::basic(1, derive_unit("ETH"));
-        let nonce = NullifierNonce::random(&mut rng);
-        let note_cm_1 = note_1.commit(sk.commit(), nonce);
-        let note_cm_2 = note_2.commit(sk.commit(), nonce);
+        let nonce = Nonce::random(&mut rng);
+
+        let note_1 = NoteWitness {
+            value: 1,
+            unit: derive_unit("NMO"),
+            constraint: Constraint::from_vk(&[]),
+            state: [0u8; 32],
+            nonce,
+        };
+
+        let note_2 = NoteWitness {
+            unit: derive_unit("ETH"),
+            ..note_1
+        };
+
+        let note_cm_1 = note_1.commit(sk.commit());
+        let note_cm_2 = note_2.commit(sk.commit());
 
         let nf_1 = Nullifier::new(sk, note_cm_1);
         let nf_2 = Nullifier::new(sk, note_cm_2);

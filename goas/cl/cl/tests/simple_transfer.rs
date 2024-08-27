@@ -1,12 +1,7 @@
 use cl::{note::derive_unit, BalanceWitness};
-use rand_core::CryptoRngCore;
 
-fn receive_utxo(
-    note: cl::NoteWitness,
-    nf_pk: cl::NullifierCommitment,
-    rng: impl CryptoRngCore,
-) -> cl::OutputWitness {
-    cl::OutputWitness::random(note, nf_pk, rng)
+fn receive_utxo(note: cl::NoteWitness, nf_pk: cl::NullifierCommitment) -> cl::OutputWitness {
+    cl::OutputWitness::new(note, nf_pk)
 }
 
 #[test]
@@ -20,13 +15,13 @@ fn test_simple_transfer() {
     let recipient_nf_pk = cl::NullifierSecret::random(&mut rng).commit();
 
     // Assume the sender has received an unspent output from somewhere
-    let utxo = receive_utxo(cl::NoteWitness::basic(10, nmo), sender_nf_pk, &mut rng);
+    let utxo = receive_utxo(cl::NoteWitness::basic(10, nmo, &mut rng), sender_nf_pk);
 
     // and wants to send 8 NMO to some recipient and return 2 NMO to itself.
     let recipient_output =
-        cl::OutputWitness::random(cl::NoteWitness::basic(8, nmo), recipient_nf_pk, &mut rng);
+        cl::OutputWitness::new(cl::NoteWitness::basic(8, nmo, &mut rng), recipient_nf_pk);
     let change_output =
-        cl::OutputWitness::random(cl::NoteWitness::basic(2, nmo), sender_nf_pk, &mut rng);
+        cl::OutputWitness::new(cl::NoteWitness::basic(2, nmo, &mut rng), sender_nf_pk);
 
     let ptx_witness = cl::PartialTxWitness {
         inputs: vec![cl::InputWitness::from_output(utxo, sender_nf_sk)],

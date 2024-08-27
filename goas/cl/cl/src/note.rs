@@ -1,21 +1,21 @@
+use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{
-    balance::Unit,
-    nullifier::{NullifierCommitment, NullifierNonce},
-};
+use crate::{balance::Unit, nullifier::NullifierCommitment};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct DeathCommitment(pub [u8; 32]);
+pub struct Constraint(pub [u8; 32]);
 
-pub fn death_commitment(death_constraint: &[u8]) -> DeathCommitment {
-    let mut hasher = Sha256::new();
-    hasher.update(b"NOMOS_CL_DEATH_COMMIT");
-    hasher.update(death_constraint);
-    let death_cm: [u8; 32] = hasher.finalize().into();
+impl Constraint {
+    pub fn from_vk(constraint_vk: &[u8]) -> Self {
+        let mut hasher = Sha256::new();
+        hasher.update(b"NOMOS_CL_CONSTRAINT_COMMIT");
+        hasher.update(constraint_vk);
+        let constraint_cm: [u8; 32] = hasher.finalize().into();
 
-    DeathCommitment(death_cm)
+        Self(constraint_cm)
+    }
 }
 
 pub fn derive_unit(unit: &str) -> Unit {
@@ -39,29 +39,39 @@ impl NoteCommitment {
 pub struct NoteWitness {
     pub value: u64,
     pub unit: Unit,
-    pub death_constraint: [u8; 32], // death constraint verification key
+    pub constraint: Constraint,
     pub state: [u8; 32],
+    pub nonce: Nonce,
 }
 
 impl NoteWitness {
-    pub fn new(value: u64, unit: Unit, death_constraint: [u8; 32], state: [u8; 32]) -> Self {
+    pub fn new(
+        value: u64,
+        unit: Unit,
+        constraint: Constraint,
+        state: [u8; 32],
+        nonce: Nonce,
+    ) -> Self {
         Self {
             value,
             unit,
-            death_constraint,
+            constraint,
             state,
+            nonce,
         }
     }
 
-    pub fn basic(value: u64, unit: Unit) -> Self {
-        Self::new(value, unit, [0u8; 32], [0u8; 32])
+    pub fn basic(value: u64, unit: Unit, rng: impl RngCore) -> Self {
+        let constraint = Constraint([0u8; 32]);
+        let nonce = Nonce::random(rng);
+        Self::new(value, unit, constraint, [0u8; 32], nonce)
     }
 
-    pub fn stateless(value: u64, unit: Unit, death_constraint: [u8; 32]) -> Self {
-        Self::new(value, unit, death_constraint, [0u8; 32])
+    pub fn stateless(value: u64, unit: Unit, constraint: Constraint, rng: impl RngCore) -> Self {
+        Self::new(value, unit, constraint, [0u8; 32], Nonce::random(rng))
     }
 
-    pub fn commit(&self, nf_pk: NullifierCommitment, nonce: NullifierNonce) -> NoteCommitment {
+    pub fn commit(&self, nf_pk: NullifierCommitment) -> NoteCommitment {
         let mut hasher = Sha256::new();
         hasher.update(b"NOMOS_CL_NOTE_COMMIT");
 
@@ -73,19 +83,36 @@ impl NoteWitness {
         // COMMIT TO STATE
         hasher.update(self.state);
 
-        // COMMIT TO DEATH CONSTRAINT
-        hasher.update(self.death_constraint);
+        // COMMIT TO CONSTRAINT
+        hasher.update(self.constraint.0);
+
+        // COMMIT TO NONCE
+        hasher.update(self.nonce.as_bytes());
 
         // COMMIT TO NULLIFIER
         hasher.update(nf_pk.as_bytes());
-        hasher.update(nonce.as_bytes());
 
         let commit_bytes: [u8; 32] = hasher.finalize().into();
         NoteCommitment(commit_bytes)
     }
+}
 
-    pub fn death_commitment(&self) -> DeathCommitment {
-        death_commitment(&self.death_constraint)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Nonce([u8; 32]);
+
+impl Nonce {
+    pub fn random(mut rng: impl RngCore) -> Self {
+        let mut nonce = [0u8; 32];
+        rng.fill_bytes(&mut nonce);
+        Self(nonce)
+    }
+
+    pub fn as_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
+
+    pub fn from_bytes(bytes: [u8; 32]) -> Self {
+        Self(bytes)
     }
 }
 
@@ -101,9 +128,8 @@ mod test {
         let mut rng = rand::thread_rng();
 
         let nf_pk = NullifierSecret::random(&mut rng).commit();
-        let nf_nonce = NullifierNonce::random(&mut rng);
 
-        let reference_note = NoteWitness::basic(32, nmo);
+        let reference_note = NoteWitness::basic(32, nmo, &mut rng);
 
         // different notes under same nullifier produce different commitments
         let mutation_tests = [
@@ -116,38 +142,30 @@ mod test {
                 ..reference_note
             },
             NoteWitness {
-                death_constraint: [1u8; 32],
+                constraint: Constraint::from_vk(&[1u8; 32]),
                 ..reference_note
             },
             NoteWitness {
                 state: [1u8; 32],
                 ..reference_note
             },
+            NoteWitness {
+                nonce: Nonce::random(&mut rng),
+                ..reference_note
+            },
         ];
 
         for n in mutation_tests {
-            assert_ne!(
-                n.commit(nf_pk, nf_nonce),
-                reference_note.commit(nf_pk, nf_nonce)
-            );
+            assert_ne!(n.commit(nf_pk), reference_note.commit(nf_pk));
         }
 
         // commitment to same note with different nullifiers produce different commitments
 
         let other_nf_pk = NullifierSecret::random(&mut rng).commit();
-        let other_nf_nonce = NullifierNonce::random(&mut rng);
 
         assert_ne!(
-            reference_note.commit(nf_pk, nf_nonce),
-            reference_note.commit(other_nf_pk, nf_nonce)
-        );
-        assert_ne!(
-            reference_note.commit(nf_pk, nf_nonce),
-            reference_note.commit(nf_pk, other_nf_nonce)
-        );
-        assert_ne!(
-            reference_note.commit(nf_pk, nf_nonce),
-            reference_note.commit(other_nf_pk, other_nf_nonce)
+            reference_note.commit(nf_pk),
+            reference_note.commit(other_nf_pk)
         );
     }
 }
