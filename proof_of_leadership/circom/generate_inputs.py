@@ -450,7 +450,7 @@ def poseidon(state):
 				state[j] += cst[64 + i*2 + j]
 				state[j] = state[j]**5
 			state = poseidon_linear_layer_2_to_1(state)
-		return state[0] + state[1] + original_state[0] + original_state[1]
+		return state[0] + original_state[0]
 	if len(state) == 4:
 		original_state = state
 		cst = poseidon_round_constant_4_to_1()
@@ -469,10 +469,7 @@ def poseidon(state):
 				state[j] += cst[72 + i*4 + j]
 				state[j] = state[j]**5
 			state = poseidon_external_linear_layer_4_to_1(state)
-		h = F(0)
-		for i in range(4):
-			h += state[i] + original_state[i]
-		return h
+		return state[0] + original_state[0]
 	if len(state) == 16:
 		original_state = state
 		cst = poseidon_round_constant_16_to_1()
@@ -491,10 +488,7 @@ def poseidon(state):
 				state[j] += cst[121 + i*16 + j]
 				state[j] = state[j]**5
 			state = poseidon_external_linear_layer_16_to_1(state)
-		h = F(0)
-		for i in range(16):
-			h += state[i] + original_state[i]
-		return h
+		return state[0] + original_state[0]
 
 def poseidon_linear_layer_2_to_1(state):
 	M = Matrix(F,[[2,1],[1,2]])

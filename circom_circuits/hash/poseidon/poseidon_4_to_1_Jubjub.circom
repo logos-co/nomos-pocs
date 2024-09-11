@@ -182,7 +182,7 @@ template hash_4_to_1(){
 	perm.in[2] <== in[2];
 	perm.in[3] <== in[3];
 
-	out <== in[0] + perm.out[0] + in[1] + perm.out[1] + in[2] + perm.out[2] + in[3] + perm.out[3];
+	out <== in[0] + perm.out[0];
 }
 
 //component main = hash_4_to_1();
