@@ -141,7 +141,7 @@ template hash_2_to_1(){
 	perm.in[0] <== in[0];
 	perm.in[1] <== in[1];
 
-	out <== in[0] + perm.out[0] + in[1] + perm.out[1];
+	out <== in[0] + perm.out[0];
 }
 
 //component main = hash_2_to_1();

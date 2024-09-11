@@ -467,22 +467,7 @@ template hash_16_to_1(){
 		perm.in[i] <== in[i];
 	}
 
-	out <== in[0] + perm.out[0] +
-			in[1] + perm.out[1] +
-			in[2] + perm.out[2] +
-			in[3] + perm.out[3] +
-			in[4] + perm.out[4] +
-			in[5] + perm.out[5] +
-			in[6] + perm.out[6] +
-			in[7] + perm.out[7] +
-			in[8] + perm.out[8] +
-			in[9] + perm.out[9] +
-			in[10] + perm.out[10] +
-			in[11] + perm.out[11] +
-			in[12] + perm.out[12] +
-			in[13] + perm.out[13] +
-			in[14] + perm.out[14] +
-			in[15] + perm.out[15];
+	out <== in[0] + perm.out[0];
 }
 
 //component main = hash_16_to_1();
