@@ -118,7 +118,7 @@ pub fn verify<MC: MerkleChannel>(
     let composition_oods_eval = extract_composition_eval(sampled_oods_values).map_err(|_| {
         VerificationError::InvalidStructure("Unexpected sampled_values structure".to_string())
     })?;
-
+    println!("composition_oods_eval = {:?}",composition_oods_eval);
     if composition_oods_eval
         // Compute
         != components.eval_composition_polynomial_at_point(

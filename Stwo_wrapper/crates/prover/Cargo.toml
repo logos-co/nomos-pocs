@@ -28,7 +28,6 @@ thiserror.workspace = true
 tracing.workspace = true
 rayon = { version = "1.10.0", optional = true }
 serde = { version = "1.0", features = ["derive"] }
-light-poseidon = {path = "../../../../../save/rust/snarks/light-poseidon/light-poseidon"}
 crypto-bigint = "0.5.5"
 ark-serialize = "0.4.0"
 serde_json = "1.0.116"
