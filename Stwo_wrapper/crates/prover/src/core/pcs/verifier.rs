@@ -58,6 +58,7 @@ impl<MC: MerkleChannel> CommitmentSchemeVerifier<MC> {
         proof: CommitmentSchemeProof<MC::H>,
         channel: &mut MC::C,
     ) -> Result<(), VerificationError> {
+
         channel.mix_felts(&proof.sampled_values.clone().flatten_cols());
         let random_coeff = channel.draw_felt();
 
@@ -105,9 +106,10 @@ impl<MC: MerkleChannel> CommitmentSchemeVerifier<MC> {
             .0
             .into_iter()
             .collect::<Result<_, _>>()?;
+        println!("DONE");
 
         // Answer FRI queries.
-        let samples = sampled_points
+        let samples = sampled_points // Sample point is always the same and the value is the one provided in the proof
             .zip_cols(proof.sampled_values)
             .map_cols(|(sampled_points, sampled_values)| {
                 zip(sampled_points, sampled_values)

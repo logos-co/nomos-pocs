@@ -1,6 +1,5 @@
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
-
 use itertools::Itertools;
 use thiserror::Error;
 
@@ -152,10 +151,8 @@ impl<H: MerkleHasher> MerkleVerifier<H> {
                 if node_values.len() != n_columns_in_layer {
                     return Err(MerkleVerificationError::WitnessTooShort);
                 }
-
                 layer_total_queries.push((node_index, H::hash_node(node_hashes, &node_values)));
             }
-
             if !layer_queried_values.iter().all(|(_, c)| c.is_empty()) {
                 return Err(MerkleVerificationError::ColumnValuesTooLong);
             }

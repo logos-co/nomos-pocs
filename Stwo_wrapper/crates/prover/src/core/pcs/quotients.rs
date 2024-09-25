@@ -116,10 +116,10 @@ pub fn fri_answers(
                 multiunzip(tuples);
             fri_answers_for_log_size(
                 log_size,
-                &samples,
+                &samples, // Here it's the points and sampled values (in the proof)
                 random_coeff,
                 &query_domain_per_log_size[&log_size],
-                &queried_valued_per_column,
+                &queried_valued_per_column, // Here it's queried values (in the proof)
             )
         })
         .collect()
@@ -141,7 +141,7 @@ pub fn fri_answers_for_log_size(
             ));
         }
     }
-    let mut queried_values_per_column = queried_values_per_column
+        let mut queried_values_per_column = queried_values_per_column
         .iter()
         .map(|q| q.iter())
         .collect_vec();

@@ -191,7 +191,7 @@ pub fn pretty_save_poseidon_bls_proof(proof: &StarkProof<PoseidonBLSMerkleHasher
         file.write_all(b"\t\"inner_commitment_")?;
         file.write_all(&i.to_string().into_bytes())?;
         file.write_all(b"\" : \"")?;
-        file.write_all(&proof.commitment_scheme_proof.fri_proof.inner_layers[i].commitment.0.to_string().into_bytes())?;
+        file.write_all(&proof.commitment_scheme_proof.fri_proof.inner_layers[i].commitment.to_string().into_bytes())?;
         file.write_all(b"\",\n\n")?;
 
         //decommitment
@@ -331,7 +331,7 @@ pub fn compressed_save_poseidon_bls_proof(proof: &StarkProof<PoseidonBLSMerkleHa
         file.write_all(b"\"inner_commitment_")?;
         file.write_all(&i.to_string().into_bytes())?;
         file.write_all(b"\":\"")?;
-        file.write_all(&proof.commitment_scheme_proof.fri_proof.inner_layers[i].commitment.0.to_string().into_bytes())?;
+        file.write_all(&proof.commitment_scheme_proof.fri_proof.inner_layers[i].commitment.to_string().into_bytes())?;
         file.write_all(b"\",")?;
 
         //decommitment
@@ -400,7 +400,6 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     use crate::core::vcs::poseidon_bls_merkle::PoseidonBLSMerkleChannel;
     use crate::core::ColumnVec;
-    use crate::core::fields::qm31::QM31;
     use crate::examples::wide_fibonacci::{generate_trace, FibInput, WideFibonacciComponent};
 
     const FIB_SEQUENCE_LENGTH: usize = 100;
@@ -605,7 +604,6 @@ mod tests {
         )
             .unwrap();
         _ = pretty_save_poseidon_bls_proof(&proof);
-        println!(" 0 1 0 0 = {:?}",QM31::from_u32_unchecked(0,1,0,0));
 
         // Verify.
         let verifier_channel = &mut PoseidonBLSChannel::default();

@@ -3,7 +3,6 @@ use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::iter::zip;
 use std::ops::RangeInclusive;
-
 use itertools::Itertools;
 use num_traits::Zero;
 use thiserror::Error;
