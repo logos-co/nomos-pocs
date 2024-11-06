@@ -1,0 +1,23 @@
+[package]
+name = "executor"
+version = "0.1.0"
+edition = "2021"
+default-run = "executor"
+
+[dependencies]
+goas_risc0_proofs = { path = "../risc0_proofs", package = "goas_risc0_proofs" }
+risc0-zkvm = { version = "1.0", features = ["prove", "metal"] }
+risc0-groth16 = { version = "1.0" }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde = "1.0"
+blake2 = "0.10"
+bincode = "1"
+common = { path = "../common" }
+tempfile = "3"
+clap = { version = "4", features = ["derive"] }
+rand = "0.8.5"
+rand_core = "0.6.0"
+cl = { path = "../../cl/cl" }
+ledger = { path = "../../cl/ledger" }
+ledger_proof_statements = { path = "../../cl/ledger_proof_statements" }
+goas_proof_statements = { path = "../proof_statements" }
