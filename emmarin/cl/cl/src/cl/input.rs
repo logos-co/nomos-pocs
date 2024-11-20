@@ -2,10 +2,10 @@
 ///
 /// Partial transactions, as the name suggests, are transactions
 /// which on their own may not balance (i.e. \sum inputs != \sum outputs)
-use crate::{
+use crate::cl::{
     note::{Constraint, NoteWitness},
     nullifier::{Nullifier, NullifierSecret},
-    Nonce,
+    Nonce, NoteCommitment, OutputWitness,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -27,12 +27,12 @@ impl InputWitness {
         Self { note, nf_sk }
     }
 
-    pub fn from_output(output: crate::OutputWitness, nf_sk: NullifierSecret) -> Self {
+    pub fn from_output(output: OutputWitness, nf_sk: NullifierSecret) -> Self {
         assert_eq!(nf_sk.commit(), output.nf_pk);
         Self::new(output.note, nf_sk)
     }
 
-    pub fn public(output: crate::OutputWitness) -> Self {
+    pub fn public(output: OutputWitness) -> Self {
         let nf_sk = NullifierSecret::zero();
         assert_eq!(nf_sk.commit(), output.nf_pk); // ensure the output was a public UTXO
         Self::new(output.note, nf_sk)
@@ -49,8 +49,8 @@ impl InputWitness {
         Nonce::from_bytes(nonce_bytes)
     }
 
-    pub fn evolve_output(&self, tag: &dyn AsRef<[u8]>, domain: &[u8]) -> crate::OutputWitness {
-        crate::OutputWitness {
+    pub fn evolve_output(&self, tag: &dyn AsRef<[u8]>, domain: &[u8]) -> OutputWitness {
+        OutputWitness {
             note: NoteWitness {
                 nonce: self.evolved_nonce(tag, domain),
                 ..self.note
@@ -70,7 +70,7 @@ impl InputWitness {
         }
     }
 
-    pub fn note_commitment(&self, tag: &dyn AsRef<[u8]>) -> crate::NoteCommitment {
+    pub fn note_commitment(&self, tag: &dyn AsRef<[u8]>) -> NoteCommitment {
         self.note.commit(tag, self.nf_sk.commit())
     }
 }

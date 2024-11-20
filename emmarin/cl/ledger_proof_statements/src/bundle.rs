@@ -1,4 +1,4 @@
-use cl::{Balance, BalanceWitness};
+use cl::cl::{Balance, BalanceWitness};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

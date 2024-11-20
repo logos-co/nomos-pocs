@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
+use crate::cl::{
     note::{NoteCommitment, NoteWitness},
     nullifier::NullifierCommitment,
     NullifierSecret,

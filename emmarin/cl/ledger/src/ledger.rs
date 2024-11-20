@@ -7,7 +7,7 @@ use crate::{
     pact::ProvedPact,
     partial_tx::ProvedPartialTx,
 };
-use cl::zones::{LedgerWitness, ZoneId};
+use cl::zone_layer::{LedgerWitness, ZoneId};
 
 pub struct ProvedLedgerTransition {
     pub public: LedgerProofPublic,

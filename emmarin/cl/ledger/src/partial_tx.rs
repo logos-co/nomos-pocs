@@ -1,18 +1,19 @@
 use ledger_proof_statements::ptx::{PtxPrivate, PtxPublic};
 
 use crate::error::{Error, Result};
-use cl::zones::*;
+use cl::cl::{merkle, PartialTx, PartialTxWitness};
+use cl::zone_layer::ZoneId;
 
 pub struct ProvedPartialTx {
-    pub ptx: cl::PartialTx,
+    pub ptx: PartialTx,
     pub cm_root: [u8; 32],
     pub risc0_receipt: risc0_zkvm::Receipt,
 }
 
 impl ProvedPartialTx {
     pub fn prove(
-        ptx: &cl::PartialTxWitness,
-        input_cm_paths: Vec<Vec<cl::merkle::PathNode>>,
+        ptx: &PartialTxWitness,
+        input_cm_paths: Vec<Vec<merkle::PathNode>>,
         cm_root: [u8; 32],
         id: ZoneId,
     ) -> Result<ProvedPartialTx> {

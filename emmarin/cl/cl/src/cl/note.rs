@@ -2,7 +2,7 @@ use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{balance::Unit, nullifier::NullifierCommitment};
+use crate::cl::{balance::Unit, nullifier::NullifierCommitment};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Constraint(pub [u8; 32]);

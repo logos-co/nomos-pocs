@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{partial_tx::PartialTx, BalanceWitness, PartialTxWitness};
+use crate::cl::{partial_tx::PartialTx, BalanceWitness, PartialTxWitness};
 
 /// The transaction bundle is a collection of partial transactions.
 /// The goal in bundling transactions is to produce a set of partial transactions

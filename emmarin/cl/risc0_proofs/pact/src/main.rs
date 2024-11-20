@@ -1,5 +1,5 @@
 /// Input Proof
-use cl::merkle;
+use cl::cl::merkle;
 use ledger_proof_statements::pact::{PactPrivate, PactPublic};
 use risc0_zkvm::guest::env;
 

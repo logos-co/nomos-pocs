@@ -2,7 +2,7 @@ use rand_core::CryptoRngCore;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::PartialTxWitness;
+use crate::cl::PartialTxWitness;
 
 pub type Value = u64;
 pub type Unit = [u8; 32];

@@ -1,4 +1,4 @@
-use cl::Constraint;
+use cl::cl::{Constraint, Nullifier, PtxRoot};
 use ledger_proof_statements::constraint::ConstraintPublic;
 
 use crate::error::Result;
@@ -41,7 +41,7 @@ impl ConstraintProof {
         risc0_constraint(nomos_cl_risc0_proofs::CONSTRAINT_NOP_ID)
     }
 
-    pub fn prove_nop(nf: cl::Nullifier, ptx_root: cl::PtxRoot) -> Self {
+    pub fn prove_nop(nf: Nullifier, ptx_root: PtxRoot) -> Self {
         let constraint_public = ConstraintPublic { nf, ptx_root };
         let env = risc0_zkvm::ExecutorEnv::builder()
             .write(&constraint_public)

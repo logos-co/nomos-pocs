@@ -1,4 +1,4 @@
-use cl::{PartialTx, PartialTxWitness};
+use cl::cl::{merkle, PartialTx, PartialTxWitness};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -10,7 +10,7 @@ pub struct PtxPublic {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PtxPrivate {
     pub ptx: PartialTxWitness,
-    pub input_cm_paths: Vec<Vec<cl::merkle::PathNode>>,
+    pub input_cm_paths: Vec<Vec<merkle::PathNode>>,
     pub cm_root: [u8; 32],
     pub from: [u8; 32],
 }

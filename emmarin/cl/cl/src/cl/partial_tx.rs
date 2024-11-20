@@ -1,10 +1,12 @@
 use rand_core::{CryptoRngCore, RngCore};
 use serde::{Deserialize, Serialize};
 
-use crate::balance::{Balance, BalanceWitness};
-use crate::input::{Input, InputWitness};
-use crate::merkle;
-use crate::output::{Output, OutputWitness};
+use crate::cl::{
+    balance::{Balance, BalanceWitness},
+    input::{Input, InputWitness},
+    merkle,
+    output::{Output, OutputWitness},
+};
 
 pub const MAX_INPUTS: usize = 8;
 pub const MAX_OUTPUTS: usize = 8;

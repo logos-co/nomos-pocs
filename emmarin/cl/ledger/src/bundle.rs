@@ -1,6 +1,6 @@
-use ledger_proof_statements::bundle::{BundlePrivate, BundlePublic};
-
 use crate::error::{Error, Result};
+use cl::cl::BundleWitness;
+use ledger_proof_statements::bundle::{BundlePrivate, BundlePublic};
 
 pub struct ProvedBundle {
     pub bundle: BundlePublic,
@@ -8,7 +8,7 @@ pub struct ProvedBundle {
 }
 
 impl ProvedBundle {
-    pub fn prove(bundle_witness: &cl::BundleWitness) -> Result<Self> {
+    pub fn prove(bundle_witness: &BundleWitness) -> Result<Self> {
         // need to show that bundle is balanced.
         // i.e. the sum of ptx balances is 0
 

@@ -1,3 +1,4 @@
+use cl::cl::BalanceWitness;
 /// Bundle Proof
 ///
 /// The bundle proof demonstrates that the set of partial transactions
@@ -17,7 +18,7 @@ fn main() {
         balances: Vec::from_iter(bundle_private.balances.iter().map(|b| b.commit())),
     };
 
-    assert!(cl::BalanceWitness::combine(bundle_private.balances, [0u8; 16]).is_zero());
+    assert!(BalanceWitness::combine(bundle_private.balances, [0u8; 16]).is_zero());
 
     env::commit(&bundle_public);
 }

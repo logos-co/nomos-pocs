@@ -1,5 +1,8 @@
 use crate::error::{Error, Result};
-use cl::zones::*;
+use cl::cl::{
+    merkle,
+    pact::{Pact, PactWitness},
+};
 use ledger_proof_statements::pact::{PactPrivate, PactPublic};
 
 #[derive(Debug, Clone)]
@@ -11,8 +14,8 @@ pub struct ProvedPact {
 
 impl ProvedPact {
     pub fn prove(
-        pact: cl::zones::PactWitness,
-        input_cm_paths: Vec<Vec<cl::merkle::PathNode>>,
+        pact: PactWitness,
+        input_cm_paths: Vec<Vec<merkle::PathNode>>,
         cm_root: [u8; 32],
     ) -> Result<ProvedPact> {
         let pact_private = PactPrivate {

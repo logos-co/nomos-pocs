@@ -1,8 +1,8 @@
 use crate::bundle::BundlePublic;
 use crate::pact::PactPublic;
 use crate::ptx::PtxPublic;
-use cl::zones::*;
-use cl::Output;
+use cl::cl::Output;
+use cl::zone_layer::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

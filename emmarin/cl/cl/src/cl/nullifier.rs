@@ -10,7 +10,7 @@ use rand_core::RngCore;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::NoteCommitment;
+use crate::cl::NoteCommitment;
 
 // Maintained privately by note holder
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
