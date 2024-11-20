@@ -1,4 +1,7 @@
-use cl::{zones::*, Output};
+use cl::{
+    cl::Output,
+    zone_layer::{ledger::LedgerWitness, notes::ZoneId},
+};
 use ledger_proof_statements::{bundle::*, constraint::*, ledger::*, pact::PactPublic, ptx::*};
 use risc0_zkvm::{guest::env, serde};
 
@@ -8,6 +11,8 @@ fn main() {
         id,
         txs,
     } = env::read();
+
+    let old_ledger = ledger.commit();
 
     let cm_root = ledger.cm_root();
 
@@ -30,6 +35,7 @@ fn main() {
     }
 
     env::commit(&LedgerProofPublic {
+        old_ledger,
         ledger: ledger.commit(),
         id,
         cross_in,

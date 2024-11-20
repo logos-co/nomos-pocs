@@ -1,5 +1,5 @@
-use crate::zone_layer::ZoneId;
 use crate::cl::{PartialTx, PartialTxWitness};
+use crate::zone_layer::notes::ZoneId;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

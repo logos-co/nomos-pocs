@@ -6,7 +6,7 @@ use crate::cl::{
     NullifierSecret,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Output {
     pub note_comm: NoteCommitment,
 }

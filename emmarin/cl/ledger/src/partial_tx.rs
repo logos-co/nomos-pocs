@@ -2,7 +2,7 @@ use ledger_proof_statements::ptx::{PtxPrivate, PtxPublic};
 
 use crate::error::{Error, Result};
 use cl::cl::{merkle, PartialTx, PartialTxWitness};
-use cl::zone_layer::ZoneId;
+use cl::zone_layer::notes::ZoneId;
 
 pub struct ProvedPartialTx {
     pub ptx: PartialTx,

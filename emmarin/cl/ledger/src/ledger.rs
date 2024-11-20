@@ -7,7 +7,7 @@ use crate::{
     pact::ProvedPact,
     partial_tx::ProvedPartialTx,
 };
-use cl::zone_layer::{LedgerWitness, ZoneId};
+use cl::zone_layer::{ledger::LedgerWitness, notes::ZoneId};
 
 pub struct ProvedLedgerTransition {
     pub public: LedgerProofPublic,
@@ -101,26 +101,7 @@ impl ProvedLedgerTransition {
         })
     }
 
-    pub fn public(&self) -> Result<LedgerProofPublic> {
-        Ok(self.risc0_receipt.journal.decode()?)
-    }
-
     pub fn verify(&self) -> bool {
-        // let Ok(proved_ptx_inputs) = self.public() else {
-        //     return false;
-        // };
-        // let expected_ptx_inputs = PtxPublic {
-        //     ptx: self.ptx.clone(),
-        //     cm_root: self.cm_root,
-        //     from: self.from,
-        //     to: self.to,
-        // };
-        // if expected_ptx_inputs != proved_ptx_inputs {
-        //     return false;
-        // }
-
-        // let ptx_root = self.ptx.root();
-
         self.risc0_receipt
             .verify(ledger_validity_proof::LEDGER_ID)
             .is_ok()

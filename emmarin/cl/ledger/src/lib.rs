@@ -4,5 +4,7 @@ pub mod error;
 pub mod ledger;
 pub mod pact;
 pub mod partial_tx;
+pub mod stf;
+pub mod zone_update;
 
 pub use constraint::ConstraintProof;
