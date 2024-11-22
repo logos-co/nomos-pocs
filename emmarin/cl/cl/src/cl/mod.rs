@@ -7,7 +7,6 @@ pub mod merkle;
 pub mod note;
 pub mod nullifier;
 pub mod output;
-pub mod pact;
 pub mod partial_tx;
 
 pub use balance::{Balance, BalanceWitness};

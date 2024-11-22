@@ -2,10 +2,13 @@
 ///
 /// Partial transactions, as the name suggests, are transactions
 /// which on their own may not balance (i.e. \sum inputs != \sum outputs)
-use crate::cl::{
-    note::{Constraint, NoteWitness},
-    nullifier::{Nullifier, NullifierSecret},
-    Nonce, NoteCommitment, OutputWitness,
+use crate::{
+    cl::{
+        note::{Constraint, NoteWitness},
+        nullifier::{Nullifier, NullifierSecret},
+        Nonce, NoteCommitment, OutputWitness,
+    },
+    zone_layer::notes::ZoneId,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -14,6 +17,7 @@ use sha2::{Digest, Sha256};
 pub struct Input {
     pub nullifier: Nullifier,
     pub constraint: Constraint,
+    pub zone_id: ZoneId,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -63,10 +67,11 @@ impl InputWitness {
         Nullifier::new(tag, self.nf_sk, self.note_commitment(tag))
     }
 
-    pub fn commit(&self, tag: &dyn AsRef<[u8]>) -> Input {
+    pub fn commit(&self, zone_id: ZoneId) -> Input {
         Input {
-            nullifier: self.nullifier(tag),
+            nullifier: self.nullifier(&zone_id),
             constraint: self.note.constraint,
+            zone_id,
         }
     }
 
@@ -76,10 +81,11 @@ impl InputWitness {
 }
 
 impl Input {
-    pub fn to_bytes(&self) -> [u8; 64] {
-        let mut bytes = [0u8; 64];
+    pub fn to_bytes(&self) -> [u8; 96] {
+        let mut bytes = [0u8; 96];
         bytes[..32].copy_from_slice(self.nullifier.as_bytes());
         bytes[32..64].copy_from_slice(&self.constraint.0);
+        bytes[64..96].copy_from_slice(&self.zone_id);
         bytes
     }
 }

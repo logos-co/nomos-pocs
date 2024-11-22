@@ -84,7 +84,7 @@ impl Nullifier {
 
 #[cfg(test)]
 mod test {
-    use crate::{note::derive_unit, Constraint, Nonce, NoteWitness};
+    // use crate::cl::{note::derive_unit, Constraint, Nonce, NoteWitness};
 
     // use super::*;
 

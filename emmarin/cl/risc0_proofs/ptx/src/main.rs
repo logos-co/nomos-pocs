@@ -9,11 +9,12 @@ fn main() {
         input_cm_paths,
         cm_root,
         from,
+        to,
     } = env::read();
 
     assert_eq!(ptx.inputs.len(), input_cm_paths.len());
-    for (input, cm_path) in ptx.inputs.iter().zip(input_cm_paths) {
-        let note_cm = input.note_commitment(&from);
+    for ((input, cm_path), zone_id) in ptx.inputs.iter().zip(input_cm_paths).zip(&from) {
+        let note_cm = input.note_commitment(zone_id);
         let cm_leaf = merkle::leaf(note_cm.as_bytes());
         assert_eq!(cm_root, merkle::path_root(cm_leaf, &cm_path));
     }
@@ -23,7 +24,7 @@ fn main() {
     }
 
     env::commit(&PtxPublic {
-        ptx: ptx.commit(&from),
+        ptx: ptx.commit(&from, &to),
         cm_root,
     });
 }

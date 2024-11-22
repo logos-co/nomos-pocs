@@ -1,47 +1,38 @@
-use ledger_proof_statements::ledger::{LedgerProofPrivate, LedgerProofPublic, ZoneTx};
+use ledger_proof_statements::{
+    ledger::{LedgerProofPrivate, LedgerProofPublic},
+    ptx::PtxPublic,
+};
 
 use crate::{
     bundle::ProvedBundle,
     constraint::ConstraintProof,
     error::{Error, Result},
-    pact::ProvedPact,
     partial_tx::ProvedPartialTx,
 };
 use cl::zone_layer::{ledger::LedgerWitness, notes::ZoneId};
 
+#[derive(Debug, Clone)]
 pub struct ProvedLedgerTransition {
     pub public: LedgerProofPublic,
     pub risc0_receipt: risc0_zkvm::Receipt,
 }
 
-pub enum ProvedZoneTx {
-    LocalTx {
-        bundle: ProvedBundle,
-        ptxs: Vec<ProvedPartialTx>,
-    },
-    Pact(ProvedPact),
+// TODO: find a better name
+#[derive(Debug, Clone)]
+pub struct ProvedZoneTx {
+    pub bundle: ProvedBundle,
+    pub ptxs: Vec<ProvedPartialTx>,
 }
 
 impl ProvedZoneTx {
-    fn to_public(&self) -> ZoneTx {
-        match self {
-            Self::LocalTx { ptxs, bundle } => ZoneTx::LocalTx {
-                ptxs: ptxs.iter().map(|p| p.public().unwrap()).collect(),
-                bundle: bundle.public().unwrap(),
-            },
-            Self::Pact(pact) => ZoneTx::Pact(pact.public().unwrap()),
-        }
+    fn to_public(&self) -> Vec<PtxPublic> {
+        self.ptxs.iter().map(|p| p.public().unwrap()).collect()
     }
 
     fn proofs(&self) -> Vec<risc0_zkvm::Receipt> {
-        match self {
-            Self::LocalTx { ptxs, bundle } => {
-                let mut proofs = vec![bundle.risc0_receipt.clone()];
-                proofs.extend(ptxs.iter().map(|p| p.risc0_receipt.clone()));
-                proofs
-            }
-            Self::Pact(pact) => vec![pact.risc0_receipt.clone()],
-        }
+        let mut proofs = vec![self.bundle.risc0_receipt.clone()];
+        proofs.extend(self.ptxs.iter().map(|p| p.risc0_receipt.clone()));
+        proofs
     }
 }
 
@@ -53,7 +44,7 @@ impl ProvedLedgerTransition {
         constraints: Vec<ConstraintProof>,
     ) -> Result<Self> {
         let witness = LedgerProofPrivate {
-            txs: ptxs.iter().map(|p| p.to_public()).collect(),
+            bundles: ptxs.iter().map(|p| p.to_public()).collect(),
             ledger,
             id: zone_id,
         };

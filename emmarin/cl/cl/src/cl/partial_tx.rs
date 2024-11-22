@@ -1,11 +1,14 @@
 use rand_core::{CryptoRngCore, RngCore};
 use serde::{Deserialize, Serialize};
 
-use crate::cl::{
-    balance::{Balance, BalanceWitness},
-    input::{Input, InputWitness},
-    merkle,
-    output::{Output, OutputWitness},
+use crate::{
+    cl::{
+        balance::{Balance, BalanceWitness},
+        input::{Input, InputWitness},
+        merkle,
+        output::{Output, OutputWitness},
+    },
+    zone_layer::notes::ZoneId,
 };
 
 pub const MAX_INPUTS: usize = 8;
@@ -65,19 +68,32 @@ impl PartialTxWitness {
         BalanceWitness::from_ptx(self, self.balance_blinding)
     }
 
-    pub fn commit(&self, zone: &dyn AsRef<[u8]>) -> PartialTx {
+    pub fn commit(&self, input_zones: &[ZoneId], output_zones: &[ZoneId]) -> PartialTx {
+        assert_eq!(self.inputs.len(), input_zones.len());
+        assert_eq!(self.outputs.len(), output_zones.len());
         PartialTx {
-            inputs: Vec::from_iter(self.inputs.iter().map(|i| i.commit(zone))),
-            outputs: Vec::from_iter(self.outputs.iter().map(|o| o.commit(zone))),
+            inputs: self
+                .inputs
+                .iter()
+                .zip(input_zones.iter())
+                .map(|(i, z)| i.commit(*z))
+                .collect(),
+
+            outputs: self
+                .outputs
+                .iter()
+                .zip(output_zones.iter())
+                .map(|(o, z)| o.commit(*z))
+                .collect(),
             balance: self.balance().commit(),
         }
     }
 
-    pub fn input_witness(&self, tag: &dyn AsRef<[u8]>, idx: usize) -> PartialTxInputWitness {
+    pub fn input_witness(&self, zone_id: ZoneId, idx: usize) -> PartialTxInputWitness {
         let input_bytes = Vec::from_iter(
             self.inputs
                 .iter()
-                .map(|i| i.commit(tag).to_bytes().to_vec()),
+                .map(|i| i.commit(zone_id).to_bytes().to_vec()),
         );
         let input_merkle_leaves = merkle::padded_leaves::<MAX_INPUTS>(&input_bytes);
 
@@ -86,11 +102,11 @@ impl PartialTxWitness {
         PartialTxInputWitness { input, path }
     }
 
-    pub fn output_witness(&self, tag: &dyn AsRef<[u8]>, idx: usize) -> PartialTxOutputWitness {
+    pub fn output_witness(&self, zone_id: ZoneId, idx: usize) -> PartialTxOutputWitness {
         let output_bytes = Vec::from_iter(
             self.outputs
                 .iter()
-                .map(|o| o.commit(tag).to_bytes().to_vec()),
+                .map(|o| o.commit(zone_id).to_bytes().to_vec()),
         );
         let output_merkle_leaves = merkle::padded_leaves::<MAX_OUTPUTS>(&output_bytes);
 
@@ -135,8 +151,8 @@ pub struct PartialTxInputWitness {
 }
 
 impl PartialTxInputWitness {
-    pub fn input_root(&self, tag: &dyn AsRef<[u8]>) -> [u8; 32] {
-        let leaf = merkle::leaf(&self.input.commit(tag).to_bytes());
+    pub fn input_root(&self, zone_id: ZoneId) -> [u8; 32] {
+        let leaf = merkle::leaf(&self.input.commit(zone_id).to_bytes());
         merkle::path_root(leaf, &self.path)
     }
 }
@@ -149,8 +165,8 @@ pub struct PartialTxOutputWitness {
 }
 
 impl PartialTxOutputWitness {
-    pub fn output_root(&self, tag: &dyn AsRef<[u8]>) -> [u8; 32] {
-        let leaf = merkle::leaf(&self.output.commit(tag).to_bytes());
+    pub fn output_root(&self, zone_id: ZoneId) -> [u8; 32] {
+        let leaf = merkle::leaf(&self.output.commit(zone_id).to_bytes());
         merkle::path_root(leaf, &self.path)
     }
 }
@@ -158,13 +174,13 @@ impl PartialTxOutputWitness {
 #[cfg(test)]
 mod test {
 
-    use crate::{
-        balance::UnitBalance,
-        note::{derive_unit, NoteWitness},
-        nullifier::NullifierSecret,
-    };
+    // use crate::cl::{
+    //     balance::UnitBalance,
+    //     note::{derive_unit, NoteWitness},
+    //     nullifier::NullifierSecret,
+    // };
 
-    use super::*;
+    // use super::*;
 
     // #[test]
     // fn test_partial_tx_balance() {

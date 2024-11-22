@@ -6,7 +6,7 @@ use crate::cl::{partial_tx::PartialTx, BalanceWitness, PartialTxWitness};
 /// The goal in bundling transactions is to produce a set of partial transactions
 /// that balance each other.
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Bundle {
     pub partials: Vec<PartialTx>,
 }
@@ -30,7 +30,7 @@ impl BundleWitness {
 
 #[cfg(test)]
 mod test {
-    use crate::{
+    use crate::cl::{
         balance::UnitBalance,
         input::InputWitness,
         note::{derive_unit, NoteWitness},

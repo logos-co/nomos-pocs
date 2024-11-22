@@ -2,6 +2,7 @@ use crate::error::{Error, Result};
 use cl::cl::BundleWitness;
 use ledger_proof_statements::bundle::{BundlePrivate, BundlePublic};
 
+#[derive(Debug, Clone)]
 pub struct ProvedBundle {
     pub bundle: BundlePublic,
     pub risc0_receipt: risc0_zkvm::Receipt,

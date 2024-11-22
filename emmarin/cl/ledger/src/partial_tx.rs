@@ -4,6 +4,7 @@ use crate::error::{Error, Result};
 use cl::cl::{merkle, PartialTx, PartialTxWitness};
 use cl::zone_layer::notes::ZoneId;
 
+#[derive(Debug, Clone)]
 pub struct ProvedPartialTx {
     pub ptx: PartialTx,
     pub cm_root: [u8; 32],
@@ -12,16 +13,19 @@ pub struct ProvedPartialTx {
 
 impl ProvedPartialTx {
     pub fn prove(
-        ptx: &PartialTxWitness,
+        ptx_witness: PartialTxWitness,
         input_cm_paths: Vec<Vec<merkle::PathNode>>,
         cm_root: [u8; 32],
-        id: ZoneId,
+        from: Vec<ZoneId>,
+        to: Vec<ZoneId>,
     ) -> Result<ProvedPartialTx> {
+        let ptx = ptx_witness.commit(&from, &to);
         let ptx_private = PtxPrivate {
-            ptx: ptx.clone(),
+            ptx: ptx_witness,
             input_cm_paths,
             cm_root,
-            from: id,
+            from,
+            to,
         };
 
         let env = risc0_zkvm::ExecutorEnv::builder()
@@ -49,7 +53,7 @@ impl ProvedPartialTx {
         );
 
         Ok(Self {
-            ptx: ptx.commit(&id),
+            ptx,
             cm_root,
             risc0_receipt: prove_info.receipt,
         })

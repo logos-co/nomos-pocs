@@ -1,5 +1,3 @@
-use crate::bundle::BundlePublic;
-use crate::pact::PactPublic;
 use crate::ptx::PtxPublic;
 use cl::cl::Output;
 use cl::zone_layer::{
@@ -21,14 +19,5 @@ pub struct LedgerProofPublic {
 pub struct LedgerProofPrivate {
     pub ledger: LedgerWitness,
     pub id: ZoneId,
-    pub txs: Vec<ZoneTx>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum ZoneTx {
-    LocalTx {
-        ptxs: Vec<PtxPublic>,
-        bundle: BundlePublic,
-    },
-    Pact(PactPublic),
+    pub bundles: Vec<Vec<PtxPublic>>,
 }

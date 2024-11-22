@@ -1,13 +1,17 @@
 use serde::{Deserialize, Serialize};
 
-use crate::cl::{
-    note::{NoteCommitment, NoteWitness},
-    nullifier::NullifierCommitment,
-    NullifierSecret,
+use crate::{
+    cl::{
+        note::{NoteCommitment, NoteWitness},
+        nullifier::NullifierCommitment,
+        NullifierSecret,
+    },
+    zone_layer::notes::ZoneId,
 };
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Output {
+    pub zone_id: ZoneId,
     pub note_comm: NoteCommitment,
 }
 
@@ -31,15 +35,19 @@ impl OutputWitness {
         self.note.commit(tag, self.nf_pk)
     }
 
-    pub fn commit(&self, tag: &dyn AsRef<[u8]>) -> Output {
+    pub fn commit(&self, zone_id: ZoneId) -> Output {
         Output {
-            note_comm: self.commit_note(tag),
+            zone_id,
+            note_comm: self.commit_note(&zone_id),
         }
     }
 }
 
 impl Output {
-    pub fn to_bytes(&self) -> [u8; 32] {
-        self.note_comm.0
+    pub fn to_bytes(&self) -> [u8; 64] {
+        let mut bytes = [0u8; 64];
+        bytes[..32].copy_from_slice(&self.zone_id);
+        bytes[32..].copy_from_slice(&self.note_comm.0);
+        bytes
     }
 }
