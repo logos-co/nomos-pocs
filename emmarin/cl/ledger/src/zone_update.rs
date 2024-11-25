@@ -1,7 +1,7 @@
 pub use crate::error::{Error, Result};
 use crate::{ledger::ProvedLedgerTransition, stf::StfProof};
 use cl::zone_layer::tx::UpdateBundle;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 pub struct ProvedUpdateBundle {
     pub bundle: UpdateBundle,
@@ -11,28 +11,31 @@ pub struct ProvedUpdateBundle {
 
 impl ProvedUpdateBundle {
     pub fn verify(&self) -> bool {
-        let mut consumed_commitments = HashSet::new();
-        let mut produced_commitments = HashSet::new();
+        let mut expected_zones = HashMap::new();
+        let mut actual_zones = HashMap::new();
         for proof in &self.ledger_proofs {
             if !proof.verify() {
                 return false;
             }
 
-            for comm in &proof.public.cross_out {
-                if produced_commitments.insert(comm) {
-                    // already in?
-                }
-            }
-            for comm in &proof.public.cross_in {
-                if consumed_commitments.insert(comm) {
-                    // already in?
-                }
+            for bundle in &proof.public.cross_bundles {
+                expected_zones.insert(bundle.id, HashSet::from_iter(bundle.zones.clone()));
+                actual_zones
+                    .entry(bundle.id)
+                    .or_insert_with(|| HashSet::new())
+                    .insert(proof.public.id);
             }
         }
 
-        // check that cross zone transactions match
-        if consumed_commitments != produced_commitments {
-            return false;
+        println!("{:?} | {:?}", expected_zones, actual_zones);
+        for (bundle, expected) in expected_zones.iter() {
+            if let Some(actual) = actual_zones.get(bundle) {
+                if actual != expected {
+                    panic!("{:?} | {:?}", actual, expected);
+                }
+            } else {
+                panic!();
+            }
         }
 
         for ((update, stf_proof), ledger_proof) in self

@@ -12,13 +12,13 @@ use cl::cl::BalanceWitness;
 use risc0_zkvm::guest::env;
 
 fn main() {
-    let bundle_private: ledger_proof_statements::bundle::BundlePrivate = env::read();
+    let balance_private: ledger_proof_statements::balance::BalancePrivate = env::read();
 
-    let bundle_public = ledger_proof_statements::bundle::BundlePublic {
-        balances: Vec::from_iter(bundle_private.balances.iter().map(|b| b.commit())),
+    let balance_public = ledger_proof_statements::balance::BalancePublic {
+        balances: Vec::from_iter(balance_private.balances.iter().map(|b| b.commit())),
     };
 
-    assert!(BalanceWitness::combine(bundle_private.balances, [0u8; 16]).is_zero());
+    assert!(BalanceWitness::combine(balance_private.balances, [0u8; 16]).is_zero());
 
-    env::commit(&bundle_public);
+    env::commit(&balance_public);
 }

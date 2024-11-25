@@ -1,14 +1,48 @@
 use serde::{Deserialize, Serialize};
 
-use crate::cl::{partial_tx::PartialTx, BalanceWitness, PartialTxWitness};
+use crate::{
+    cl::{partial_tx::PartialTx, BalanceWitness, PartialTxWitness},
+    zone_layer::notes::ZoneId,
+};
+use sha2::{Digest, Sha256};
+use std::collections::HashSet;
 
 /// The transaction bundle is a collection of partial transactions.
 /// The goal in bundling transactions is to produce a set of partial transactions
 /// that balance each other.
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct BundleId(pub [u8; 32]);
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Bundle {
     pub partials: Vec<PartialTx>,
+}
+
+impl Bundle {
+    pub fn zones(&self) -> HashSet<ZoneId> {
+        self.partials
+            .iter()
+            .flat_map(|ptx| {
+                ptx.inputs
+                    .iter()
+                    .map(|i| i.zone_id)
+                    .chain(ptx.outputs.iter().map(|o| o.zone_id))
+            })
+            .collect()
+    }
+
+    ///
+    pub fn id(&self) -> BundleId {
+        // TODO: change to merkle root
+        let mut hasher = Sha256::new();
+        hasher.update(b"NOMOS_CL_BUNDLE_ID");
+        for ptx in &self.partials {
+            hasher.update(&ptx.root().0);
+        }
+
+        BundleId(hasher.finalize().into())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

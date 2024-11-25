@@ -10,9 +10,9 @@ use cl::{
     },
 };
 use ledger::{
-    bundle::ProvedBundle,
+    balance::ProvedBalance,
     constraint::ConstraintProof,
-    ledger::{ProvedLedgerTransition, ProvedZoneTx},
+    ledger::{ProvedBundle, ProvedLedgerTransition},
     partial_tx::ProvedPartialTx,
     stf::StfProof,
     zone_update::ProvedUpdateBundle,
@@ -73,25 +73,25 @@ fn cross_transfer_transition(
     let proved_ptx = ProvedPartialTx::prove(
         ptx_witness.clone(),
         vec![ledger_a.cm_path(&input.note_commitment(&zone_a)).unwrap()],
-        ledger_a.cm_root(),
+        vec![ledger_a.cm_root()],
         vec![zone_a],
         vec![zone_b, zone_a],
     )
     .unwrap();
 
-    let bundle = ProvedBundle::prove(&BundleWitness {
+    let bundle = ProvedBalance::prove(&BundleWitness {
         partials: vec![ptx_witness],
     })
     .unwrap();
 
-    let zone_tx = ProvedZoneTx {
+    let zone_tx = ProvedBundle {
         ptxs: vec![proved_ptx.clone()],
         bundle,
     };
 
     // Prove the constraints for alices input (she uses the no-op constraint)
     let constraint_proof =
-        ConstraintProof::prove_nop(input.nullifier(&zone_a), proved_ptx.ptx.root());
+        ConstraintProof::prove_nop(input.nullifier(&zone_a), proved_ptx.public.ptx.root());
 
     let ledger_a_transition = ProvedLedgerTransition::prove(
         ledger_a,

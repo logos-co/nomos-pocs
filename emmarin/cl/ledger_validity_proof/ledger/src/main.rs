@@ -1,11 +1,11 @@
 use cl::{
-    cl::Output,
+    cl::{Bundle, Output},
     zone_layer::{ledger::LedgerWitness, notes::ZoneId},
 };
 use ledger_proof_statements::{
-    bundle::BundlePublic,
+    balance::BalancePublic,
     constraint::ConstraintPublic,
-    ledger::{LedgerProofPrivate, LedgerProofPublic},
+    ledger::{CrossZoneBundle, LedgerProofPrivate, LedgerProofPublic},
     ptx::PtxPublic,
 };
 use risc0_zkvm::{guest::env, serde};
@@ -18,29 +18,37 @@ fn main() {
     } = env::read();
 
     let old_ledger = ledger.commit();
+    let mut cross_bundles = vec![];
+    let mut outputs = vec![];
 
     let cm_root = ledger.cm_root();
 
-    let mut cross_in = vec![];
-    let mut cross_out = vec![];
-
     for bundle in bundles {
-        let bundle_public = BundlePublic {
+        let balance_public = BalancePublic {
             balances: bundle.iter().map(|ptx| ptx.ptx.balance).collect::<Vec<_>>(),
         };
         // verify bundle is balanced
         env::verify(
-            nomos_cl_risc0_proofs::BUNDLE_ID,
-            &serde::to_vec(&bundle_public).unwrap(),
+            nomos_cl_risc0_proofs::BALANCE_ID,
+            &serde::to_vec(&balance_public).unwrap(),
         )
         .unwrap();
 
         for ptx in &bundle {
-            let (new_ledger, consumed_commitments, produced_commitments) =
-                process_ptx(ledger, ptx, id, cm_root);
-            cross_in.extend(consumed_commitments);
-            cross_out.extend(produced_commitments);
+            let (new_ledger, ptx_outputs) = process_ptx(ledger, ptx, id, cm_root);
             ledger = new_ledger;
+            outputs.extend(ptx_outputs);
+        }
+
+        let bundle = Bundle {
+            partials: bundle.into_iter().map(|ptx| ptx.ptx).collect(),
+        };
+        let zones = bundle.zones();
+        if zones.len() > 1 {
+            cross_bundles.push(CrossZoneBundle {
+                id: bundle.id(),
+                zones: zones.into_iter().collect(),
+            });
         }
     }
 
@@ -48,8 +56,8 @@ fn main() {
         old_ledger,
         ledger: ledger.commit(),
         id,
-        cross_in,
-        cross_out,
+        cross_bundles,
+        outputs,
     });
 }
 
@@ -58,21 +66,18 @@ fn process_ptx(
     ptx: &PtxPublic,
     zone_id: ZoneId,
     cm_root: [u8; 32],
-) -> (LedgerWitness, Vec<Output>, Vec<Output>) {
-    let mut cross_in = vec![];
-    let mut cross_out = vec![];
-
+) -> (LedgerWitness, Vec<Output>) {
+    // always verify the ptx to ensure outputs were derived with the correct zone id
     env::verify(nomos_cl_risc0_proofs::PTX_ID, &serde::to_vec(&ptx).unwrap()).unwrap();
 
-    let ptx_cm_root = ptx.cm_root;
+    let cm_roots = &ptx.cm_roots;
     let ptx = &ptx.ptx;
 
-    // TODO: accept inputs from multiple zones
-    let check_inputs = ptx.inputs.iter().all(|input| input.zone_id == zone_id);
+    let mut outputs = vec![];
 
-    if check_inputs {
-        assert_eq!(ptx_cm_root, cm_root);
-        for input in &ptx.inputs {
+    for (input, input_cm_root) in ptx.inputs.iter().zip(cm_roots) {
+        if input.zone_id == zone_id {
+            assert_eq!(*input_cm_root, cm_root);
             assert!(!ledger.nullifiers.contains(&input.nullifier));
             ledger.nullifiers.push(input.nullifier);
 
@@ -91,17 +96,9 @@ fn process_ptx(
     for output in &ptx.outputs {
         if output.zone_id == zone_id {
             ledger.commitments.push(output.note_comm);
-            // if this output was not originating from this zone, it is a cross zone transaction
-            if !check_inputs {
-                cross_in.push(*output);
-            }
-        } else {
-            // if this output is not going to this zone but originated from this zone, it is a cross zone transaction
-            if check_inputs {
-                cross_out.push(*output);
-            }
+            outputs.push(*output);
         }
     }
 
-    (ledger, cross_in, cross_out)
+    (ledger, outputs)
 }

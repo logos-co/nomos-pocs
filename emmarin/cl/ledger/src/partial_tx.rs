@@ -1,13 +1,12 @@
 use ledger_proof_statements::ptx::{PtxPrivate, PtxPublic};
 
 use crate::error::{Error, Result};
-use cl::cl::{merkle, PartialTx, PartialTxWitness};
+use cl::cl::{merkle, PartialTxWitness};
 use cl::zone_layer::notes::ZoneId;
 
 #[derive(Debug, Clone)]
 pub struct ProvedPartialTx {
-    pub ptx: PartialTx,
-    pub cm_root: [u8; 32],
+    pub public: PtxPublic,
     pub risc0_receipt: risc0_zkvm::Receipt,
 }
 
@@ -15,15 +14,14 @@ impl ProvedPartialTx {
     pub fn prove(
         ptx_witness: PartialTxWitness,
         input_cm_paths: Vec<Vec<merkle::PathNode>>,
-        cm_root: [u8; 32],
+        cm_roots: Vec<[u8; 32]>,
         from: Vec<ZoneId>,
         to: Vec<ZoneId>,
     ) -> Result<ProvedPartialTx> {
-        let ptx = ptx_witness.commit(&from, &to);
         let ptx_private = PtxPrivate {
             ptx: ptx_witness,
             input_cm_paths,
-            cm_root,
+            cm_roots: cm_roots.clone(),
             from,
             to,
         };
@@ -53,28 +51,12 @@ impl ProvedPartialTx {
         );
 
         Ok(Self {
-            ptx,
-            cm_root,
+            public: prove_info.receipt.journal.decode()?,
             risc0_receipt: prove_info.receipt,
         })
     }
 
-    pub fn public(&self) -> Result<PtxPublic> {
-        Ok(self.risc0_receipt.journal.decode()?)
-    }
-
     pub fn verify(&self) -> bool {
-        let Ok(proved_ptx_inputs) = self.public() else {
-            return false;
-        };
-        let expected_ptx_inputs = PtxPublic {
-            ptx: self.ptx.clone(),
-            cm_root: self.cm_root,
-        };
-        if expected_ptx_inputs != proved_ptx_inputs {
-            return false;
-        }
-
         self.risc0_receipt
             .verify(nomos_cl_risc0_proofs::PTX_ID)
             .is_ok()

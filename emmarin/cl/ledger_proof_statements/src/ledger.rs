@@ -1,5 +1,5 @@
 use crate::ptx::PtxPublic;
-use cl::cl::Output;
+use cl::cl::{bundle::BundleId, Output};
 use cl::zone_layer::{
     ledger::{Ledger, LedgerWitness},
     notes::ZoneId,
@@ -11,8 +11,8 @@ pub struct LedgerProofPublic {
     pub old_ledger: Ledger,
     pub ledger: Ledger,
     pub id: ZoneId,
-    pub cross_in: Vec<Output>,
-    pub cross_out: Vec<Output>,
+    pub cross_bundles: Vec<CrossZoneBundle>,
+    pub outputs: Vec<Output>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -20,4 +20,10 @@ pub struct LedgerProofPrivate {
     pub ledger: LedgerWitness,
     pub id: ZoneId,
     pub bundles: Vec<Vec<PtxPublic>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CrossZoneBundle {
+    pub id: BundleId,
+    pub zones: Vec<ZoneId>,
 }

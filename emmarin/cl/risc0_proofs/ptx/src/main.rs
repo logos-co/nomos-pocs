@@ -7,16 +7,22 @@ fn main() {
     let PtxPrivate {
         ptx,
         input_cm_paths,
-        cm_root,
+        cm_roots,
         from,
         to,
     } = env::read();
 
     assert_eq!(ptx.inputs.len(), input_cm_paths.len());
-    for ((input, cm_path), zone_id) in ptx.inputs.iter().zip(input_cm_paths).zip(&from) {
+    for (((input, cm_path), zone_id), cm_root) in ptx
+        .inputs
+        .iter()
+        .zip(input_cm_paths)
+        .zip(&from)
+        .zip(&cm_roots)
+    {
         let note_cm = input.note_commitment(zone_id);
         let cm_leaf = merkle::leaf(note_cm.as_bytes());
-        assert_eq!(cm_root, merkle::path_root(cm_leaf, &cm_path));
+        assert_eq!(*cm_root, merkle::path_root(cm_leaf, &cm_path));
     }
 
     for output in ptx.outputs.iter() {
@@ -25,6 +31,6 @@ fn main() {
 
     env::commit(&PtxPublic {
         ptx: ptx.commit(&from, &to),
-        cm_root,
+        cm_roots,
     });
 }

@@ -4,7 +4,7 @@ use ledger_proof_statements::{
 };
 
 use crate::{
-    bundle::ProvedBundle,
+    balance::ProvedBalance,
     constraint::ConstraintProof,
     error::{Error, Result},
     partial_tx::ProvedPartialTx,
@@ -19,14 +19,14 @@ pub struct ProvedLedgerTransition {
 
 // TODO: find a better name
 #[derive(Debug, Clone)]
-pub struct ProvedZoneTx {
-    pub bundle: ProvedBundle,
+pub struct ProvedBundle {
+    pub bundle: ProvedBalance,
     pub ptxs: Vec<ProvedPartialTx>,
 }
 
-impl ProvedZoneTx {
+impl ProvedBundle {
     fn to_public(&self) -> Vec<PtxPublic> {
-        self.ptxs.iter().map(|p| p.public().unwrap()).collect()
+        self.ptxs.iter().map(|p| p.public.clone()).collect()
     }
 
     fn proofs(&self) -> Vec<risc0_zkvm::Receipt> {
@@ -40,19 +40,19 @@ impl ProvedLedgerTransition {
     pub fn prove(
         ledger: LedgerWitness,
         zone_id: ZoneId,
-        ptxs: Vec<ProvedZoneTx>,
+        bundles: Vec<ProvedBundle>,
         constraints: Vec<ConstraintProof>,
     ) -> Result<Self> {
         let witness = LedgerProofPrivate {
-            bundles: ptxs.iter().map(|p| p.to_public()).collect(),
+            bundles: bundles.iter().map(|p| p.to_public()).collect(),
             ledger,
             id: zone_id,
         };
 
         let mut env = risc0_zkvm::ExecutorEnv::builder();
 
-        for ptx in ptxs {
-            for proof in ptx.proofs() {
+        for bundle in bundles {
+            for proof in bundle.proofs() {
                 env.add_assumption(proof);
             }
         }
