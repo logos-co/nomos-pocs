@@ -37,3 +37,4 @@ fn test_simple_transfer() {
 
     assert!(bundle.balance().is_zero())
 }
+

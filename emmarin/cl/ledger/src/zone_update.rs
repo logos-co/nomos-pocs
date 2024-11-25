@@ -10,47 +10,6 @@ pub struct ProvedUpdateBundle {
 }
 
 impl ProvedUpdateBundle {
-    // pub fn prove(bundle_witness: &BundleWitness) -> Result<Self> {
-    //     // need to show that bundle is balanced.
-    //     // i.e. the sum of ptx balances is 0
-
-    //     let bundle_private = BundlePrivate {
-    //         balances: bundle_witness
-    //             .partials
-    //             .iter()
-    //             .map(|ptx| ptx.balance())
-    //             .collect(),
-    //     };
-
-    //     let env = risc0_zkvm::ExecutorEnv::builder()
-    //         .write(&bundle_private)
-    //         .unwrap()
-    //         .build()
-    //         .unwrap();
-
-    //     let prover = risc0_zkvm::default_prover();
-
-    //     let start_t = std::time::Instant::now();
-
-    //     let opts = risc0_zkvm::ProverOpts::succinct();
-    //     let prove_info = prover
-    //         .prove_with_opts(env, nomos_cl_risc0_proofs::BUNDLE_ELF, &opts)
-    //         .map_err(|_| Error::Risc0ProofFailed)?;
-
-    //     println!(
-    //         "STARK 'bundle' prover time: {:.2?}, total_cycles: {}",
-    //         start_t.elapsed(),
-    //         prove_info.stats.total_cycles
-    //     );
-
-    //     let receipt = prove_info.receipt;
-
-    //     Ok(Self {
-    //         bundle: receipt.journal.decode()?,
-    //         risc0_receipt: receipt,
-    //     })
-    // }
-
     pub fn verify(&self) -> bool {
         let mut consumed_commitments = HashSet::new();
         let mut produced_commitments = HashSet::new();
