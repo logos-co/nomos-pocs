@@ -80,7 +80,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_mrr_push() {
+    fn test_mmr_push() {
         let mut mmr = MMR::new();
         let proof = mmr.push(b"hello");
 
