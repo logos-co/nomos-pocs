@@ -73,6 +73,7 @@ impl NoteWitness {
 
     pub fn commit(&self, tag: &dyn AsRef<[u8]>, nf_pk: NullifierCommitment) -> NoteCommitment {
         let mut hasher = Sha256::new();
+        hasher.update(b"NOMOS_CL_NOTE_CM");
         hasher.update(tag.as_ref());
 
         // COMMIT TO BALANCE

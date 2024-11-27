@@ -4,6 +4,7 @@ pub mod crypto;
 pub mod error;
 pub mod input;
 pub mod merkle;
+pub mod mmr;
 pub mod note;
 pub mod nullifier;
 pub mod output;

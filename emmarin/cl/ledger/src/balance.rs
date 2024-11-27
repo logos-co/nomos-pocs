@@ -1,5 +1,4 @@
 use crate::error::{Error, Result};
-use cl::cl::BundleWitness;
 use ledger_proof_statements::balance::{BalancePrivate, BalancePublic};
 
 #[derive(Debug, Clone)]
@@ -9,20 +8,10 @@ pub struct ProvedBalance {
 }
 
 impl ProvedBalance {
-    pub fn prove(bundle_witness: &BundleWitness) -> Result<Self> {
-        // need to show that bundle is balanced.
-        // i.e. the sum of ptx balances is 0
-
-        let bundle_private = BalancePrivate {
-            balances: bundle_witness
-                .partials
-                .iter()
-                .map(|ptx| ptx.balance())
-                .collect(),
-        };
-
+    pub fn prove(balance_witness: &BalancePrivate) -> Result<Self> {
+        //show that the sum of ptx balances is 0
         let env = risc0_zkvm::ExecutorEnv::builder()
-            .write(&bundle_private)
+            .write(&balance_witness)
             .unwrap()
             .build()
             .unwrap();
