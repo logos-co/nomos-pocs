@@ -2,7 +2,6 @@ use ledger_proof_statements::ptx::{PtxPrivate, PtxPublic};
 
 use crate::error::{Error, Result};
 use cl::cl::{merkle, PartialTxWitness};
-use cl::zone_layer::notes::ZoneId;
 
 #[derive(Debug, Clone)]
 pub struct ProvedPartialTx {
@@ -15,15 +14,11 @@ impl ProvedPartialTx {
         ptx_witness: PartialTxWitness,
         input_cm_paths: Vec<Vec<merkle::PathNode>>,
         cm_roots: Vec<[u8; 32]>,
-        from: Vec<ZoneId>,
-        to: Vec<ZoneId>,
     ) -> Result<ProvedPartialTx> {
         let ptx_private = PtxPrivate {
             ptx: ptx_witness,
             input_cm_paths,
             cm_roots: cm_roots.clone(),
-            from,
-            to,
         };
 
         let env = risc0_zkvm::ExecutorEnv::builder()

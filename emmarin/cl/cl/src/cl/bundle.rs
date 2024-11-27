@@ -1,9 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    cl::{partial_tx::PartialTx, BalanceWitness, PartialTxWitness},
-    zone_layer::notes::ZoneId,
-};
+use crate::{cl::partial_tx::PartialTx, zone_layer::notes::ZoneId};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 
@@ -45,27 +42,10 @@ impl Bundle {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BundleWitness {
-    pub partials: Vec<PartialTxWitness>,
-}
-
-impl BundleWitness {
-    pub fn balance(&self) -> BalanceWitness {
-        BalanceWitness::combine(self.partials.iter().map(|ptx| ptx.balance()), [0u8; 16])
-    }
-
-    // pub fn commit(&self) -> Bundle {
-    //     Bundle {
-    //         partials: Vec::from_iter(self.partials.iter().map(|ptx| ptx.commit())),
-    //     }
-    // }
-}
-
 #[cfg(test)]
 mod test {
     use crate::cl::{
-        balance::UnitBalance,
+        balance::{BalanceWitness, UnitBalance},
         input::InputWitness,
         note::{derive_unit, NoteWitness},
         nullifier::NullifierSecret,
@@ -73,25 +53,35 @@ mod test {
         partial_tx::PartialTxWitness,
     };
 
-    use super::*;
-
     #[test]
     fn test_bundle_balance() {
         let mut rng = rand::thread_rng();
+        let zone_id = [0; 32];
         let (nmo, eth, crv) = (derive_unit("NMO"), derive_unit("ETH"), derive_unit("CRV"));
 
         let nf_a = NullifierSecret::random(&mut rng);
         let nf_b = NullifierSecret::random(&mut rng);
         let nf_c = NullifierSecret::random(&mut rng);
 
-        let nmo_10_utxo = OutputWitness::new(NoteWitness::basic(10, nmo, &mut rng), nf_a.commit());
+        let nmo_10_utxo = OutputWitness::new(
+            NoteWitness::basic(10, nmo, &mut rng),
+            nf_a.commit(),
+            zone_id,
+        );
         let nmo_10_in = InputWitness::from_output(nmo_10_utxo, nf_a);
 
-        let eth_23_utxo = OutputWitness::new(NoteWitness::basic(23, eth, &mut rng), nf_b.commit());
+        let eth_23_utxo = OutputWitness::new(
+            NoteWitness::basic(23, eth, &mut rng),
+            nf_b.commit(),
+            zone_id,
+        );
         let eth_23_in = InputWitness::from_output(eth_23_utxo, nf_b);
 
-        let crv_4840_out =
-            OutputWitness::new(NoteWitness::basic(4840, crv, &mut rng), nf_c.commit());
+        let crv_4840_out = OutputWitness::new(
+            NoteWitness::basic(4840, crv, &mut rng),
+            nf_c.commit(),
+            zone_id,
+        );
 
         let ptx_unbalanced = PartialTxWitness {
             inputs: vec![nmo_10_in, eth_23_in],
@@ -99,13 +89,9 @@ mod test {
             balance_blinding: BalanceWitness::random_blinding(&mut rng),
         };
 
-        let bundle_witness = BundleWitness {
-            partials: vec![ptx_unbalanced.clone()],
-        };
-
-        assert!(!bundle_witness.balance().is_zero());
+        assert!(!ptx_unbalanced.balance().is_zero());
         assert_eq!(
-            bundle_witness.balance().balances,
+            ptx_unbalanced.balance().balances,
             vec![
                 UnitBalance {
                     unit: nmo,
@@ -129,10 +115,12 @@ mod test {
         let nmo_10_out = OutputWitness::new(
             NoteWitness::basic(10, nmo, &mut rng),
             NullifierSecret::random(&mut rng).commit(), // transferring to a random owner
+            zone_id,
         );
         let eth_23_out = OutputWitness::new(
             NoteWitness::basic(23, eth, &mut rng),
             NullifierSecret::random(&mut rng).commit(), // transferring to a random owner
+            zone_id,
         );
 
         let ptx_solved = PartialTxWitness {
@@ -141,11 +129,10 @@ mod test {
             balance_blinding: BalanceWitness::random_blinding(&mut rng),
         };
 
-        let witness = BundleWitness {
-            partials: vec![ptx_unbalanced, ptx_solved],
-        };
+        let bundle_balance =
+            BalanceWitness::combine([ptx_unbalanced.balance(), ptx_solved.balance()], [0; 16]);
 
-        assert!(witness.balance().is_zero());
-        assert_eq!(witness.balance().balances, vec![]);
+        assert!(bundle_balance.is_zero());
+        assert_eq!(bundle_balance.balances, vec![]);
     }
 }

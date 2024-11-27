@@ -20,7 +20,7 @@ pub struct ProvedLedgerTransition {
 // TODO: find a better name
 #[derive(Debug, Clone)]
 pub struct ProvedBundle {
-    pub bundle: ProvedBalance,
+    pub balance: ProvedBalance,
     pub ptxs: Vec<ProvedPartialTx>,
 }
 
@@ -30,7 +30,7 @@ impl ProvedBundle {
     }
 
     fn proofs(&self) -> Vec<risc0_zkvm::Receipt> {
-        let mut proofs = vec![self.bundle.risc0_receipt.clone()];
+        let mut proofs = vec![self.balance.risc0_receipt.clone()];
         proofs.extend(self.ptxs.iter().map(|p| p.risc0_receipt.clone()));
         proofs
     }

@@ -65,10 +65,11 @@ impl MMR {
     }
 
     pub fn commit(&self) -> [u8; 32] {
+        // todo: baggin the peaks
         let mut hasher = Sha256::new();
-        for mrr_root in self.roots.iter() {
-            hasher.update(mrr_root.root);
-            hasher.update(mrr_root.height.to_le_bytes());
+        for mmr_root in self.roots.iter() {
+            hasher.update(mmr_root.root);
+            hasher.update(mmr_root.height.to_le_bytes());
         }
         hasher.finalize().into()
     }

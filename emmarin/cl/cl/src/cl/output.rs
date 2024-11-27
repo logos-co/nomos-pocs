@@ -19,26 +19,35 @@ pub struct Output {
 pub struct OutputWitness {
     pub note: NoteWitness,
     pub nf_pk: NullifierCommitment,
+    pub zone_id: ZoneId,
 }
 
 impl OutputWitness {
-    pub fn new(note: NoteWitness, nf_pk: NullifierCommitment) -> Self {
-        Self { note, nf_pk }
-    }
-
-    pub fn public(note: NoteWitness) -> Self {
-        let nf_pk = NullifierSecret::zero().commit();
-        Self { note, nf_pk }
-    }
-
-    pub fn commit_note(&self, tag: &dyn AsRef<[u8]>) -> NoteCommitment {
-        self.note.commit(tag, self.nf_pk)
-    }
-
-    pub fn commit(&self, zone_id: ZoneId) -> Output {
-        Output {
+    pub fn new(note: NoteWitness, nf_pk: NullifierCommitment, zone_id: ZoneId) -> Self {
+        Self {
+            note,
+            nf_pk,
             zone_id,
-            note_comm: self.commit_note(&zone_id),
+        }
+    }
+
+    pub fn public(note: NoteWitness, zone_id: ZoneId) -> Self {
+        let nf_pk = NullifierSecret::zero().commit();
+        Self {
+            note,
+            nf_pk,
+            zone_id,
+        }
+    }
+
+    pub fn commit_note(&self) -> NoteCommitment {
+        self.note.commit(&self.zone_id, self.nf_pk)
+    }
+
+    pub fn commit(&self) -> Output {
+        Output {
+            zone_id: self.zone_id,
+            note_comm: self.commit_note(),
         }
     }
 }

@@ -24,59 +24,65 @@ pub struct Input {
 pub struct InputWitness {
     pub note: NoteWitness,
     pub nf_sk: NullifierSecret,
+    pub zone_id: ZoneId,
 }
 
 impl InputWitness {
-    pub fn new(note: NoteWitness, nf_sk: NullifierSecret) -> Self {
-        Self { note, nf_sk }
+    pub fn new(note: NoteWitness, nf_sk: NullifierSecret, zone_id: ZoneId) -> Self {
+        Self {
+            note,
+            nf_sk,
+            zone_id,
+        }
     }
 
     pub fn from_output(output: OutputWitness, nf_sk: NullifierSecret) -> Self {
         assert_eq!(nf_sk.commit(), output.nf_pk);
-        Self::new(output.note, nf_sk)
+        Self::new(output.note, nf_sk, output.zone_id)
     }
 
     pub fn public(output: OutputWitness) -> Self {
         let nf_sk = NullifierSecret::zero();
         assert_eq!(nf_sk.commit(), output.nf_pk); // ensure the output was a public UTXO
-        Self::new(output.note, nf_sk)
+        Self::new(output.note, nf_sk, output.zone_id)
     }
 
-    pub fn evolved_nonce(&self, tag: &dyn AsRef<[u8]>, domain: &[u8]) -> Nonce {
+    pub fn evolved_nonce(&self, domain: &[u8]) -> Nonce {
         let mut hasher = Sha256::new();
         hasher.update(b"NOMOS_COIN_EVOLVE");
         hasher.update(domain);
         hasher.update(self.nf_sk.0);
-        hasher.update(self.note.commit(tag, self.nf_sk.commit()).0);
+        hasher.update(self.note.commit(&self.zone_id, self.nf_sk.commit()).0);
 
         let nonce_bytes: [u8; 32] = hasher.finalize().into();
         Nonce::from_bytes(nonce_bytes)
     }
 
-    pub fn evolve_output(&self, tag: &dyn AsRef<[u8]>, domain: &[u8]) -> OutputWitness {
+    pub fn evolve_output(&self, domain: &[u8]) -> OutputWitness {
         OutputWitness {
             note: NoteWitness {
-                nonce: self.evolved_nonce(tag, domain),
+                nonce: self.evolved_nonce(domain),
                 ..self.note
             },
             nf_pk: self.nf_sk.commit(),
+            zone_id: self.zone_id,
         }
     }
 
-    pub fn nullifier(&self, tag: &dyn AsRef<[u8]>) -> Nullifier {
-        Nullifier::new(tag, self.nf_sk, self.note_commitment(tag))
+    pub fn nullifier(&self) -> Nullifier {
+        Nullifier::new(&self.zone_id, self.nf_sk, self.note_commitment())
     }
 
-    pub fn commit(&self, zone_id: ZoneId) -> Input {
+    pub fn commit(&self) -> Input {
         Input {
-            nullifier: self.nullifier(&zone_id),
+            nullifier: self.nullifier(),
             constraint: self.note.constraint,
-            zone_id,
+            zone_id: self.zone_id,
         }
     }
 
-    pub fn note_commitment(&self, tag: &dyn AsRef<[u8]>) -> NoteCommitment {
-        self.note.commit(tag, self.nf_sk.commit())
+    pub fn note_commitment(&self) -> NoteCommitment {
+        self.note.commit(&self.zone_id, self.nf_sk.commit())
     }
 }
 
