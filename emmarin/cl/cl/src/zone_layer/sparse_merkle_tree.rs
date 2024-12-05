@@ -1,6 +1,26 @@
 use std::collections::BTreeSet;
 
 use crate::cl::merkle;
+use lazy_static::lazy_static;
+
+/// absence of element is marked with all 0's
+static ABSENT: [u8; 32] = [0u8; 32];
+
+/// presence of element is marked with all 1's
+static PRESENT: [u8; 32] = [255u8; 32];
+
+lazy_static! {
+    // the roots of empty merkle trees of diffent heights
+    // i.e. all leafs are ABSENT
+    static ref EMPTY_ROOTS: [[u8; 32]; 256] = {
+        let mut roots = [ABSENT; 256];
+        for h in 1..256 {
+            roots[h] = merkle::node(roots[h - 1], roots[h - 1]);
+        }
+
+        roots
+    };
+}
 
 pub fn sparse_root(elems: &BTreeSet<[u8; 32]>) -> [u8; 32] {
     sparse_root_rec(0, elems)
@@ -12,7 +32,7 @@ fn sparse_root_rec(prefix: u8, elems: &BTreeSet<[u8; 32]>) -> [u8; 32] {
     }
     if prefix == 255 {
         assert_eq!(elems.len(), 1);
-        return merkle::leaf(&[255u8; 32]); // presence of element is marked with all 1's
+        return PRESENT;
     }
     // partition the elements
     let (left, right): (BTreeSet<_>, BTreeSet<_>) = elems.iter().partition(|e| !bit(prefix, **e));
@@ -58,11 +78,7 @@ pub fn sparse_path(elem: [u8; 32], elems: &BTreeSet<[u8; 32]>) -> Vec<merkle::Pa
 }
 
 fn empty_tree_root(height: u8) -> [u8; 32] {
-    let mut root = merkle::leaf(&[0u8; 32]);
-    for _ in 0..height {
-        root = merkle::node(root, root);
-    }
-    root
+    EMPTY_ROOTS[height as usize]
 }
 
 fn bit(idx: u8, elem: [u8; 32]) -> bool {
@@ -84,16 +100,13 @@ mod tests {
     fn test_sparse_path() {
         let elems = BTreeSet::from_iter(std::iter::repeat_with(random_hash).take(10));
 
-        let one = merkle::leaf(&[255u8; 32]);
-        let zero = merkle::leaf(&[0u8; 32]);
-
         let root = sparse_root(&elems);
 
         // membership proofs
         for e in elems.iter() {
             let path = sparse_path(*e, &elems);
             assert_eq!(path.len(), 255);
-            assert_eq!(merkle::path_root(one, &path), root);
+            assert_eq!(merkle::path_root(PRESENT, &path), root);
         }
 
         // non-membership proofs
@@ -102,7 +115,7 @@ mod tests {
             let path = sparse_path(elem, &elems);
             assert!(!elems.contains(&elem));
             assert_eq!(path.len(), 255);
-            assert_eq!(merkle::path_root(zero, &path), root);
+            assert_eq!(merkle::path_root(ABSENT, &path), root);
         }
     }
 
@@ -112,8 +125,7 @@ mod tests {
 
         let path = sparse_path([0u8; 32], &BTreeSet::new());
 
-        let zero = merkle::leaf(&[0u8; 32]);
-        assert_eq!(merkle::path_root(zero, &path), root);
+        assert_eq!(merkle::path_root(ABSENT, &path), root);
 
         for (h, node) in path.into_iter().enumerate() {
             match node {
@@ -134,7 +146,7 @@ mod tests {
         //     / \ 0 subtree
         //    / \ 0 subtree
         //   1  0
-        let mut expected_root = merkle::leaf(&[255u8; 32]);
+        let mut expected_root = PRESENT;
         for h in 0..=254 {
             expected_root = merkle::node(expected_root, empty_tree_root(h))
         }
@@ -152,7 +164,7 @@ mod tests {
         // 0 /\
         //  0 /\
         //   0 1
-        let mut expected_root = merkle::leaf(&[255u8; 32]);
+        let mut expected_root = PRESENT;
         for h in 0..=254 {
             expected_root = merkle::node(empty_tree_root(h), expected_root)
         }
@@ -183,7 +195,7 @@ mod tests {
         //    0 ...
         //       \
         //       1
-        let mut expected_root = merkle::leaf(&[255u8; 32]);
+        let mut expected_root = PRESENT;
         for h in 0..=253 {
             expected_root = merkle::node(empty_tree_root(h), expected_root)
         }
@@ -210,7 +222,7 @@ mod tests {
         //  /\0
         // 0 1
 
-        let mut expected_root = merkle::leaf(&[255u8; 32]);
+        let mut expected_root = PRESENT;
         for h in 0..=254 {
             if h % 2 == 0 {
                 expected_root = merkle::node(empty_tree_root(h), expected_root)
@@ -232,12 +244,12 @@ mod tests {
         //  /\0 0 /\
         // 1 0   0 1
 
-        let mut left_root = merkle::leaf(&[255u8; 32]);
+        let mut left_root = PRESENT;
         for h in 0..=253 {
             left_root = merkle::node(left_root, empty_tree_root(h))
         }
 
-        let mut right_root = merkle::leaf(&[255u8; 32]);
+        let mut right_root = PRESENT;
         for h in 0..=253 {
             right_root = merkle::node(empty_tree_root(h), right_root)
         }
@@ -249,32 +261,31 @@ mod tests {
     #[test]
     fn test_bit() {
         for i in 0..=255 {
-            assert_eq!(bit(i, [0u8; 32]), false, "{}", i)
+            assert!(!bit(i, [0u8; 32]))
         }
 
         for i in 0..=255 {
-            assert_eq!(bit(i, [255u8; 32]), true, "{}", i)
+            assert!(bit(i, [255u8; 32]))
         }
 
         for i in 0..=255 {
-            assert_eq!(bit(i, [85u8; 32]), i % 2 == 0, "{}", i)
+            assert_eq!(bit(i, [85u8; 32]), i % 2 == 0)
         }
     }
     #[test]
     fn test_empty_tree_root() {
-        let zero = merkle::leaf(&[0u8; 32]);
-        assert_eq!(empty_tree_root(0), zero);
+        assert_eq!(empty_tree_root(0), ABSENT);
 
-        assert_eq!(empty_tree_root(1), merkle::node(zero, zero));
+        assert_eq!(empty_tree_root(1), merkle::node(ABSENT, ABSENT));
         assert_eq!(
             empty_tree_root(2),
-            merkle::node(merkle::node(zero, zero), merkle::node(zero, zero)),
+            merkle::node(merkle::node(ABSENT, ABSENT), merkle::node(ABSENT, ABSENT)),
         );
         assert_eq!(
             empty_tree_root(3),
             merkle::node(
-                merkle::node(merkle::node(zero, zero), merkle::node(zero, zero)),
-                merkle::node(merkle::node(zero, zero), merkle::node(zero, zero)),
+                merkle::node(merkle::node(ABSENT, ABSENT), merkle::node(ABSENT, ABSENT)),
+                merkle::node(merkle::node(ABSENT, ABSENT), merkle::node(ABSENT, ABSENT)),
             )
         );
     }
