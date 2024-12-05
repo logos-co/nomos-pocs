@@ -2,11 +2,11 @@ use std::collections::BTreeSet;
 
 use crate::cl::merkle;
 
-fn smt_root(elems: &BTreeSet<[u8; 32]>) -> [u8; 32] {
-    smt_root_rec(0, elems)
+pub fn sparse_root(elems: &BTreeSet<[u8; 32]>) -> [u8; 32] {
+    sparse_root_rec(0, elems)
 }
 
-fn smt_root_rec(prefix: u8, elems: &BTreeSet<[u8; 32]>) -> [u8; 32] {
+fn sparse_root_rec(prefix: u8, elems: &BTreeSet<[u8; 32]>) -> [u8; 32] {
     if elems.is_empty() {
         return empty_tree_root(255 - prefix);
     }
@@ -18,13 +18,13 @@ fn smt_root_rec(prefix: u8, elems: &BTreeSet<[u8; 32]>) -> [u8; 32] {
     let (left, right): (BTreeSet<_>, BTreeSet<_>) = elems.iter().partition(|e| !bit(prefix, **e));
 
     merkle::node(
-        smt_root_rec(prefix + 1, &left),
-        smt_root_rec(prefix + 1, &right),
+        sparse_root_rec(prefix + 1, &left),
+        sparse_root_rec(prefix + 1, &right),
     )
 }
 
-fn smt_path(elem: [u8; 32], elems: &BTreeSet<[u8; 32]>) -> Vec<merkle::PathNode> {
-    fn stm_path_rec(
+pub fn sparse_path(elem: [u8; 32], elems: &BTreeSet<[u8; 32]>) -> Vec<merkle::PathNode> {
+    fn sparse_path_rec(
         prefix: u8,
         elem: [u8; 32],
         elems: &BTreeSet<[u8; 32]>,
@@ -38,15 +38,15 @@ fn smt_path(elem: [u8; 32], elems: &BTreeSet<[u8; 32]>) -> Vec<merkle::PathNode>
 
         match bit(prefix, elem) {
             true => {
-                let left_root = smt_root_rec(prefix + 1, &left);
-                let mut path = stm_path_rec(prefix + 1, elem, &right);
+                let left_root = sparse_root_rec(prefix + 1, &left);
+                let mut path = sparse_path_rec(prefix + 1, elem, &right);
 
                 path.push(merkle::PathNode::Left(left_root));
                 path
             }
             false => {
-                let right_root = smt_root_rec(prefix + 1, &right);
-                let mut path = stm_path_rec(prefix + 1, elem, &left);
+                let right_root = sparse_root_rec(prefix + 1, &right);
+                let mut path = sparse_path_rec(prefix + 1, elem, &left);
 
                 path.push(merkle::PathNode::Right(right_root));
                 path
@@ -54,7 +54,7 @@ fn smt_path(elem: [u8; 32], elems: &BTreeSet<[u8; 32]>) -> Vec<merkle::PathNode>
         }
     }
 
-    stm_path_rec(0, elem, elems)
+    sparse_path_rec(0, elem, elems)
 }
 
 fn empty_tree_root(height: u8) -> [u8; 32] {
@@ -74,22 +74,24 @@ fn bit(idx: u8, elem: [u8; 32]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use monotree::utils::random_hash;
-
     use super::*;
 
+    fn random_hash() -> [u8; 32] {
+        rand::random()
+    }
+
     #[test]
-    fn test_smt_path() {
+    fn test_sparse_path() {
         let elems = BTreeSet::from_iter(std::iter::repeat_with(random_hash).take(10));
 
         let one = merkle::leaf(&[255u8; 32]);
         let zero = merkle::leaf(&[0u8; 32]);
 
-        let root = smt_root(&elems);
+        let root = sparse_root(&elems);
 
         // membership proofs
         for e in elems.iter() {
-            let path = smt_path(*e, &elems);
+            let path = sparse_path(*e, &elems);
             assert_eq!(path.len(), 255);
             assert_eq!(merkle::path_root(one, &path), root);
         }
@@ -97,7 +99,7 @@ mod tests {
         // non-membership proofs
         for _ in 0..10 {
             let elem = random_hash();
-            let path = smt_path(elem, &elems);
+            let path = sparse_path(elem, &elems);
             assert!(!elems.contains(&elem));
             assert_eq!(path.len(), 255);
             assert_eq!(merkle::path_root(zero, &path), root);
@@ -105,10 +107,10 @@ mod tests {
     }
 
     #[test]
-    fn test_smt_non_membership_in_empty_tree() {
-        let root = smt_root(&BTreeSet::new());
+    fn test_sparse_non_membership_in_empty_tree() {
+        let root = sparse_root(&BTreeSet::new());
 
-        let path = smt_path([0u8; 32], &BTreeSet::new());
+        let path = sparse_path([0u8; 32], &BTreeSet::new());
 
         let zero = merkle::leaf(&[0u8; 32]);
         assert_eq!(merkle::path_root(zero, &path), root);
@@ -123,8 +125,8 @@ mod tests {
     }
 
     #[test]
-    fn test_smt_root_left_most_occupied() {
-        let root = smt_root(&BTreeSet::from_iter([[0u8; 32]]));
+    fn test_sparse_root_left_most_occupied() {
+        let root = sparse_root(&BTreeSet::from_iter([[0u8; 32]]));
 
         // We are constructing the tree:
         //
@@ -141,8 +143,8 @@ mod tests {
     }
 
     #[test]
-    fn test_smt_root_right_most_occupied() {
-        let root = smt_root(&BTreeSet::from_iter([[255u8; 32]]));
+    fn test_sparse_root_right_most_occupied() {
+        let root = sparse_root(&BTreeSet::from_iter([[255u8; 32]]));
 
         // We are constructing the tree:
         //
@@ -159,7 +161,7 @@ mod tests {
     }
 
     #[test]
-    fn test_smt_root_middle_elem() {
+    fn test_sparse_root_middle_elem() {
         let elem = {
             let mut x = [255u8; 32];
             x[0] = 254;
@@ -170,7 +172,7 @@ mod tests {
             assert!(bit(i, elem));
         }
 
-        let root = smt_root(&BTreeSet::from_iter([elem]));
+        let root = sparse_root(&BTreeSet::from_iter([elem]));
 
         // We are constructing the tree:
         //    root
@@ -191,13 +193,13 @@ mod tests {
     }
 
     #[test]
-    fn test_smt_root_middle_weave_elem() {
+    fn test_sparse_root_middle_weave_elem() {
         let elem = [85u8; 32];
         for i in 0..=255 {
             assert_eq!(bit(i, elem), i % 2 == 0);
         }
 
-        let root = smt_root(&BTreeSet::from_iter([elem]));
+        let root = sparse_root(&BTreeSet::from_iter([elem]));
 
         // We are constructing the tree:
         //  /\
@@ -220,8 +222,8 @@ mod tests {
     }
 
     #[test]
-    fn test_smt_multiple_elems() {
-        let root = smt_root(&BTreeSet::from_iter([[0u8; 32], [255u8; 32]]));
+    fn test_sparse_multiple_elems() {
+        let root = sparse_root(&BTreeSet::from_iter([[0u8; 32], [255u8; 32]]));
 
         // We are constructing the tree:
         //     root
