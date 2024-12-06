@@ -1,7 +1,13 @@
-use crate::cl::{merkle, mmr::MMR, Nullifier};
+use std::collections::BTreeSet;
+
+use crate::cl::{
+    merkle,
+    mmr::{MMRProof, MMR},
+    NoteCommitment, Nullifier,
+};
 use serde::{Deserialize, Serialize};
 
-const MAX_NULL: usize = 256;
+use super::sparse_merkle_tree;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Ledger {
@@ -12,23 +18,59 @@ pub struct Ledger {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LedgerWitness {
     pub commitments: MMR,
-    pub nullifiers: Vec<Nullifier>,
+    pub nf_root: [u8; 32],
 }
 
 impl LedgerWitness {
     pub fn commit(&self) -> Ledger {
         Ledger {
             cm_root: self.commitments.commit(),
+            nf_root: self.nf_root,
+        }
+    }
+
+    pub fn assert_nf_update(&mut self, nf: Nullifier, path: &[merkle::PathNode]) {
+        // verify that the path corresponds to the nullifier
+        assert_eq!(sparse_merkle_tree::path_key(path), nf.0);
+
+        // verify that the nullifier was not already present
+        assert_eq!(
+            merkle::path_root(sparse_merkle_tree::ABSENT, path),
+            self.nf_root
+        );
+
+        // update the nullifer root with the nullifier inserted into the tree
+        self.nf_root = merkle::path_root(sparse_merkle_tree::PRESENT, path);
+    }
+}
+
+pub struct LedgerState {
+    commitments: MMR,
+    nullifiers: BTreeSet<[u8; 32]>,
+}
+
+impl LedgerState {
+    pub fn to_witness(&self) -> LedgerWitness {
+        LedgerWitness {
+            commitments: self.commitments.clone(),
             nf_root: self.nf_root(),
         }
     }
 
     pub fn nf_root(&self) -> [u8; 32] {
-        let bytes = self
-            .nullifiers
-            .iter()
-            .map(|i| i.as_bytes().to_vec())
-            .collect::<Vec<_>>();
-        merkle::root(merkle::padded_leaves::<MAX_NULL>(&bytes))
+        sparse_merkle_tree::sparse_root(&self.nullifiers)
+    }
+
+    pub fn add_commitment(&mut self, cm: NoteCommitment) -> MMRProof {
+        self.commitments.push(&cm.0)
+    }
+
+    pub fn add_nullifier(&mut self, nf: Nullifier) -> Vec<merkle::PathNode> {
+        let path = sparse_merkle_tree::sparse_path(nf.0, &self.nullifiers);
+
+        assert!(!self.nullifiers.contains(&nf.0));
+        self.nullifiers.insert(nf.0);
+
+        path
     }
 }
