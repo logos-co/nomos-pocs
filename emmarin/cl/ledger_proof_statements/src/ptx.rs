@@ -13,6 +13,6 @@ pub struct PtxPublic {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PtxPrivate {
     pub ptx: PartialTxWitness,
-    pub input_cm_paths: Vec<MMRProof>,
+    pub input_cm_proofs: Vec<MMRProof>,
     pub cm_mmr: MMR,
 }
