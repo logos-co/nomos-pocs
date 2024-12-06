@@ -18,6 +18,13 @@ pub struct MMRProof {
     pub path: Vec<merkle::PathNode>,
 }
 
+impl MMRProof {
+    pub fn root(&self, elem: &[u8]) -> [u8; 32] {
+        let leaf = merkle::leaf(elem);
+        merkle::path_root(leaf, &self.path)
+    }
+}
+
 impl MMR {
     pub fn new() -> Self {
         Self::default()
@@ -52,8 +59,7 @@ impl MMR {
 
     pub fn verify_proof(&self, elem: &[u8], proof: &MMRProof) -> bool {
         let path_len = proof.path.len();
-        let leaf = merkle::leaf(elem);
-        let root = merkle::path_root(leaf, &proof.path);
+        let root = proof.root(elem);
 
         for mmr_root in self.roots.iter() {
             if mmr_root.height == (path_len + 1) as u8 {

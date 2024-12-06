@@ -15,13 +15,11 @@ pub struct ProvedPartialTx {
 impl ProvedPartialTx {
     pub fn prove(
         ptx_witness: PartialTxWitness,
-        input_cm_paths: Vec<MMRProof>,
-        cm_mmr: MMR,
+        input_cm_proofs: Vec<(MMR, MMRProof)>,
     ) -> Result<ProvedPartialTx> {
         let ptx_private = PtxPrivate {
             ptx: ptx_witness,
-            input_cm_paths,
-            cm_mmr: cm_mmr.clone(),
+            input_cm_proofs,
         };
 
         let env = risc0_zkvm::ExecutorEnv::builder()

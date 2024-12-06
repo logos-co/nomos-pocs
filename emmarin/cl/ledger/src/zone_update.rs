@@ -27,7 +27,6 @@ impl ProvedUpdateBundle {
             }
         }
 
-        println!("{:?} | {:?}", expected_zones, actual_zones);
         for (bundle, expected) in expected_zones.iter() {
             if let Some(actual) = actual_zones.get(bundle) {
                 if actual != expected {

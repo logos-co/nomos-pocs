@@ -1,7 +1,10 @@
 use cl::{
     cl::{
-        balance::Unit, mmr::MMRProof, note::derive_unit, BalanceWitness, InputWitness, NoteWitness,
-        NullifierCommitment, NullifierSecret, OutputWitness, PartialTxWitness,
+        balance::Unit,
+        mmr::{MMRProof, MMR},
+        note::derive_unit,
+        BalanceWitness, InputWitness, NoteWitness, NullifierCommitment, NullifierSecret,
+        OutputWitness, PartialTxWitness,
     },
     zone_layer::{
         ledger::LedgerState,
@@ -48,7 +51,7 @@ fn receive_utxo(note: NoteWitness, nf_pk: NullifierCommitment, zone_id: ZoneId) 
 
 fn cross_transfer_transition(
     input: InputWitness,
-    input_path: MMRProof,
+    input_proof: (MMR, MMRProof),
     to: User,
     amount: u64,
     zone_a: ZoneId,
@@ -74,8 +77,7 @@ fn cross_transfer_transition(
         outputs: vec![transfer, change],
         balance_blinding: BalanceWitness::random_blinding(&mut rng),
     };
-    let proved_ptx =
-        ProvedPartialTx::prove(ptx_witness.clone(), vec![input_path], ledger_a.cm_mmr()).unwrap();
+    let proved_ptx = ProvedPartialTx::prove(ptx_witness.clone(), vec![input_proof]).unwrap();
 
     let balance = ProvedBalance::prove(&BalancePrivate {
         balances: vec![ptx_witness.balance()],
@@ -141,7 +143,8 @@ fn zone_update_cross() {
     let alice_input = InputWitness::from_output(utxo, alice.sk());
 
     let mut ledger_a = LedgerState::default();
-    let input_cm_path = ledger_a.add_commitment(utxo.commit_note());
+    let alice_cm_path = ledger_a.add_commitment(utxo.commit_note());
+    let alice_cm_proof = (ledger_a.commitments.clone(), alice_cm_path);
 
     let ledger_b = LedgerState::default();
 
@@ -160,7 +163,7 @@ fn zone_update_cross() {
 
     let (ledger_a_transition, ledger_b_transition) = cross_transfer_transition(
         alice_input,
-        input_cm_path,
+        alice_cm_proof,
         bob,
         8,
         zone_a_id,

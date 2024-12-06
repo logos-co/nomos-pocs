@@ -5,8 +5,7 @@ use cl::{
 use ledger_proof_statements::{
     balance::BalancePublic,
     constraint::ConstraintPublic,
-    ledger::{CrossZoneBundle, LedgerProofPrivate, LedgerProofPublic},
-    ptx::PtxPublic,
+    ledger::{CrossZoneBundle, LedgerProofPrivate, LedgerProofPublic, LedgerPtxWitness},
 };
 use risc0_zkvm::{guest::env, serde};
 
@@ -21,13 +20,6 @@ fn main() {
     let mut cross_bundles = vec![];
     let mut outputs = vec![];
 
-    let roots = ledger
-        .commitments
-        .roots
-        .iter()
-        .map(|r| r.root)
-        .collect::<Vec<_>>();
-
     for bundle in bundles {
         let balance_public = BalancePublic {
             balances: bundle.partials.iter().map(|bundle_ptx| bundle_ptx.ptx.ptx.balance).collect::<Vec<_>>(),
@@ -40,14 +32,13 @@ fn main() {
         )
         .unwrap();
 
-        for ptx in &bundle {
-            let (new_ledger, ptx_outputs) = process_ptx(ledger, ptx, id, &roots);
-            ledger = new_ledger;
+        for ptx in &bundle.partials {
+            let ptx_outputs = process_ptx(&mut ledger, ptx, id);
             outputs.extend(ptx_outputs);
         }
 
         let bundle = Bundle {
-            partials: bundle.into_iter().map(|ptx| ptx.ptx).collect(),
+            partials: bundle.partials.into_iter().map(|ptx_witness| ptx_witness.ptx.ptx).collect(),
         };
         let zones = bundle.zones();
         if zones.len() > 1 {
@@ -68,37 +59,40 @@ fn main() {
 }
 
 fn process_ptx(
-    mut ledger: LedgerWitness,
+    ledger: &mut LedgerWitness,
     ptx_witness: &LedgerPtxWitness,
     zone_id: ZoneId,
-    roots: &[[u8; 32]],
-) -> (LedgerWitness, Vec<Output>) {
+) -> Vec<Output> {
+    let ptx = &ptx_witness.ptx;
+    let nf_proofs = &ptx_witness.nf_proofs;
+
     // always verify the ptx to ensure outputs were derived with the correct zone id
     env::verify(nomos_cl_risc0_proofs::PTX_ID, &serde::to_vec(&ptx).unwrap()).unwrap();
 
-    PtxWitness { ref ptx, ref nf_proofs } = ptx_witness;
-
-    assert_eq!(ptx.cm_mmr, roots); // we force commitment proofs w.r.t. latest MMR
+    
     assert_eq!(ptx.ptx.inputs.len(), nf_proofs.len());
+    assert_eq!(ptx.ptx.inputs.len(), ptx.cm_mmr.len());
 
-    for (input, nf_proof) in ptx.ptx.inputs.iter().zip(nf_proofs) {
+    for ((input, nf_proof), cm_mmr) in ptx.ptx.inputs.iter().zip(nf_proofs).zip(ptx.cm_mmr.iter()) {
         if input.zone_id != zone_id {
             continue;
         }
+        
+        assert_eq!(cm_mmr, &ledger.commitments); // we force commitment proofs w.r.t. latest MMR
 
         ledger.assert_nf_update(input.nullifier, nf_proof);
 
         env::verify(
             input.constraint.0,
             &serde::to_vec(&ConstraintPublic {
-                ptx_root: ptx.root(),
+                ptx_root: ptx.ptx.root(),
                 nf: input.nullifier,
             }).unwrap(),
         ).unwrap();
     }
 
     let mut outputs = vec![];
-    for output in &ptx.outputs {
+    for output in &ptx.ptx.outputs {
         if output.zone_id != zone_id {
             continue;
         }
@@ -107,5 +101,5 @@ fn process_ptx(
         outputs.push(*output);
     }
 
-    (ledger, outputs)
+    outputs
 }
