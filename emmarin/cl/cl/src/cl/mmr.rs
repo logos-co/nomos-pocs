@@ -2,7 +2,7 @@ use crate::cl::merkle;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct MMR {
     pub roots: Vec<Root>,
 }
@@ -20,7 +20,7 @@ pub struct MMRProof {
 
 impl MMR {
     pub fn new() -> Self {
-        Self { roots: vec![] }
+        Self::default()
     }
 
     pub fn push(&mut self, elem: &[u8]) -> MMRProof {

@@ -22,7 +22,7 @@ impl ProvedUpdateBundle {
                 expected_zones.insert(bundle.id, HashSet::from_iter(bundle.zones.clone()));
                 actual_zones
                     .entry(bundle.id)
-                    .or_insert_with(|| HashSet::new())
+                    .or_insert_with(HashSet::new)
                     .insert(proof.public.id);
             }
         }

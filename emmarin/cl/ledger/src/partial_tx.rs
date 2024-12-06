@@ -1,7 +1,10 @@
 use ledger_proof_statements::ptx::{PtxPrivate, PtxPublic};
 
 use crate::error::{Error, Result};
-use cl::cl::{merkle, PartialTxWitness};
+use cl::cl::{
+    mmr::{MMRProof, MMR},
+    PartialTxWitness,
+};
 
 #[derive(Debug, Clone)]
 pub struct ProvedPartialTx {
@@ -12,13 +15,13 @@ pub struct ProvedPartialTx {
 impl ProvedPartialTx {
     pub fn prove(
         ptx_witness: PartialTxWitness,
-        input_cm_paths: Vec<Vec<merkle::PathNode>>,
-        cm_roots: Vec<[u8; 32]>,
+        input_cm_paths: Vec<MMRProof>,
+        cm_mmr: MMR,
     ) -> Result<ProvedPartialTx> {
         let ptx_private = PtxPrivate {
             ptx: ptx_witness,
             input_cm_paths,
-            cm_roots: cm_roots.clone(),
+            cm_mmr: cm_mmr.clone(),
         };
 
         let env = risc0_zkvm::ExecutorEnv::builder()

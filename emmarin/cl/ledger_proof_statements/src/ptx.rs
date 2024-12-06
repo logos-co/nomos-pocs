@@ -1,5 +1,4 @@
 use cl::cl::{
-    merkle,
     mmr::{MMRProof, MMR},
     PartialTx, PartialTxWitness,
 };

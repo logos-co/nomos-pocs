@@ -29,13 +29,12 @@ impl Bundle {
             .collect()
     }
 
-    ///
     pub fn id(&self) -> BundleId {
         // TODO: change to merkle root
         let mut hasher = Sha256::new();
         hasher.update(b"NOMOS_CL_BUNDLE_ID");
         for ptx in &self.partials {
-            hasher.update(&ptx.root().0);
+            hasher.update(ptx.root().0);
         }
 
         BundleId(hasher.finalize().into())

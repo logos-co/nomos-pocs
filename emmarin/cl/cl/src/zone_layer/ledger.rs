@@ -39,6 +39,7 @@ impl LedgerWitness {
     }
 }
 
+#[derive(Default, Clone)]
 pub struct LedgerState {
     commitments: MMR,
     nullifiers: BTreeSet<[u8; 32]>,
@@ -50,6 +51,10 @@ impl LedgerState {
             commitments: self.commitments.clone(),
             nf_root: self.nf_root(),
         }
+    }
+
+    pub fn cm_mmr(&self) -> MMR {
+        self.commitments.clone()
     }
 
     pub fn nf_root(&self) -> [u8; 32] {

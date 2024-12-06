@@ -1,6 +1,5 @@
-use ledger_proof_statements::{
-    ledger::{LedgerProofPrivate, LedgerProofPublic},
-    ptx::PtxPublic,
+use ledger_proof_statements::ledger::{
+    LedgerBundleWitness, LedgerProofPrivate, LedgerProofPublic, LedgerPtxWitness,
 };
 
 use crate::{
@@ -9,7 +8,7 @@ use crate::{
     error::{Error, Result},
     partial_tx::ProvedPartialTx,
 };
-use cl::zone_layer::{ledger::LedgerWitness, notes::ZoneId};
+use cl::zone_layer::{ledger::LedgerState, notes::ZoneId};
 
 #[derive(Debug, Clone)]
 pub struct ProvedLedgerTransition {
@@ -25,10 +24,6 @@ pub struct ProvedBundle {
 }
 
 impl ProvedBundle {
-    fn to_public(&self) -> Vec<PtxPublic> {
-        self.ptxs.iter().map(|p| p.public.clone()).collect()
-    }
-
     fn proofs(&self) -> Vec<risc0_zkvm::Receipt> {
         let mut proofs = vec![self.balance.risc0_receipt.clone()];
         proofs.extend(self.ptxs.iter().map(|p| p.risc0_receipt.clone()));
@@ -38,16 +33,37 @@ impl ProvedBundle {
 
 impl ProvedLedgerTransition {
     pub fn prove(
-        ledger: LedgerWitness,
+        mut ledger: LedgerState,
         zone_id: ZoneId,
         bundles: Vec<ProvedBundle>,
         constraints: Vec<ConstraintProof>,
     ) -> Result<Self> {
-        let witness = LedgerProofPrivate {
-            bundles: bundles.iter().map(|p| p.to_public()).collect(),
-            ledger,
+        let mut witness = LedgerProofPrivate {
+            bundles: Vec::new(),
+            ledger: ledger.to_witness(),
             id: zone_id,
         };
+
+        // prepare the sparse merkle tree nullifier proofs
+        for bundle in &bundles {
+            let mut partials = Vec::new();
+
+            for ptx in &bundle.ptxs {
+                let mut nf_proofs = Vec::new();
+
+                for input in &ptx.public.ptx.inputs {
+                    let nf_proof = ledger.add_nullifier(input.nullifier);
+                    nf_proofs.push(nf_proof);
+                }
+
+                partials.push(LedgerPtxWitness {
+                    ptx: ptx.public.clone(),
+                    nf_proofs,
+                });
+            }
+
+            witness.bundles.push(LedgerBundleWitness { partials })
+        }
 
         let mut env = risc0_zkvm::ExecutorEnv::builder();
 
