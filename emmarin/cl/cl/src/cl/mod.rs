@@ -9,6 +9,7 @@ pub mod note;
 pub mod nullifier;
 pub mod output;
 pub mod partial_tx;
+pub mod sparse_merkle;
 
 pub use balance::{Balance, BalanceWitness};
 pub use bundle::Bundle;

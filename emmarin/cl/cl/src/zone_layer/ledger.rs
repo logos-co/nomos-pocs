@@ -3,11 +3,9 @@ use std::collections::BTreeSet;
 use crate::cl::{
     merkle,
     mmr::{MMRProof, MMR},
-    NoteCommitment, Nullifier,
+    sparse_merkle, NoteCommitment, Nullifier,
 };
 use serde::{Deserialize, Serialize};
-
-use super::sparse_merkle_tree;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Ledger {
@@ -31,16 +29,13 @@ impl LedgerWitness {
 
     pub fn assert_nf_update(&mut self, nf: Nullifier, path: &[merkle::PathNode]) {
         // verify that the path corresponds to the nullifier
-        assert_eq!(sparse_merkle_tree::path_key(path), nf.0);
+        assert_eq!(sparse_merkle::path_key(path), nf.0);
 
         // verify that the nullifier was not already present
-        assert_eq!(
-            merkle::path_root(sparse_merkle_tree::ABSENT, path),
-            self.nf_root
-        );
+        assert_eq!(merkle::path_root(sparse_merkle::ABSENT, path), self.nf_root);
 
         // update the nullifer root with the nullifier inserted into the tree
-        self.nf_root = merkle::path_root(sparse_merkle_tree::PRESENT, path);
+        self.nf_root = merkle::path_root(sparse_merkle::PRESENT, path);
     }
 }
 
@@ -58,7 +53,7 @@ impl LedgerState {
     }
 
     pub fn nf_root(&self) -> [u8; 32] {
-        sparse_merkle_tree::sparse_root(&self.nullifiers)
+        sparse_merkle::sparse_root(&self.nullifiers)
     }
 
     pub fn add_commitment(&mut self, cm: NoteCommitment) -> MMRProof {
@@ -66,7 +61,7 @@ impl LedgerState {
     }
 
     pub fn add_nullifier(&mut self, nf: Nullifier) -> Vec<merkle::PathNode> {
-        let path = sparse_merkle_tree::sparse_path(nf.0, &self.nullifiers);
+        let path = sparse_merkle::sparse_path(nf.0, &self.nullifiers);
 
         assert!(!self.nullifiers.contains(&nf.0));
         self.nullifiers.insert(nf.0);

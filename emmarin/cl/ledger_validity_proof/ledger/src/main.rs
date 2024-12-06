@@ -30,8 +30,9 @@ fn main() {
 
     for bundle in bundles {
         let balance_public = BalancePublic {
-            balances: bundle.iter().map(|ptx| ptx.ptx.balance).collect::<Vec<_>>(),
+            balances: bundle.partials.iter().map(|bundle_ptx| bundle_ptx.ptx.ptx.balance).collect::<Vec<_>>(),
         };
+
         // verify bundle is balanced
         env::verify(
             nomos_cl_risc0_proofs::BALANCE_ID,
@@ -68,41 +69,42 @@ fn main() {
 
 fn process_ptx(
     mut ledger: LedgerWitness,
-    ptx: &PtxPublic,
+    ptx_witness: &LedgerPtxWitness,
     zone_id: ZoneId,
     roots: &[[u8; 32]],
 ) -> (LedgerWitness, Vec<Output>) {
     // always verify the ptx to ensure outputs were derived with the correct zone id
     env::verify(nomos_cl_risc0_proofs::PTX_ID, &serde::to_vec(&ptx).unwrap()).unwrap();
 
-    let cm_roots = &ptx.cm_roots;
-    let ptx = &ptx.ptx;
+    PtxWitness { ref ptx, ref nf_proofs } = ptx_witness;
 
-    let mut outputs = vec![];
+    assert_eq!(ptx.cm_mmr, roots); // we force commitment proofs w.r.t. latest MMR
+    assert_eq!(ptx.ptx.inputs.len(), nf_proofs.len());
 
-    for (input, input_cm_root) in ptx.inputs.iter().zip(cm_roots) {
-        if input.zone_id == zone_id {
-            assert!(roots.contains(input_cm_root));
-            assert!(!ledger.nullifiers.contains(&input.nullifier));
-            ledger.nullifiers.push(input.nullifier);
-
-            env::verify(
-                input.constraint.0,
-                &serde::to_vec(&ConstraintPublic {
-                    ptx_root: ptx.root(),
-                    nf: input.nullifier,
-                })
-                .unwrap(),
-            )
-            .unwrap();
+    for (input, nf_proof) in ptx.ptx.inputs.iter().zip(nf_proofs) {
+        if input.zone_id != zone_id {
+            continue;
         }
+
+        ledger.assert_nf_update(input.nullifier, nf_proof);
+
+        env::verify(
+            input.constraint.0,
+            &serde::to_vec(&ConstraintPublic {
+                ptx_root: ptx.root(),
+                nf: input.nullifier,
+            }).unwrap(),
+        ).unwrap();
     }
 
+    let mut outputs = vec![];
     for output in &ptx.outputs {
-        if output.zone_id == zone_id {
-            ledger.commitments.push(&output.note_comm.0);
-            outputs.push(*output);
+        if output.zone_id != zone_id {
+            continue;
         }
+
+        ledger.commitments.push(&output.note_comm.0);
+        outputs.push(*output);
     }
 
     (ledger, outputs)
