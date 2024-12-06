@@ -4,7 +4,6 @@ use cl::{
 };
 use ledger_proof_statements::{
     balance::BalancePublic,
-    constraint::ConstraintPublic,
     ledger::{CrossZoneBundle, LedgerProofPrivate, LedgerProofPublic, LedgerPtxWitness},
 };
 use risc0_zkvm::{guest::env, serde};
@@ -81,14 +80,6 @@ fn process_ptx(
         assert_eq!(cm_mmr, &ledger.commitments); // we force commitment proofs w.r.t. latest MMR
 
         ledger.assert_nf_update(input.nullifier, nf_proof);
-
-        env::verify(
-            input.constraint.0,
-            &serde::to_vec(&ConstraintPublic {
-                ptx_root: ptx.ptx.root(),
-                nf: input.nullifier,
-            }).unwrap(),
-        ).unwrap();
     }
 
     let mut outputs = vec![];

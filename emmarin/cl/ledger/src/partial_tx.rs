@@ -1,6 +1,9 @@
 use ledger_proof_statements::ptx::{PtxPrivate, PtxPublic};
 
-use crate::error::{Error, Result};
+use crate::{
+    error::{Error, Result},
+    ConstraintProof,
+};
 use cl::cl::{
     mmr::{MMRProof, MMR},
     PartialTxWitness,
@@ -16,17 +19,19 @@ impl ProvedPartialTx {
     pub fn prove(
         ptx_witness: PartialTxWitness,
         input_cm_proofs: Vec<(MMR, MMRProof)>,
+        covenant_proofs: Vec<ConstraintProof>,
     ) -> Result<ProvedPartialTx> {
         let ptx_private = PtxPrivate {
             ptx: ptx_witness,
             input_cm_proofs,
         };
 
-        let env = risc0_zkvm::ExecutorEnv::builder()
-            .write(&ptx_private)
-            .unwrap()
-            .build()
-            .unwrap();
+        let mut env = risc0_zkvm::ExecutorEnv::builder();
+
+        for covenant_proof in covenant_proofs {
+            env.add_assumption(covenant_proof.risc0_receipt);
+        }
+        let env = env.write(&ptx_private).unwrap().build().unwrap();
 
         // Obtain the default prover.
         let prover = risc0_zkvm::default_prover();

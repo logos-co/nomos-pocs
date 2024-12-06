@@ -77,7 +77,17 @@ fn cross_transfer_transition(
         outputs: vec![transfer, change],
         balance_blinding: BalanceWitness::random_blinding(&mut rng),
     };
-    let proved_ptx = ProvedPartialTx::prove(ptx_witness.clone(), vec![input_proof]).unwrap();
+
+    // Prove the constraints for alices input (she uses the no-op constraint)
+    let constraint_proof =
+        ConstraintProof::prove_nop(input.nullifier(), ptx_witness.commit().root());
+
+    let proved_ptx = ProvedPartialTx::prove(
+        ptx_witness.clone(),
+        vec![input_proof],
+        vec![constraint_proof.clone()],
+    )
+    .unwrap();
 
     let balance = ProvedBalance::prove(&BalancePrivate {
         balances: vec![ptx_witness.balance()],
@@ -88,10 +98,6 @@ fn cross_transfer_transition(
         ptxs: vec![proved_ptx.clone()],
         balance,
     };
-
-    // Prove the constraints for alices input (she uses the no-op constraint)
-    let constraint_proof =
-        ConstraintProof::prove_nop(input.nullifier(), proved_ptx.public.ptx.root());
 
     let ledger_a_transition = ProvedLedgerTransition::prove(
         ledger_a.clone(),
