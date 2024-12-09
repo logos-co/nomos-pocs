@@ -1,31 +1,36 @@
 use ledger_proof_statements::ptx::{PtxPrivate, PtxPublic};
 
-use crate::error::{Error, Result};
-use cl::cl::{merkle, PartialTxWitness};
+use crate::{
+    error::{Error, Result},
+    ConstraintProof,
+};
+use cl::cl::{
+    mmr::{MMRProof, MMR},
+    PartialTxWitness,
+};
 
 #[derive(Debug, Clone)]
 pub struct ProvedPartialTx {
-    pub public: PtxPublic,
     pub risc0_receipt: risc0_zkvm::Receipt,
 }
 
 impl ProvedPartialTx {
     pub fn prove(
         ptx_witness: PartialTxWitness,
-        input_cm_paths: Vec<Vec<merkle::PathNode>>,
-        cm_roots: Vec<[u8; 32]>,
+        input_cm_proofs: Vec<(MMR, MMRProof)>,
+        covenant_proofs: Vec<ConstraintProof>,
     ) -> Result<ProvedPartialTx> {
         let ptx_private = PtxPrivate {
             ptx: ptx_witness,
-            input_cm_paths,
-            cm_roots: cm_roots.clone(),
+            input_cm_proofs,
         };
 
-        let env = risc0_zkvm::ExecutorEnv::builder()
-            .write(&ptx_private)
-            .unwrap()
-            .build()
-            .unwrap();
+        let mut env = risc0_zkvm::ExecutorEnv::builder();
+
+        for covenant_proof in covenant_proofs {
+            env.add_assumption(covenant_proof.risc0_receipt);
+        }
+        let env = env.write(&ptx_private).unwrap().build().unwrap();
 
         // Obtain the default prover.
         let prover = risc0_zkvm::default_prover();
@@ -36,7 +41,7 @@ impl ProvedPartialTx {
         // This struct contains the receipt along with statistics about execution of the guest
         let opts = risc0_zkvm::ProverOpts::succinct();
         let prove_info = prover
-            .prove_with_opts(env, nomos_cl_risc0_proofs::PTX_ELF, &opts)
+            .prove_with_opts(env, nomos_cl_ptx_risc0_proof::PTX_ELF, &opts)
             .map_err(|_| Error::Risc0ProofFailed)?;
 
         println!(
@@ -46,14 +51,17 @@ impl ProvedPartialTx {
         );
 
         Ok(Self {
-            public: prove_info.receipt.journal.decode()?,
             risc0_receipt: prove_info.receipt,
         })
     }
 
+    pub fn public(&self) -> PtxPublic {
+        self.risc0_receipt.journal.decode().unwrap()
+    }
+
     pub fn verify(&self) -> bool {
         self.risc0_receipt
-            .verify(nomos_cl_risc0_proofs::PTX_ID)
+            .verify(nomos_cl_ptx_risc0_proof::PTX_ID)
             .is_ok()
     }
 }

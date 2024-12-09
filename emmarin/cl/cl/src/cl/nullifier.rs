@@ -25,7 +25,7 @@ pub struct NullifierCommitment([u8; 32]);
 // The nullifier attached to input notes to prove an input has not
 // already been spent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Nullifier([u8; 32]);
+pub struct Nullifier(pub [u8; 32]);
 
 impl NullifierSecret {
     pub fn random(mut rng: impl RngCore) -> Self {
