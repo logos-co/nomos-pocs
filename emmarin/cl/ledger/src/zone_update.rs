@@ -18,12 +18,12 @@ impl ProvedUpdateBundle {
                 return false;
             }
 
-            for bundle in &proof.public.cross_bundles {
+            for bundle in &proof.public().cross_bundles {
                 expected_zones.insert(bundle.id, HashSet::from_iter(bundle.zones.clone()));
                 actual_zones
                     .entry(bundle.id)
                     .or_insert_with(HashSet::new)
-                    .insert(proof.public.id);
+                    .insert(proof.public().id);
             }
         }
 
@@ -48,8 +48,8 @@ impl ProvedUpdateBundle {
                 return false;
             }
 
-            if ledger_proof.public.old_ledger != update.old.ledger
-                || ledger_proof.public.ledger != update.new.ledger
+            if ledger_proof.public().old_ledger != update.old.ledger
+                || ledger_proof.public().ledger != update.new.ledger
             {
                 return false;
             }

@@ -1,10 +1,6 @@
-use cl::{
-    cl::{Bundle, Output},
-    zone_layer::{ledger::LedgerWitness, notes::ZoneId},
-};
+use cl::cl::merkle;
 use ledger_proof_statements::{
-    balance::BalancePublic,
-    ledger::{CrossZoneBundle, LedgerProofPrivate, LedgerProofPublic, LedgerPtxWitness},
+    ledger::{CrossZoneBundle, LedgerProofPrivate, LedgerProofPublic, LedgerBundleWitness},
 };
 use risc0_zkvm::{guest::env, serde};
 
@@ -15,82 +11,44 @@ fn main() {
         bundles,
     } = env::read();
 
-    let old_ledger = ledger.commit();
+    let old_ledger = ledger.clone();
     let mut cross_bundles = vec![];
     let mut outputs = vec![];
 
-    for bundle in bundles {
-        let balance_public = BalancePublic {
-            balances: bundle.partials.iter().map(|bundle_ptx| bundle_ptx.ptx.ptx.balance).collect::<Vec<_>>(),
-        };
+    for LedgerBundleWitness { bundle, cm_root_proofs, nf_proofs } in bundles {
+        println!("IN LEDGER PROOF {:?}", bundle);
+        println!("BUNDLE_ID {:?}", nomos_cl_bundle_risc0_proof::BUNDLE_ID);
+        env::verify(nomos_cl_bundle_risc0_proof::BUNDLE_ID, &serde::to_vec(&bundle).unwrap()).unwrap();
 
-        // verify bundle is balanced
-        env::verify(
-            nomos_cl_risc0_proofs::BALANCE_ID,
-            &serde::to_vec(&balance_public).unwrap(),
-        )
-        .unwrap();
+        if let Some(ledger_update) = bundle.zone_ledger_updates.get(&id) {
+            for past_cm_root in &ledger_update.cm_roots {
+                let past_cm_root_proof = cm_root_proofs.get(past_cm_root).expect("missing cm root proof");
+                let expected_current_cm_root = merkle::path_root(*past_cm_root, past_cm_root_proof);
+                assert!(old_ledger.valid_cm_root(expected_current_cm_root))
+            }
 
-        for ptx in &bundle.partials {
-            let ptx_outputs = process_ptx(&mut ledger, ptx, id);
-            outputs.extend(ptx_outputs);
+            assert_eq!(ledger_update.nullifiers.len(), nf_proofs.len());
+            for (nf, nf_proof) in ledger_update.nullifiers.iter().zip(nf_proofs) {
+                ledger.assert_nf_update(nf, &nf_proof);
+            }
+
+            for cm in &ledger_update.commitments {
+                ledger.add_commitment(cm);
+                outputs.push(*cm)
+            }
         }
 
-        let bundle = Bundle {
-            partials: bundle.partials.into_iter().map(|ptx_witness| ptx_witness.ptx.ptx).collect(),
-        };
-        let zones = bundle.zones();
-        if zones.len() > 1 {
-            cross_bundles.push(CrossZoneBundle {
-                id: bundle.id(),
-                zones: zones.into_iter().collect(),
-            });
-        }
+        cross_bundles.push(CrossZoneBundle {
+            id: bundle.bundle_id,
+            zones: bundle.zone_ledger_updates.into_keys().collect(),
+        });
     }
 
     env::commit(&LedgerProofPublic {
-        old_ledger,
+        old_ledger: old_ledger.commit(),
         ledger: ledger.commit(),
         id,
         cross_bundles,
         outputs,
     });
-}
-
-fn process_ptx(
-    ledger: &mut LedgerWitness,
-    ptx_witness: &LedgerPtxWitness,
-    zone_id: ZoneId,
-) -> Vec<Output> {
-    let ptx = &ptx_witness.ptx;
-    let nf_proofs = &ptx_witness.nf_proofs;
-
-    // always verify the ptx to ensure outputs were derived with the correct zone id
-    env::verify(nomos_cl_risc0_proofs::PTX_ID, &serde::to_vec(&ptx).unwrap()).unwrap();
-
-    
-    assert_eq!(ptx.ptx.inputs.len(), nf_proofs.len());
-    assert_eq!(ptx.ptx.inputs.len(), ptx.cm_mmr.len());
-
-    for ((input, nf_proof), cm_mmr) in ptx.ptx.inputs.iter().zip(nf_proofs).zip(ptx.cm_mmr.iter()) {
-        if input.zone_id != zone_id {
-            continue;
-        }
-        
-        assert_eq!(cm_mmr, &ledger.commitments); // we force commitment proofs w.r.t. latest MMR
-
-        ledger.assert_nf_update(input.nullifier, nf_proof);
-    }
-
-    let mut outputs = vec![];
-    for output in &ptx.ptx.outputs {
-        if output.zone_id != zone_id {
-            continue;
-        }
-
-        ledger.commitments.push(&output.note_comm.0);
-        outputs.push(*output);
-    }
-
-    outputs
 }

@@ -1,6 +1,8 @@
-use crate::ptx::PtxPublic;
-use cl::cl::merkle;
-use cl::cl::{bundle::BundleId, Output};
+use std::collections::BTreeMap;
+
+use crate::bundle::BundleId;
+use crate::bundle::BundlePublic;
+use cl::cl::{merkle, NoteCommitment};
 use cl::zone_layer::{
     ledger::{Ledger, LedgerWitness},
     notes::ZoneId,
@@ -13,7 +15,7 @@ pub struct LedgerProofPublic {
     pub ledger: Ledger,
     pub id: ZoneId,
     pub cross_bundles: Vec<CrossZoneBundle>,
-    pub outputs: Vec<Output>,
+    pub outputs: Vec<NoteCommitment>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -25,12 +27,8 @@ pub struct LedgerProofPrivate {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LedgerBundleWitness {
-    pub partials: Vec<LedgerPtxWitness>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct LedgerPtxWitness {
-    pub ptx: PtxPublic,
+    pub bundle: BundlePublic,
+    pub cm_root_proofs: BTreeMap<[u8; 32], merkle::Path>,
     pub nf_proofs: Vec<merkle::Path>,
 }
 

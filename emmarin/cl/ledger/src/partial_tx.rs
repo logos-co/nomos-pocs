@@ -11,7 +11,6 @@ use cl::cl::{
 
 #[derive(Debug, Clone)]
 pub struct ProvedPartialTx {
-    pub public: PtxPublic,
     pub risc0_receipt: risc0_zkvm::Receipt,
 }
 
@@ -42,7 +41,7 @@ impl ProvedPartialTx {
         // This struct contains the receipt along with statistics about execution of the guest
         let opts = risc0_zkvm::ProverOpts::succinct();
         let prove_info = prover
-            .prove_with_opts(env, nomos_cl_risc0_proofs::PTX_ELF, &opts)
+            .prove_with_opts(env, nomos_cl_ptx_risc0_proof::PTX_ELF, &opts)
             .map_err(|_| Error::Risc0ProofFailed)?;
 
         println!(
@@ -52,14 +51,17 @@ impl ProvedPartialTx {
         );
 
         Ok(Self {
-            public: prove_info.receipt.journal.decode()?,
             risc0_receipt: prove_info.receipt,
         })
     }
 
+    pub fn public(&self) -> PtxPublic {
+        self.risc0_receipt.journal.decode().unwrap()
+    }
+
     pub fn verify(&self) -> bool {
         self.risc0_receipt
-            .verify(nomos_cl_risc0_proofs::PTX_ID)
+            .verify(nomos_cl_ptx_risc0_proof::PTX_ID)
             .is_ok()
     }
 }

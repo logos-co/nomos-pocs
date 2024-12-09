@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PtxPublic {
     pub ptx: PartialTx,
-    pub cm_mmr: Vec<MMR>,
+    pub cm_mmrs: Vec<MMR>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

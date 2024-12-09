@@ -27,7 +27,15 @@ impl LedgerWitness {
         }
     }
 
-    pub fn assert_nf_update(&mut self, nf: Nullifier, path: &[merkle::PathNode]) {
+    pub fn valid_cm_root(&self, root: [u8; 32]) -> bool {
+        self.commitments.roots.iter().any(|r| r.root == root)
+    }
+
+    pub fn add_commitment(&mut self, cm: &NoteCommitment) {
+        self.commitments.push(&cm.0);
+    }
+
+    pub fn assert_nf_update(&mut self, nf: &Nullifier, path: &[merkle::PathNode]) {
         // verify that the path corresponds to the nullifier
         assert_eq!(sparse_merkle::path_key(path), nf.0);
 
@@ -57,7 +65,7 @@ impl LedgerState {
         sparse_merkle::sparse_root(&self.nullifiers)
     }
 
-    pub fn add_commitment(&mut self, cm: NoteCommitment) -> MMRProof {
+    pub fn add_commitment(&mut self, cm: &NoteCommitment) -> MMRProof {
         self.commitments.push(&cm.0)
     }
 
