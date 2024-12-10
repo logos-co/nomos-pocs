@@ -16,8 +16,6 @@ fn main() {
     let mut outputs = vec![];
 
     for LedgerBundleWitness { bundle, cm_root_proofs, nf_proofs } in bundles {
-        println!("IN LEDGER PROOF {:?}", bundle);
-        println!("BUNDLE_ID {:?}", nomos_cl_bundle_risc0_proof::BUNDLE_ID);
         env::verify(nomos_cl_bundle_risc0_proof::BUNDLE_ID, &serde::to_vec(&bundle).unwrap()).unwrap();
 
         if let Some(ledger_update) = bundle.zone_ledger_updates.get(&id) {

@@ -25,8 +25,6 @@ impl ProvedLedgerTransition {
             env.add_assumption(proved_bundle.risc0_receipt.clone());
 
             let bundle = proved_bundle.public();
-            println!("OUTSIDE LEDGER_PROOF {:?}", bundle);
-            println!("BUNDLE_ID {:?}", nomos_cl_bundle_risc0_proof::BUNDLE_ID);
 
             let zone_ledger_update = bundle
                 .zone_ledger_updates
@@ -46,10 +44,6 @@ impl ProvedLedgerTransition {
             for nf in &zone_ledger_update.nullifiers {
                 let nf_proof = ledger.add_nullifier(*nf);
                 nf_proofs.push(nf_proof);
-            }
-
-            for cm in &zone_ledger_update.commitments {
-                ledger.add_commitment(cm);
             }
 
             let ledger_bundle = LedgerBundleWitness {
