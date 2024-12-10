@@ -1,4 +1,4 @@
-pub mod balance;
+pub mod bundle;
 pub mod constraint;
 pub mod ledger;
 pub mod ptx;

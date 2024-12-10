@@ -43,6 +43,8 @@ pub fn root<const N: usize>(elements: [[u8; 32]; N]) -> [u8; 32] {
     nodes[0]
 }
 
+pub type Path = Vec<PathNode>;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PathNode {
     Left([u8; 32]),
@@ -66,7 +68,7 @@ pub fn path_root(leaf: [u8; 32], path: &[PathNode]) -> [u8; 32] {
     computed_hash
 }
 
-pub fn path<const N: usize>(leaves: [[u8; 32]; N], idx: usize) -> Vec<PathNode> {
+pub fn path<const N: usize>(leaves: [[u8; 32]; N], idx: usize) -> Path {
     assert!(N.is_power_of_two());
     assert!(idx < N);
 
