@@ -1,7 +1,11 @@
-use crate::cl::{merkle, mmr::MMR, Nullifier};
-use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 
-const MAX_NULL: usize = 256;
+use crate::cl::{
+    merkle,
+    mmr::{MMRProof, MMR},
+    sparse_merkle, NoteCommitment, Nullifier,
+};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Ledger {
@@ -12,23 +16,65 @@ pub struct Ledger {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LedgerWitness {
     pub commitments: MMR,
-    pub nullifiers: Vec<Nullifier>,
+    pub nf_root: [u8; 32],
 }
 
 impl LedgerWitness {
     pub fn commit(&self) -> Ledger {
         Ledger {
             cm_root: self.commitments.commit(),
+            nf_root: self.nf_root,
+        }
+    }
+
+    pub fn valid_cm_root(&self, root: [u8; 32]) -> bool {
+        self.commitments.roots.iter().any(|r| r.root == root)
+    }
+
+    pub fn add_commitment(&mut self, cm: &NoteCommitment) {
+        self.commitments.push(&cm.0);
+    }
+
+    pub fn assert_nf_update(&mut self, nf: &Nullifier, path: &[merkle::PathNode]) {
+        // verify that the path corresponds to the nullifier
+        assert_eq!(sparse_merkle::path_key(path), nf.0);
+
+        // verify that the nullifier was not already present
+        assert_eq!(merkle::path_root(sparse_merkle::ABSENT, path), self.nf_root);
+
+        // update the nullifer root with the nullifier inserted into the tree
+        self.nf_root = merkle::path_root(sparse_merkle::PRESENT, path);
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct LedgerState {
+    pub commitments: MMR,
+    pub nullifiers: BTreeSet<[u8; 32]>,
+}
+
+impl LedgerState {
+    pub fn to_witness(&self) -> LedgerWitness {
+        LedgerWitness {
+            commitments: self.commitments.clone(),
             nf_root: self.nf_root(),
         }
     }
 
     pub fn nf_root(&self) -> [u8; 32] {
-        let bytes = self
-            .nullifiers
-            .iter()
-            .map(|i| i.as_bytes().to_vec())
-            .collect::<Vec<_>>();
-        merkle::root(merkle::padded_leaves::<MAX_NULL>(&bytes))
+        sparse_merkle::sparse_root(&self.nullifiers)
+    }
+
+    pub fn add_commitment(&mut self, cm: &NoteCommitment) -> MMRProof {
+        self.commitments.push(&cm.0)
+    }
+
+    pub fn add_nullifier(&mut self, nf: Nullifier) -> Vec<merkle::PathNode> {
+        let path = sparse_merkle::sparse_path(nf.0, &self.nullifiers);
+
+        assert!(!self.nullifiers.contains(&nf.0));
+        self.nullifiers.insert(nf.0);
+
+        path
     }
 }

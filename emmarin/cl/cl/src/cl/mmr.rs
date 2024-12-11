@@ -2,7 +2,7 @@ use crate::cl::merkle;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct MMR {
     pub roots: Vec<Root>,
 }
@@ -18,9 +18,16 @@ pub struct MMRProof {
     pub path: Vec<merkle::PathNode>,
 }
 
+impl MMRProof {
+    pub fn root(&self, elem: &[u8]) -> [u8; 32] {
+        let leaf = merkle::leaf(elem);
+        merkle::path_root(leaf, &self.path)
+    }
+}
+
 impl MMR {
     pub fn new() -> Self {
-        Self { roots: vec![] }
+        Self::default()
     }
 
     pub fn push(&mut self, elem: &[u8]) -> MMRProof {
@@ -52,8 +59,7 @@ impl MMR {
 
     pub fn verify_proof(&self, elem: &[u8], proof: &MMRProof) -> bool {
         let path_len = proof.path.len();
-        let leaf = merkle::leaf(elem);
-        let root = merkle::path_root(leaf, &proof.path);
+        let root = proof.root(elem);
 
         for mmr_root in self.roots.iter() {
             if mmr_root.height == (path_len + 1) as u8 {

@@ -1,29 +1,28 @@
 use cl::{
     cl::{
-        balance::Unit, merkle, mmr::MMR, note::derive_unit, BalanceWitness, InputWitness,
-        NoteWitness, NullifierCommitment, NullifierSecret, OutputWitness, PartialTxWitness,
+        balance::Unit,
+        mmr::{MMRProof, MMR},
+        note::derive_unit,
+        BalanceWitness, InputWitness, NoteWitness, NullifierCommitment, NullifierSecret,
+        OutputWitness, PartialTxWitness,
     },
     zone_layer::{
-        ledger::LedgerWitness,
+        ledger::LedgerState,
         notes::{ZoneId, ZoneNote},
         tx::{UpdateBundle, ZoneUpdate},
     },
 };
 use ledger::{
-    balance::ProvedBalance,
-    constraint::ConstraintProof,
-    ledger::{ProvedBundle, ProvedLedgerTransition},
-    partial_tx::ProvedPartialTx,
-    stf::StfProof,
-    zone_update::ProvedUpdateBundle,
+    bundle::ProvedBundle, constraint::ConstraintProof, ledger::ProvedLedgerTransition,
+    partial_tx::ProvedPartialTx, stf::StfProof, zone_update::ProvedUpdateBundle,
 };
-use ledger_proof_statements::{balance::BalancePrivate, stf::StfPublic};
+use ledger_proof_statements::{bundle::BundlePrivate, stf::StfPublic};
 use rand_core::CryptoRngCore;
 use std::sync::OnceLock;
 
-fn nmo() -> &'static Unit {
+fn nmo() -> Unit {
     static NMO: OnceLock<Unit> = OnceLock::new();
-    NMO.get_or_init(|| derive_unit("NMO"))
+    *NMO.get_or_init(|| derive_unit("NMO"))
 }
 
 struct User(NullifierSecret);
@@ -48,24 +47,22 @@ fn receive_utxo(note: NoteWitness, nf_pk: NullifierCommitment, zone_id: ZoneId) 
 
 fn cross_transfer_transition(
     input: InputWitness,
-    input_path: Vec<merkle::PathNode>,
+    input_proof: (MMR, MMRProof),
     to: User,
     amount: u64,
     zone_a: ZoneId,
     zone_b: ZoneId,
-    mut ledger_a: LedgerWitness,
-    mut ledger_b: LedgerWitness,
+    mut ledger_a: LedgerState,
+    mut ledger_b: LedgerState,
 ) -> (ProvedLedgerTransition, ProvedLedgerTransition) {
-    let mut rng = rand::thread_rng();
     assert!(amount <= input.note.value);
+
+    let mut rng = rand::thread_rng();
+
     let change = input.note.value - amount;
-    let transfer = OutputWitness::new(
-        NoteWitness::basic(amount, *nmo(), &mut rng),
-        to.pk(),
-        zone_b,
-    );
+    let transfer = OutputWitness::new(NoteWitness::basic(amount, nmo(), &mut rng), to.pk(), zone_b);
     let change = OutputWitness::new(
-        NoteWitness::basic(change, *nmo(), &mut rng),
+        NoteWitness::basic(change, nmo(), &mut rng),
         input.nf_sk.commit(),
         zone_a,
     );
@@ -76,45 +73,46 @@ fn cross_transfer_transition(
         outputs: vec![transfer, change],
         balance_blinding: BalanceWitness::random_blinding(&mut rng),
     };
-    let proved_ptx = ProvedPartialTx::prove(
-        ptx_witness.clone(),
-        vec![input_path],
-        vec![ledger_a.commitments.roots[0].root],
-    )
-    .unwrap();
-
-    let balance = ProvedBalance::prove(&BalancePrivate {
-        balances: vec![ptx_witness.balance()],
-    })
-    .unwrap();
-
-    let zone_tx = ProvedBundle {
-        ptxs: vec![proved_ptx.clone()],
-        balance,
-    };
 
     // Prove the constraints for alices input (she uses the no-op constraint)
     let constraint_proof =
-        ConstraintProof::prove_nop(input.nullifier(), proved_ptx.public.ptx.root());
+        ConstraintProof::prove_nop(input.nullifier(), ptx_witness.commit().root());
 
-    let ledger_a_transition = ProvedLedgerTransition::prove(
-        ledger_a.clone(),
-        zone_a,
-        vec![zone_tx.clone()],
-        vec![constraint_proof],
+    let proved_ptx = ProvedPartialTx::prove(
+        ptx_witness.clone(),
+        vec![input_proof],
+        vec![constraint_proof.clone()],
     )
     .unwrap();
 
-    let ledger_b_transition =
-        ProvedLedgerTransition::prove(ledger_b.clone(), zone_b, vec![zone_tx], vec![]).unwrap();
+    let bundle = ProvedBundle::prove(
+        &BundlePrivate {
+            bundle: vec![proved_ptx.public()],
+            balances: vec![ptx_witness.balance()],
+        },
+        vec![proved_ptx],
+    );
 
-    ledger_a.commitments.push(&change.commit_note().0);
-    ledger_a.nullifiers.push(input.nullifier());
+    println!("proving ledger A transition");
+    let ledger_a_transition =
+        ProvedLedgerTransition::prove(ledger_a.clone(), zone_a, vec![bundle.clone()]);
 
-    ledger_b.commitments.push(&transfer.commit_note().0);
+    println!("proving ledger B transition");
+    let ledger_b_transition = ProvedLedgerTransition::prove(ledger_b.clone(), zone_b, vec![bundle]);
 
-    assert_eq!(ledger_a_transition.public.ledger, ledger_a.commit());
-    assert_eq!(ledger_b_transition.public.ledger, ledger_b.commit());
+    ledger_a.add_commitment(&change.commit_note());
+    ledger_a.add_nullifier(input.nullifier());
+
+    ledger_b.add_commitment(&transfer.commit_note());
+
+    assert_eq!(
+        ledger_a_transition.public().ledger,
+        ledger_a.to_witness().commit()
+    );
+    assert_eq!(
+        ledger_b_transition.public().ledger,
+        ledger_b.to_witness().commit()
+    );
 
     (ledger_a_transition, ledger_b_transition)
 }
@@ -133,42 +131,35 @@ fn zone_update_cross() {
 
     // Alice has an unspent note worth 10 NMO
     let utxo = receive_utxo(
-        NoteWitness::stateless(10, *nmo(), ConstraintProof::nop_constraint(), &mut rng),
+        NoteWitness::stateless(10, nmo(), ConstraintProof::nop_constraint(), &mut rng),
         alice.pk(),
         zone_a_id,
     );
 
     let alice_input = InputWitness::from_output(utxo, alice.sk());
 
-    let mut mmr = MMR::new();
-    let input_cm_path = mmr.push(&utxo.commit_note().0).path;
+    let mut ledger_a = LedgerState::default();
+    let alice_cm_path = ledger_a.add_commitment(&utxo.commit_note());
+    let alice_cm_proof = (ledger_a.commitments.clone(), alice_cm_path);
 
-    let ledger_a = LedgerWitness {
-        commitments: mmr,
-        nullifiers: vec![],
-    };
-
-    let ledger_b = LedgerWitness {
-        commitments: MMR::new(),
-        nullifiers: vec![],
-    };
+    let ledger_b = LedgerState::default();
 
     let zone_a_old = ZoneNote {
         id: zone_a_id,
         state: [0; 32],
-        ledger: ledger_a.commit(),
+        ledger: ledger_a.to_witness().commit(),
         stf: [0; 32],
     };
     let zone_b_old = ZoneNote {
         id: zone_b_id,
         state: [0; 32],
-        ledger: ledger_b.commit(),
+        ledger: ledger_b.to_witness().commit(),
         stf: [0; 32],
     };
 
     let (ledger_a_transition, ledger_b_transition) = cross_transfer_transition(
         alice_input,
-        input_cm_path,
+        alice_cm_proof,
         bob,
         8,
         zone_a_id,
@@ -178,12 +169,12 @@ fn zone_update_cross() {
     );
 
     let zone_a_new = ZoneNote {
-        ledger: ledger_a_transition.public.ledger,
+        ledger: ledger_a_transition.public().ledger,
         ..zone_a_old
     };
 
     let zone_b_new = ZoneNote {
-        ledger: ledger_b_transition.public.ledger,
+        ledger: ledger_b_transition.public().ledger,
         ..zone_b_old
     };
 
