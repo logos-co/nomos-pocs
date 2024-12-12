@@ -1,13 +1,14 @@
 use crate::cl::merkle;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::cmp::Ordering;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct MMR {
     pub roots: Vec<Root>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Root {
     pub root: [u8; 32],
     pub height: u8,
@@ -16,6 +17,59 @@ pub struct Root {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MMRProof {
     pub path: Vec<merkle::PathNode>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UpdateableMMRProof {
+    pub proof: MMRProof,
+    pub mmr: MMR,
+    pub elem: Vec<u8>,
+}
+
+impl UpdateableMMRProof {
+    pub fn update(&mut self, elem: &[u8]) {
+        let self_height = self.proof.path.len() as u8 + 1;
+        let new_root = Root {
+            root: merkle::leaf(elem),
+            height: 1,
+        };
+        self.mmr.roots.push(new_root);
+
+        for i in (1..self.mmr.roots.len()).rev() {
+            if self.mmr.roots[i].height == self.mmr.roots[i - 1].height {
+                let folded_right = self.mmr.roots.remove(i);
+                let folded_left = self.mmr.roots[i - 1];
+                self.mmr.roots[i - 1] = Root {
+                    root: merkle::node(folded_left.root, folded_right.root),
+                    height: folded_right.height + 1,
+                };
+
+                match folded_right.height.cmp(&self_height) {
+                    Ordering::Equal => {
+                        println!("adding right root");
+                        self.proof
+                            .path
+                            .push(merkle::PathNode::Right(folded_right.root));
+                    }
+                    Ordering::Greater => {
+                        println!("adding left root");
+                        self.proof
+                            .path
+                            .push(merkle::PathNode::Left(folded_left.root));
+                    }
+                    Ordering::Less => {}
+                }
+            } else {
+                break;
+            }
+        }
+
+        println!("\nself_heigh: {self_height}");
+        println!("MMR: {:?}", self.mmr);
+        println!("Proof: {:?}", self.proof);
+        println!("Elem: {:?}", self.elem);
+        assert!(self.mmr.verify_proof(&self.elem, &self.proof));
+    }
 }
 
 impl MMRProof {
@@ -55,6 +109,15 @@ impl MMR {
         }
 
         MMRProof { path }
+    }
+
+    pub fn push_updateable(&mut self, elem: &[u8]) -> UpdateableMMRProof {
+        let proof = self.push(elem);
+        UpdateableMMRProof {
+            proof,
+            mmr: self.clone(),
+            elem: elem.to_vec(),
+        }
     }
 
     pub fn verify_proof(&self, elem: &[u8], proof: &MMRProof) -> bool {

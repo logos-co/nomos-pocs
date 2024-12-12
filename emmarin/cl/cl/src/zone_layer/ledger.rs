@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use crate::cl::{
     merkle,
-    mmr::{MMRProof, MMR},
+    mmr::{UpdateableMMRProof, MMR},
     sparse_merkle, NoteCommitment, Nullifier,
 };
 use serde::{Deserialize, Serialize};
@@ -65,8 +65,8 @@ impl LedgerState {
         sparse_merkle::sparse_root(&self.nullifiers)
     }
 
-    pub fn add_commitment(&mut self, cm: &NoteCommitment) -> MMRProof {
-        self.commitments.push(&cm.0)
+    pub fn add_commitment(&mut self, cm: &NoteCommitment) -> UpdateableMMRProof {
+        self.commitments.push_updateable(&cm.0)
     }
 
     pub fn add_nullifier(&mut self, nf: Nullifier) -> Vec<merkle::PathNode> {

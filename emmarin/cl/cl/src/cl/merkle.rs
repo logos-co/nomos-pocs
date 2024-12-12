@@ -5,7 +5,7 @@ pub fn padded_leaves<const N: usize>(elements: &[Vec<u8>]) -> [[u8; 32]; N] {
     let mut leaves = [[0u8; 32]; N];
 
     for (i, element) in elements.iter().enumerate() {
-        assert!(i < N);
+        assert!(i < N, "{i} {N}");
         leaves[i] = leaf(element);
     }
 
