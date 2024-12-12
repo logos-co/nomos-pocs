@@ -1,6 +1,6 @@
 use cl::cl::merkle;
-use ledger_proof_statements::{
-    ledger::{CrossZoneBundle, LedgerProofPrivate, LedgerProofPublic, LedgerBundleWitness},
+use ledger_proof_statements::ledger::{
+    CrossZoneBundle, LedgerBundleWitness, LedgerProofPrivate, LedgerProofPublic,
 };
 use risc0_zkvm::{guest::env, serde};
 
@@ -15,12 +15,23 @@ fn main() {
     let mut cross_bundles = vec![];
     let mut outputs = vec![];
 
-    for LedgerBundleWitness { bundle, cm_root_proofs, nf_proofs } in bundles {
-        env::verify(nomos_cl_bundle_risc0_proof::BUNDLE_ID, &serde::to_vec(&bundle).unwrap()).unwrap();
+    for LedgerBundleWitness {
+        bundle,
+        cm_root_proofs,
+        nf_proofs,
+    } in bundles
+    {
+        env::verify(
+            nomos_cl_bundle_risc0_proof::BUNDLE_ID,
+            &serde::to_vec(&bundle).unwrap(),
+        )
+        .unwrap();
 
         if let Some(ledger_update) = bundle.zone_ledger_updates.get(&id) {
             for past_cm_root in &ledger_update.cm_roots {
-                let past_cm_root_proof = cm_root_proofs.get(past_cm_root).expect("missing cm root proof");
+                let past_cm_root_proof = cm_root_proofs
+                    .get(past_cm_root)
+                    .expect("missing cm root proof");
                 let expected_current_cm_root = merkle::path_root(*past_cm_root, past_cm_root_proof);
                 assert!(old_ledger.valid_cm_root(expected_current_cm_root))
             }
