@@ -46,13 +46,11 @@ impl UpdateableMMRProof {
 
                 match folded_right.height.cmp(&self_height) {
                     Ordering::Equal => {
-                        println!("adding right root");
                         self.proof
                             .path
                             .push(merkle::PathNode::Right(folded_right.root));
                     }
                     Ordering::Greater => {
-                        println!("adding left root");
                         self.proof
                             .path
                             .push(merkle::PathNode::Left(folded_left.root));
@@ -64,10 +62,6 @@ impl UpdateableMMRProof {
             }
         }
 
-        println!("\nself_heigh: {self_height}");
-        println!("MMR: {:?}", self.mmr);
-        println!("Proof: {:?}", self.proof);
-        println!("Elem: {:?}", self.elem);
         assert!(self.mmr.verify_proof(&self.elem, &self.proof));
     }
 }

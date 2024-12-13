@@ -48,6 +48,8 @@ impl ProvedLedgerTransition {
                 nf_proofs.push(nf_proof);
             }
 
+            nf_proofs.reverse();
+
             let ledger_bundle = LedgerBundleWitness {
                 bundle,
                 cm_root_proofs,
@@ -95,5 +97,3 @@ impl ProvedLedgerTransition {
             .is_ok()
     }
 }
-
-
