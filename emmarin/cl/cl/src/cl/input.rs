@@ -11,7 +11,7 @@ use crate::{
     zone_layer::notes::ZoneId,
 };
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+use risc0_zkvm::sha::rust_crypto::{Digest, Sha256};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Input {

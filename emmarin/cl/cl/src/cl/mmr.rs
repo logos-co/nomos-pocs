@@ -1,6 +1,6 @@
 use crate::cl::merkle;
+use risc0_zkvm::sha::rust_crypto::{Digest, Sha256};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::cmp::Ordering;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
