@@ -17,3 +17,8 @@ opt-level = 3
 [profile.release]
 debug = 1
 lto = true
+
+
+[patch.crates-io]
+# add RISC Zero accelerator support for all downstream usages of the following crates.
+sha2 = { git = "https://github.com/risc0/RustCrypto-hashes", tag = "sha2-v0.10.8-risczero.0" }
