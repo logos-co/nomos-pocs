@@ -1,8 +1,7 @@
-use rand::RngCore;
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
-
 use crate::cl::{balance::Unit, nullifier::NullifierCommitment};
+use rand::RngCore;
+use risc0_zkvm::sha::rust_crypto::{Digest, Sha256};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Constraint(pub [u8; 32]);

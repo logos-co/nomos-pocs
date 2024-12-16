@@ -1,6 +1,6 @@
 use rand_core::CryptoRngCore;
+use risc0_zkvm::sha::rust_crypto::{Digest, Sha256};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
 use crate::cl::PartialTxWitness;
 
