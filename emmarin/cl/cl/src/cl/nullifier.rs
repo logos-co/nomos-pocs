@@ -8,7 +8,7 @@
 
 use rand_core::RngCore;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+use risc0_zkvm::sha::rust_crypto::{Digest, Sha256};
 
 use crate::cl::NoteCommitment;
 
