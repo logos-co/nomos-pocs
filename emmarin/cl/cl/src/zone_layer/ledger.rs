@@ -39,11 +39,13 @@ impl LedgerWitness {
         // verify that the path corresponds to the nullifier
         assert_eq!(sparse_merkle::path_key(path), nf.0);
 
-        // verify that the nullifier was not already present
-        assert_eq!(merkle::path_root(sparse_merkle::ABSENT, path), self.nf_root);
-
         // update the nullifer root with the nullifier inserted into the tree
-        self.nf_root = merkle::path_root(sparse_merkle::PRESENT, path);
+        self.nf_root = merkle::update(
+            sparse_merkle::ABSENT,
+            sparse_merkle::PRESENT,
+            self.nf_root,
+            path,
+        );
     }
 }
 

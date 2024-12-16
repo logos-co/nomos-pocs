@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use risc0_zkvm::sha::rust_crypto::{Digest, Sha256};
+use serde::{Deserialize, Serialize};
 
 pub fn padded_leaves<const N: usize>(elements: &[Vec<u8>]) -> [[u8; 32]; N] {
     let mut leaves = [[0u8; 32]; N];
@@ -66,6 +66,27 @@ pub fn path_root(leaf: [u8; 32], path: &[PathNode]) -> [u8; 32] {
     }
 
     computed_hash
+}
+
+pub fn update(old: [u8; 32], new: [u8; 32], old_root: [u8; 32], path: &[PathNode]) -> [u8; 32] {
+    let mut new_root = new;
+    let mut expected_root = old;
+
+    for path_node in path {
+        match &path_node {
+            PathNode::Left(sibling_hash) => {
+                new_root = node(sibling_hash, new_root);
+                expected_root = node(sibling_hash, expected_root);
+            }
+            PathNode::Right(sibling_hash) => {
+                new_root = node(new_root, sibling_hash);
+                expected_root = node(expected_root, sibling_hash);
+            }
+        }
+    }
+
+    assert_eq!(old_root, expected_root);
+    new_root
 }
 
 pub fn path<const N: usize>(leaves: [[u8; 32]; N], idx: usize) -> Path {
