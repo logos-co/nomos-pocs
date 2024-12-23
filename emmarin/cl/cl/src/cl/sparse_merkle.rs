@@ -82,7 +82,7 @@ pub fn path_key(path: &[merkle::PathNode]) -> [u8; 32] {
     assert_eq!(path.len(), 64);
 
     let mut key = [0u8; 32];
-    for byte_i in (0..32).rev() {
+    for byte_i in (0..8).rev() {
         let mut byte = 0u8;
         for bit_i in 0..8 {
             byte <<= 1;

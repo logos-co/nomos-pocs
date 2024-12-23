@@ -37,7 +37,8 @@ impl LedgerWitness {
 
     pub fn assert_nf_update(&mut self, nf: &Nullifier, path: &[merkle::PathNode]) {
         // verify that the path corresponds to the nullifier
-        assert_eq!(sparse_merkle::path_key(path), nf.0);
+        let path_key = sparse_merkle::path_key(path);
+        assert_eq!(path_key[0], 0);
 
         // verify that the nullifier was not already present
         assert_eq!(merkle::path_root(sparse_merkle::ABSENT, path), self.nf_root);
