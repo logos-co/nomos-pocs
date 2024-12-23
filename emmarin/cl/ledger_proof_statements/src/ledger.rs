@@ -51,7 +51,7 @@ impl CompactNullifierProofs {
 
         for path in input {
             let mut path_bits = [0u8; 32];
-            assert_eq!(path.len(), 256);
+            assert_eq!(path.len(), 64);
 
             for (i, node) in path.iter().enumerate().rev() {
                 match node {
@@ -102,9 +102,9 @@ impl<'a> Iterator for CompactNfIterator {
 
         let path = self.paths.pop().unwrap();
 
-        let mut res = Vec::with_capacity(256);
+        let mut res = Vec::with_capacity(64);
 
-        for i in 0..=255 {
+        for i in 0..=63 {
             if get_bit(i, path) {
                 res.push(merkle::PathNode::Right(
                     self.siblings[self.siblings.len() - 32..]

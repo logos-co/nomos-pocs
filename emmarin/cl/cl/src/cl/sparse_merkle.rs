@@ -28,9 +28,9 @@ pub fn sparse_root(elems: &BTreeSet<[u8; 32]>) -> [u8; 32] {
 
 fn sparse_root_rec(prefix: u64, elems: &BTreeSet<[u8; 32]>) -> [u8; 32] {
     if elems.is_empty() {
-        return empty_tree_root(256 - prefix);
+        return empty_tree_root(64 - prefix);
     }
-    if prefix == 256 {
+    if prefix == 64 {
         assert_eq!(elems.len(), 1);
         return PRESENT;
     }
@@ -50,7 +50,7 @@ pub fn sparse_path(elem: [u8; 32], elems: &BTreeSet<[u8; 32]>) -> Vec<merkle::Pa
         elem: [u8; 32],
         elems: &BTreeSet<[u8; 32]>,
     ) -> Vec<merkle::PathNode> {
-        if prefix == 256 {
+        if prefix == 64 {
             return Vec::new();
         }
         // partition the elements
@@ -79,7 +79,7 @@ pub fn sparse_path(elem: [u8; 32], elems: &BTreeSet<[u8; 32]>) -> Vec<merkle::Pa
 }
 
 pub fn path_key(path: &[merkle::PathNode]) -> [u8; 32] {
-    assert_eq!(path.len(), 256);
+    assert_eq!(path.len(), 64);
 
     let mut key = [0u8; 32];
     for byte_i in (0..32).rev() {
