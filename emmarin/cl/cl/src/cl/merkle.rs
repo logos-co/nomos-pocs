@@ -19,7 +19,7 @@ pub fn leaf(data: &[u8]) -> [u8; 32] {
     hasher.finalize().into()
 }
 
-pub fn node(a: [u8; 32], b: [u8; 32]) -> [u8; 32] {
+pub fn node(a: impl AsRef<[u8]>, b: impl AsRef<[u8]>) -> [u8; 32] {
     let mut hasher = Sha256::new();
     hasher.update(b"NOMOS_MERKLE_NODE");
     hasher.update(a);
@@ -55,12 +55,12 @@ pub fn path_root(leaf: [u8; 32], path: &[PathNode]) -> [u8; 32] {
     let mut computed_hash = leaf;
 
     for path_node in path {
-        match path_node {
+        match &path_node {
             PathNode::Left(sibling_hash) => {
-                computed_hash = node(*sibling_hash, computed_hash);
+                computed_hash = node(sibling_hash, computed_hash);
             }
             PathNode::Right(sibling_hash) => {
-                computed_hash = node(computed_hash, *sibling_hash);
+                computed_hash = node(computed_hash, sibling_hash);
             }
         }
     }
