@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+use risc0_zkvm::sha::rust_crypto::{Digest, Sha256};
 
 pub fn padded_leaves<const N: usize>(elements: &[Vec<u8>]) -> [[u8; 32]; N] {
     let mut leaves = [[0u8; 32]; N];
