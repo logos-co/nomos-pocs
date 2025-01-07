@@ -114,8 +114,12 @@ fn cross_transfer_transition(
         ProvedLedgerTransition::prove(ledger_a.clone(), zone_a, vec![bundle.clone()]);
 
     println!("proving ledger B transition");
-    let ledger_b_transition =
-        ProvedLedgerTransition::prove(ledger_b.clone(), zone_b, vec![bundle.clone()]);
+    let ledger_b_transition = ProvedLedgerTransition::prove(ledger_b.clone(), zone_b, vec![bundle]);
+
+    ledger_a.add_commitment(&change.commit_note());
+    ledger_a.add_nullifiers(vec![input.nullifier()]);
+
+    ledger_b.add_commitment(&transfer.commit_note());
 
     assert_eq!(
         ledger_a_transition.public().ledger,

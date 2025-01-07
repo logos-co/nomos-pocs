@@ -76,9 +76,10 @@ impl PartialTxWitness {
     pub fn input_witness(&self, idx: usize) -> PartialTxInputWitness {
         let input_bytes =
             Vec::from_iter(self.inputs.iter().map(|i| i.commit().to_bytes().to_vec()));
-        let input_merkle_leaves = merkle::padded_leaves::<MAX_INPUTS>(&input_bytes);
+        assert!(input_bytes.len() < MAX_INPUTS);
+        let input_merkle_leaves = merkle::padded_leaves(&input_bytes);
 
-        let path = merkle::path(input_merkle_leaves, idx);
+        let path = merkle::path(&input_merkle_leaves, idx);
         let input = self.inputs[idx];
         PartialTxInputWitness { input, path }
     }
@@ -86,9 +87,10 @@ impl PartialTxWitness {
     pub fn output_witness(&self, idx: usize) -> PartialTxOutputWitness {
         let output_bytes =
             Vec::from_iter(self.outputs.iter().map(|o| o.commit().to_bytes().to_vec()));
-        let output_merkle_leaves = merkle::padded_leaves::<MAX_OUTPUTS>(&output_bytes);
+        assert!(output_bytes.len() < MAX_OUTPUTS);
+        let output_merkle_leaves = merkle::padded_leaves(&output_bytes);
 
-        let path = merkle::path(output_merkle_leaves, idx);
+        let path = merkle::path(&output_merkle_leaves, idx);
         let output = self.outputs[idx];
         PartialTxOutputWitness { output, path }
     }
@@ -99,7 +101,8 @@ impl PartialTx {
         let input_bytes =
             Vec::from_iter(self.inputs.iter().map(Input::to_bytes).map(Vec::from_iter));
         let input_merkle_leaves = merkle::padded_leaves(&input_bytes);
-        merkle::root::<MAX_INPUTS>(input_merkle_leaves)
+        assert!(input_merkle_leaves.len() < MAX_INPUTS);
+        merkle::root(&input_merkle_leaves)
     }
 
     pub fn output_root(&self) -> [u8; 32] {
@@ -110,7 +113,8 @@ impl PartialTx {
                 .map(Vec::from_iter),
         );
         let output_merkle_leaves = merkle::padded_leaves(&output_bytes);
-        merkle::root::<MAX_OUTPUTS>(output_merkle_leaves)
+        assert!(output_merkle_leaves.len() < MAX_OUTPUTS);
+        merkle::root(&output_merkle_leaves)
     }
 
     pub fn root(&self) -> PtxRoot {

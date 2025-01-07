@@ -36,10 +36,12 @@ fn main() {
                 assert!(old_ledger.valid_cm_root(expected_current_cm_root))
             }
 
-            assert_eq!(ledger_update.nullifiers.len(), nf_proofs.len());
-            for (nf, nf_proof) in ledger_update.nullifiers.iter().zip(nf_proofs) {
-                ledger.assert_nf_update(nf, &nf_proof);
-            }
+            let mut sorted_nullifiers = ledger_update.nullifiers.clone();
+            // TODO: sort outside and check
+            sorted_nullifiers.sort();
+            // TODO: remove nullifier duplication
+            assert_eq!(sorted_nullifiers, nf_proofs.nullifiers());
+            ledger.assert_nfs_update(&nf_proofs);
 
             for cm in &ledger_update.commitments {
                 ledger.add_commitment(cm);
