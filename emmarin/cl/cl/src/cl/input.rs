@@ -10,8 +10,8 @@ use crate::{
     },
     zone_layer::notes::ZoneId,
 };
-use serde::{Deserialize, Serialize};
 use risc0_zkvm::sha::rust_crypto::{Digest, Sha256};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Input {

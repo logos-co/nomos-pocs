@@ -1,6 +1,7 @@
 pub mod balance;
 pub mod crypto;
 pub mod error;
+pub mod indexed;
 pub mod input;
 pub mod merkle;
 pub mod mmr;

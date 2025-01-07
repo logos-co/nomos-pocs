@@ -1,8 +1,6 @@
 use std::collections::BTreeMap;
 
-use ledger_proof_statements::ledger::{
-    CompactNullifierProofs, LedgerBundleWitness, LedgerProofPrivate, LedgerProofPublic,
-};
+use ledger_proof_statements::ledger::{LedgerBundleWitness, LedgerProofPrivate, LedgerProofPublic};
 
 use crate::bundle::ProvedBundle;
 use cl::zone_layer::{ledger::LedgerState, notes::ZoneId};
@@ -42,16 +40,12 @@ impl ProvedLedgerTransition {
                     (*root, vec![])
                 }));
 
-            let mut nf_proofs = Vec::new();
-            for nf in &zone_ledger_update.nullifiers {
-                let nf_proof = ledger.add_nullifier(*nf);
-                nf_proofs.push(nf_proof);
-            }
+            let nf_proofs = ledger.add_nullifiers(zone_ledger_update.nullifiers.clone());
 
             let ledger_bundle = LedgerBundleWitness {
                 bundle,
                 cm_root_proofs,
-                nf_proofs: CompactNullifierProofs::from_paths(nf_proofs),
+                nf_proofs,
             };
 
             witness.bundles.push(ledger_bundle)
@@ -95,5 +89,3 @@ impl ProvedLedgerTransition {
             .is_ok()
     }
 }
-
-

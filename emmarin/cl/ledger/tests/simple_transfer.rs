@@ -101,7 +101,7 @@ fn cross_transfer_transition(
     let ledger_b_transition = ProvedLedgerTransition::prove(ledger_b.clone(), zone_b, vec![bundle]);
 
     ledger_a.add_commitment(&change.commit_note());
-    ledger_a.add_nullifier(input.nullifier());
+    ledger_a.add_nullifiers(vec![input.nullifier()]);
 
     ledger_b.add_commitment(&transfer.commit_note());
 
