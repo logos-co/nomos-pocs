@@ -1,5 +1,6 @@
 use risc0_zkvm::sha::rust_crypto::{Digest, Sha256};
 use serde::{Deserialize, Serialize};
+use std::borrow::Borrow;
 
 pub fn padded_leaves(elements: &[Vec<u8>]) -> Vec<[u8; 32]> {
     let mut leaves = std::iter::repeat([0; 32])
@@ -52,11 +53,11 @@ pub enum PathNode {
     Right([u8; 32]),
 }
 
-pub fn path_root(leaf: [u8; 32], path: &[PathNode]) -> [u8; 32] {
+pub fn path_root<'a>(leaf: [u8; 32], path: impl IntoIterator<Item: Borrow<PathNode>>) -> [u8; 32] {
     let mut computed_hash = leaf;
 
-    for path_node in path {
-        match &path_node {
+    for path_node in path.into_iter() {
+        match path_node.borrow() {
             PathNode::Left(sibling_hash) => {
                 computed_hash = node(sibling_hash, computed_hash);
             }
