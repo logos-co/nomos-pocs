@@ -33,9 +33,9 @@ impl LedgerWitness {
         self.commitments.push(&cm.0);
     }
 
-    pub fn assert_nfs_update(&mut self, proof: &BatchUpdateProof) {
+    pub fn assert_nfs_update(&mut self, nullifiers: &[Nullifier], proof: &BatchUpdateProof) {
         // update the nullifer root with the nullifier inserted into the tree
-        self.nf_root = proof.verify(self.nf_root);
+        self.nf_root = proof.verify(nullifiers, self.nf_root);
     }
 }
 
