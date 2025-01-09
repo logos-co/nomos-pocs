@@ -76,7 +76,7 @@ impl PartialTxWitness {
     pub fn input_witness(&self, idx: usize) -> PartialTxInputWitness {
         let input_bytes =
             Vec::from_iter(self.inputs.iter().map(|i| i.commit().to_bytes().to_vec()));
-        assert!(input_bytes.len() < MAX_INPUTS);
+        assert!(input_bytes.len() <= MAX_INPUTS);
         let input_merkle_leaves = merkle::padded_leaves(&input_bytes);
 
         let path = merkle::path(&input_merkle_leaves, idx);
@@ -87,7 +87,7 @@ impl PartialTxWitness {
     pub fn output_witness(&self, idx: usize) -> PartialTxOutputWitness {
         let output_bytes =
             Vec::from_iter(self.outputs.iter().map(|o| o.commit().to_bytes().to_vec()));
-        assert!(output_bytes.len() < MAX_OUTPUTS);
+        assert!(output_bytes.len() <= MAX_OUTPUTS);
         let output_merkle_leaves = merkle::padded_leaves(&output_bytes);
 
         let path = merkle::path(&output_merkle_leaves, idx);
@@ -101,7 +101,7 @@ impl PartialTx {
         let input_bytes =
             Vec::from_iter(self.inputs.iter().map(Input::to_bytes).map(Vec::from_iter));
         let input_merkle_leaves = merkle::padded_leaves(&input_bytes);
-        assert!(input_merkle_leaves.len() < MAX_INPUTS);
+        assert!(input_merkle_leaves.len() <= MAX_INPUTS);
         merkle::root(&input_merkle_leaves)
     }
 
@@ -113,7 +113,7 @@ impl PartialTx {
                 .map(Vec::from_iter),
         );
         let output_merkle_leaves = merkle::padded_leaves(&output_bytes);
-        assert!(output_merkle_leaves.len() < MAX_OUTPUTS);
+        assert!(output_merkle_leaves.len() <= MAX_OUTPUTS);
         merkle::root(&output_merkle_leaves)
     }
 
