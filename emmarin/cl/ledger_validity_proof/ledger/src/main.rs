@@ -9,16 +9,17 @@ fn main() {
         mut ledger,
         id,
         bundles,
-    } = env::read();
-
+        nf_proofs,
+    } = LedgerProofPrivate::read();
     let old_ledger = ledger.clone();
     let mut cross_bundles = vec![];
     let mut outputs = vec![];
 
+    let mut nullifiers = vec![];
+
     for LedgerBundleWitness {
-        bundle,
+        mut bundle,
         cm_root_proofs,
-        nf_proofs,
     } in bundles
     {
         env::verify(
@@ -27,7 +28,13 @@ fn main() {
         )
         .unwrap();
 
-        if let Some(ledger_update) = bundle.zone_ledger_updates.get(&id) {
+        // TODO: do not add local updates
+        cross_bundles.push(CrossZoneBundle {
+            id: bundle.bundle_id,
+            zones: bundle.zone_ledger_updates.keys().copied().collect(),
+        });
+
+        if let Some(ledger_update) = bundle.zone_ledger_updates.remove(&id) {
             for past_cm_root in &ledger_update.cm_roots {
                 let past_cm_root_proof = cm_root_proofs
                     .get(past_cm_root)
@@ -36,24 +43,18 @@ fn main() {
                 assert!(old_ledger.valid_cm_root(expected_current_cm_root))
             }
 
-            let mut sorted_nullifiers = ledger_update.nullifiers.clone();
-            // TODO: sort outside and check
-            sorted_nullifiers.sort();
-            // TODO: remove nullifier duplication
-            assert_eq!(sorted_nullifiers, nf_proofs.nullifiers());
-            ledger.assert_nfs_update(&nf_proofs);
-
             for cm in &ledger_update.commitments {
                 ledger.add_commitment(cm);
                 outputs.push(*cm)
             }
-        }
 
-        cross_bundles.push(CrossZoneBundle {
-            id: bundle.bundle_id,
-            zones: bundle.zone_ledger_updates.into_keys().collect(),
-        });
+            nullifiers.extend(ledger_update.nullifiers);
+        }
     }
+
+    // TODO: sort outside and check
+    nullifiers.sort();
+    ledger.assert_nfs_update(&nullifiers, &nf_proofs);
 
     env::commit(&LedgerProofPublic {
         old_ledger: old_ledger.commit(),

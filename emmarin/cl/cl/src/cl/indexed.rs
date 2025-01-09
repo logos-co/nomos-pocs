@@ -1,5 +1,5 @@
 use super::{
-    merkle::{self, leaf, Path},
+    merkle::{self, leaf, Path, PathNode},
     mmr::{Root, MMR},
     Nullifier,
 };
@@ -246,11 +246,12 @@ impl NullifierTree {
             self.leaves.push(new_leaf);
         }
 
-        BatchUpdateProof {
+        BatchUpdateProofInner {
             low_nfs,
             low_nf_paths,
             mmr,
         }
+        .serialize()
     }
 }
 
@@ -306,14 +307,80 @@ impl UpdateProof {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BatchUpdateProof {
+struct BatchUpdateProofInner {
     low_nfs: Vec<Leaf>,
     low_nf_paths: Vec<Path>,
     mmr: MMR,
 }
 
+/// Custom zero-copyish deserialization is needed for decent performance
+/// in risc0
+#[derive(Debug, Clone)]
+pub struct BatchUpdateProof {
+    data: Vec<u8>,
+}
+
+struct LowNfIterator<'a> {
+    data: &'a [u8],
+    path_len: usize,
+}
+
+#[derive(Debug, Clone)]
+struct PathIterator<'p> {
+    path: &'p [u8],
+}
+
+impl<'a> Iterator for PathIterator<'a> {
+    type Item = PathNode;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.path.is_empty() {
+            return None;
+        }
+
+        let (node, rest) = self.path.split_at(33);
+        self.path = rest;
+        match node[0] {
+            0 => Some(PathNode::Left(node[1..].try_into().unwrap())),
+            1 => Some(PathNode::Right(node[1..].try_into().unwrap())),
+            _ => panic!("invalid path node"),
+        }
+    }
+}
+
+impl<'a> Iterator for LowNfIterator<'a> {
+    type Item = (Leaf, PathIterator<'a>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.data.is_empty() {
+            return None;
+        }
+
+        let (low_nf, rest) = self.data.split_at(64 + self.path_len * 33);
+        self.data = rest;
+        let path = PathIterator {
+            path: &low_nf[64..],
+        };
+        let low_nf = Leaf {
+            value: Nullifier(low_nf[..32].try_into().unwrap()),
+            next_value: Nullifier(low_nf[32..64].try_into().unwrap()),
+        };
+
+        Some((low_nf, path))
+    }
+}
+
 impl BatchUpdateProof {
-    pub fn verify(&self, values: &[Nullifier], old_root: [u8; 32]) -> [u8; 32] {
+    pub fn from_raw_data(data: Vec<u8>) -> Self {
+        Self { data }
+    }
+
+    fn verify_batch_proof(
+        values: &[Nullifier],
+        low_nfs: LowNfIterator,
+        mut mmr: MMR,
+        old_root: [u8; 32],
+    ) -> [u8; 32] {
         if values.is_empty() {
             return old_root;
         }
@@ -328,9 +395,9 @@ impl BatchUpdateProof {
 
         let mut values = values.iter();
 
-        for (low_nf, path) in self.low_nfs.iter().zip(&self.low_nf_paths) {
+        for (low_nf, path) in low_nfs {
             let in_gap = values
-                .peeking_take_while(|v| in_interval(*low_nf, **v))
+                .peeking_take_while(|v| in_interval(low_nf, **v))
                 .copied()
                 .collect::<Vec<_>>();
             assert!(in_gap.len() >= 1, "unused low nf");
@@ -352,19 +419,81 @@ impl BatchUpdateProof {
                 next_value: in_gap[0],
             };
 
-            assert_eq!(cur_root, merkle::path_root(leaf(&low_nf.to_bytes()), path));
+            assert_eq!(
+                cur_root,
+                merkle::path_root(leaf(&low_nf.to_bytes()), path.clone())
+            );
             cur_root = merkle::path_root(leaf(&updated_low_nf.to_bytes()), path);
         }
 
         assert!(values.next().is_none(), "unused values");
-        assert_eq!(cur_root, frontier_root(&self.mmr.roots));
+        assert_eq!(cur_root, frontier_root(&mmr.roots));
 
-        let mut mmr = self.mmr.clone();
         for new_leaf in new_leaves {
             mmr.push(&new_leaf.to_bytes());
         }
 
         frontier_root(&mmr.roots)
+    }
+
+    pub fn verify(&self, nfs: &[Nullifier], old_root: [u8; 32]) -> [u8; 32] {
+        if self.data.is_empty() {
+            return old_root;
+        }
+        let len = u32::from_le_bytes(self.data[..4].try_into().unwrap()) as usize;
+        let path_len = u32::from_le_bytes(self.data[4..8].try_into().unwrap()) as usize;
+        let low_nf_iterator_end = 8 + (path_len * 33 + 64) * len;
+        let low_nfs = LowNfIterator {
+            data: &self.data[8..low_nf_iterator_end],
+            path_len,
+        };
+        let mut roots = Vec::new();
+        for root in self.data[low_nf_iterator_end..].chunks_exact(33) {
+            roots.push(Root {
+                root: root[1..].try_into().unwrap(),
+                height: root[0],
+            });
+        }
+        Self::verify_batch_proof(nfs, low_nfs, MMR { roots }, old_root)
+    }
+
+    pub fn as_slice(&self) -> &[u8] {
+        &self.data
+    }
+}
+
+impl BatchUpdateProofInner {
+    fn serialize(&self) -> BatchUpdateProof {
+        if self.low_nfs.is_empty() {
+            return BatchUpdateProof { data: Vec::new() };
+        }
+        let mut data = Vec::new();
+        data.extend_from_slice(&(self.low_nfs.len() as u32).to_le_bytes());
+        let path_lenghts = self.low_nf_paths[0].len();
+        data.extend_from_slice(&(path_lenghts as u32).to_le_bytes());
+        for (low_nf, path) in self.low_nfs.iter().zip(&self.low_nf_paths) {
+            data.extend_from_slice(&low_nf.to_bytes());
+            assert_eq!(path.len(), path_lenghts);
+            for node in path {
+                match node {
+                    merkle::PathNode::Left(sibling) => {
+                        data.push(0);
+                        data.extend_from_slice(sibling);
+                    }
+                    merkle::PathNode::Right(sibling) => {
+                        data.push(1);
+                        data.extend_from_slice(sibling);
+                    }
+                }
+            }
+        }
+
+        for root in &self.mmr.roots {
+            data.push(root.height);
+            data.extend_from_slice(&root.root);
+        }
+
+        BatchUpdateProof { data }
     }
 }
 
@@ -437,10 +566,10 @@ mod tests {
             tree_single.insert(*value).verify(old_root);
         }
 
-        let proof = tree_batch.insert_batch(values);
+        let proof = tree_batch.insert_batch(values.clone());
 
         assert_eq!(
-            proof.verify(NullifierTree::new().root()),
+            proof.verify(&values, NullifierTree::new().root()),
             tree_single.root()
         );
     }
