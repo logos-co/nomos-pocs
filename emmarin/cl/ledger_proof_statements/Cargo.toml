@@ -7,3 +7,5 @@ edition = "2021"
 cl = { path = "../cl" }
 serde = { version = "1.0", features = ["derive"] }
 risc0-zkvm = "1.2"
+risc0-zkvm-io = { path = "../risc0-zkvm-io" }
+risc0-zkvm-io-derive = { path = "../risc0-zkvm-io-derive" }

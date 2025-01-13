@@ -1,0 +1,8 @@
+[package]
+name = "risc0-zkvm-io"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde =  "1.0" 
+risc0-zkvm = { version = "1.2", default-features = false, features = ["client"] }

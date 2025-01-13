@@ -8,7 +8,7 @@ members = [
     "bundle_risc0_proof",
     "ptx_risc0_proof",
     "ledger_validity_proof"
-]
+, "risc0-zkvm-io",  "risc0-zkvm-io-derive"]
 
 # Always optimize; building and running the risc0_proofs takes much longer without optimization.
 [profile.dev]
