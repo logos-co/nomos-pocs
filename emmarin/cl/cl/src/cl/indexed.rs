@@ -524,8 +524,34 @@ fn frontier_root(roots: &[Root]) -> [u8; 32] {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
+    use proptest_macro::property_test;
+
+    #[test]
+    fn test_empty_roots() {
+        let mut root = [0; 32];
+        for i in 0..32 {
+            assert_eq!(root, EMPTY_ROOTS[i]);
+            root = merkle::node(root, root);
+        }
+    }
+
+    #[property_test]
+    fn test_frontier_root(elems: Vec<[u8; 32]>) {
+        let mut mmr = MMR::new();
+        for elem in &elems {
+            mmr.push(elem);
+        }
+        assert_eq!(
+            frontier_root(&mmr.roots),
+            merkle::root(&merkle::padded_leaves(
+                &elems
+                    .into_iter()
+                    .map(|array| array.to_vec())
+                    .collect::<Vec<_>>()
+            ))
+        );
+    }
 
     #[test]
     #[should_panic]
