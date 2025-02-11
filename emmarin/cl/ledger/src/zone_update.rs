@@ -3,6 +3,7 @@ use crate::{ledger::ProvedLedgerTransition, stf::StfProof};
 use cl::zone_layer::tx::UpdateBundle;
 use std::collections::{HashMap, HashSet};
 
+#[derive(Debug, Clone)]
 pub struct ProvedUpdateBundle {
     pub bundle: UpdateBundle,
     pub ledger_proofs: Vec<ProvedLedgerTransition>,

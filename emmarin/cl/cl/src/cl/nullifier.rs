@@ -6,9 +6,11 @@
 // nonce is used to disambiguate when the same nullifier
 // secret is used for multiple notes.
 
+use std::cmp::PartialOrd;
+
 use rand_core::RngCore;
-use serde::{Deserialize, Serialize};
 use risc0_zkvm::sha::rust_crypto::{Digest, Sha256};
+use serde::{Deserialize, Serialize};
 
 use crate::cl::NoteCommitment;
 

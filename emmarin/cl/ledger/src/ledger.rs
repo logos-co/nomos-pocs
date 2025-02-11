@@ -1,8 +1,6 @@
 use std::collections::BTreeMap;
 
-use ledger_proof_statements::ledger::{
-    CompactNullifierProofs, LedgerBundleWitness, LedgerProofPrivate, LedgerProofPublic,
-};
+use ledger_proof_statements::ledger::{LedgerBundleWitness, LedgerProofPrivate, LedgerProofPublic};
 
 use crate::bundle::ProvedBundle;
 use cl::zone_layer::{ledger::LedgerState, notes::ZoneId};
@@ -14,14 +12,9 @@ pub struct ProvedLedgerTransition {
 
 impl ProvedLedgerTransition {
     pub fn prove(mut ledger: LedgerState, zone_id: ZoneId, bundles: Vec<ProvedBundle>) -> Self {
-        let mut witness = LedgerProofPrivate {
-            bundles: Vec::new(),
-            ledger: ledger.to_witness(),
-            id: zone_id,
-        };
-
         let mut env = risc0_zkvm::ExecutorEnv::builder();
-
+        let mut w_bundles = Vec::new();
+        let mut nullifiers = Vec::new();
         // prepare the sparse merkle tree nullifier proofs
         for proved_bundle in &bundles {
             env.add_assumption(proved_bundle.risc0_receipt.clone());
@@ -42,22 +35,25 @@ impl ProvedLedgerTransition {
                     (*root, vec![])
                 }));
 
-            let mut nf_proofs = Vec::new();
-            for nf in &zone_ledger_update.nullifiers {
-                let nf_proof = ledger.add_nullifier(*nf);
-                nf_proofs.push(nf_proof);
-            }
+            nullifiers.extend(zone_ledger_update.nullifiers.clone());
 
             let ledger_bundle = LedgerBundleWitness {
                 bundle,
                 cm_root_proofs,
-                nf_proofs: CompactNullifierProofs::from_paths(nf_proofs),
             };
 
-            witness.bundles.push(ledger_bundle)
+            w_bundles.push(ledger_bundle)
         }
 
-        let env = env.write(&witness).unwrap().build().unwrap();
+        let witness = LedgerProofPrivate {
+            bundles: w_bundles,
+            ledger: ledger.to_witness(),
+            id: zone_id,
+            nf_proofs: ledger.add_nullifiers(nullifiers),
+        };
+
+        witness.write(&mut env);
+        let env = env.build().unwrap();
 
         // Obtain the default prover.
         let prover = risc0_zkvm::default_prover();
@@ -95,5 +91,3 @@ impl ProvedLedgerTransition {
             .is_ok()
     }
 }
-
-
