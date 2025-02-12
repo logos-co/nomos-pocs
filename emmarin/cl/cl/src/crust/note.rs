@@ -39,22 +39,24 @@ impl NoteWitness {
 
     pub fn commit(&self, nf_pk: NullifierCommitment) -> NoteCommitment {
         let mut hasher = Hash::new();
-        hasher.update(b"NOMOS_CL_NOTE_CM");
-        hasher.update(&self.zone_id);
+        hasher.update(b"NOMOS_NOTE_CM");
+
+        // COMMIT TO STATE
+        hasher.update(self.state);
 
         // COMMIT TO BALANCE
         hasher.update(self.value.to_le_bytes());
         hasher.update(self.unit);
-        // Important! we don't commit to the balance blinding factor as that may make the notes linkable.
-
-        // COMMIT TO STATE
-        hasher.update(self.state);
 
         // COMMIT TO NONCE
         hasher.update(self.nonce.as_bytes());
 
         // COMMIT TO NULLIFIER
         hasher.update(nf_pk.as_bytes());
+
+        hasher.update(&self.zone_id);
+
+        // Important! we don't commit to the balance blinding factor as that may make the notes linkable.
 
         let commit_bytes: [u8; 32] = hasher.finalize().into();
         NoteCommitment(commit_bytes)
