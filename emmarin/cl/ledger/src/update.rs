@@ -1,16 +1,16 @@
 pub use crate::error::{Error, Result};
 use crate::{ledger::ProvedLedgerTransition, stf::StfProof};
-use cl::mantle::update::UpdateBundle;
+use cl::mantle::update::BatchUpdate;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
-pub struct ProvedUpdateBundle {
-    pub bundle: UpdateBundle,
+pub struct ProvedBatchUpdate {
+    pub bundle: BatchUpdate,
     pub ledger_proofs: Vec<ProvedLedgerTransition>,
     pub stf_proofs: Vec<StfProof>,
 }
 
-impl ProvedUpdateBundle {
+impl ProvedBatchUpdate {
     pub fn verify(&self) -> bool {
         let mut expected_zones = HashMap::new();
         let mut actual_zones = HashMap::new();
@@ -20,9 +20,9 @@ impl ProvedUpdateBundle {
             }
 
             for bundle in &proof.public().sync_logs {
-                expected_zones.insert(bundle.id.0, HashSet::from_iter(bundle.zones.clone()));
+                expected_zones.insert(bundle.bundle.0, HashSet::from_iter(bundle.zones.clone()));
                 actual_zones
-                    .entry(bundle.id.0)
+                    .entry(bundle.bundle.0)
                     .or_insert_with(HashSet::new)
                     .insert(proof.public().id);
             }

@@ -7,7 +7,7 @@ pub struct MMR {
     pub roots: Vec<Root>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct Root {
     pub root: [u8; 32],
     pub height: u8,

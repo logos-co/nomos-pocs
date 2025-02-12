@@ -28,19 +28,14 @@ impl ProvedLedgerTransition {
                 .next()
                 .expect("why are we proving this bundle for this zone if it's not involved?");
 
-            let cm_root_proofs = BTreeMap::from_iter(
-                zone_ledger_update
-                    .frontier_nodes
-                    .iter()
-                    .flat_map(|frontier| frontier.roots.iter())
-                    .map(|root| {
-                        // We make the simplifying assumption that bundle proofs
-                        // are done w.r.t. the latest MMR (hence, empty merkle proofs)
-                        //
-                        // We can remove this assumption by tracking old MMR roots in the LedgerState
-                        (root.root, vec![])
-                    }),
-            );
+            let cm_root_proofs =
+                BTreeMap::from_iter(zone_ledger_update.frontier_nodes.iter().map(|root| {
+                    // We make the simplifying assumption that bundle proofs
+                    // are done w.r.t. the latest MMR (hence, empty merkle proofs)
+                    //
+                    // We can remove this assumption by tracking old MMR roots in the LedgerState
+                    (root.root, vec![])
+                }));
 
             nullifiers.extend(zone_ledger_update.inputs.clone());
 

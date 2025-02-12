@@ -2,12 +2,12 @@ use crate::mantle::ZoneState;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct UpdateBundle {
-    pub updates: Vec<ZoneUpdate>,
+pub struct BatchUpdate {
+    pub updates: Vec<Update>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ZoneUpdate {
+pub struct Update {
     pub old: ZoneState,
     pub new: ZoneState,
 }

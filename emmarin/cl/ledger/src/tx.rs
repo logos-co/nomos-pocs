@@ -4,10 +4,7 @@ use crate::{
     covenant::{SpendingCovenantProof, SupplyCovenantProof},
     error::{Error, Result},
 };
-use cl::{
-    crust::{Tx, TxWitness, UnitWitness},
-    ds::mmr::{MMRProof, MMR},
-};
+use cl::crust::{Tx, TxWitness, UnitWitness};
 
 #[derive(Debug, Clone)]
 pub struct ProvedTx {

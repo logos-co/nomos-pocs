@@ -30,7 +30,7 @@ fn main() {
 
         // TODO: do not add local updates
         sync_logs.push(SyncLog {
-            id: bundle.root,
+            bundle: bundle.root,
             zones: bundle.updates.iter().map(|update| update.zone_id).collect(),
         });
 
@@ -40,14 +40,12 @@ fn main() {
             .filter(|update| update.zone_id == id)
             .next()
         {
-            for frontier in &ledger_update.frontier_nodes {
-                for node in &frontier.roots {
-                    let past_cm_root_proof = cm_root_proofs
-                        .get(&node.root)
-                        .expect("missing cm root proof");
-                    let expected_current_cm_root = merkle::path_root(node.root, past_cm_root_proof);
-                    assert!(old_ledger.valid_cm_root(expected_current_cm_root))
-                }
+            for node in &ledger_update.frontier_nodes {
+                let past_cm_root_proof = cm_root_proofs
+                    .get(&node.root)
+                    .expect("missing cm root proof");
+                let expected_current_cm_root = merkle::path_root(node.root, past_cm_root_proof);
+                assert!(old_ledger.valid_cm_root(expected_current_cm_root))
             }
 
             for cm in &ledger_update.outputs {

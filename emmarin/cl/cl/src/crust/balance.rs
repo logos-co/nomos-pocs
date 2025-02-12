@@ -1,36 +1,29 @@
-use rand_core::CryptoRngCore;
-
 use serde::{Deserialize, Serialize};
 
-use crate::crust::TxWitness;
+use crate::crust::{
+    iow::{BurnWitness, MintWitness},
+    TxWitness,
+};
 use crate::{Digest, Hash};
 
 pub type Value = u64;
 pub type Unit = [u8; 32];
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
-pub struct Balance([u8; 32]);
-
-impl Balance {
-    pub fn to_bytes(&self) -> [u8; 32] {
-        self.0
-    }
-}
+pub const NOP_VK: [u8; 32] = [0u8; 32];
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct UnitWitness {
-    pub spending_vk: [u8; 32],
-    pub minting_vk: [u8; 32],
-    pub burning_vk: [u8; 32],
+    pub spending_covenant: [u8; 32],
+    pub minting_covenant: [u8; 32],
+    pub burning_covenant: [u8; 32],
 }
 
 impl UnitWitness {
     pub fn unit(&self) -> Unit {
         let mut hasher = Hash::new();
         hasher.update(b"NOMOS_CL_UNIT");
-        hasher.update(&self.spending_vk);
-        hasher.update(&self.minting_vk);
-        hasher.update(&self.burning_vk);
+        hasher.update(&self.spending_covenant);
+        hasher.update(&self.minting_covenant);
+        hasher.update(&self.burning_covenant);
 
         hasher.finalize().into()
     }
@@ -47,38 +40,50 @@ impl UnitBalance {
     pub fn is_zero(&self) -> bool {
         self.pos == self.neg
     }
-}
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
-pub struct BalanceWitness {
-    pub balances: Vec<UnitBalance>,
-    pub blinding: [u8; 16],
-}
-
-impl BalanceWitness {
-    pub fn random_blinding(mut rng: impl CryptoRngCore) -> [u8; 16] {
-        let mut blinding = [0u8; 16];
-        rng.fill_bytes(&mut blinding);
-
-        blinding
-    }
-
-    pub fn zero(blinding: [u8; 16]) -> Self {
+    pub fn pos(unit: Unit, value: u64) -> Self {
         Self {
-            balances: Default::default(),
-            blinding,
+            unit,
+            pos: value,
+            neg: 0,
         }
     }
 
-    pub fn from_tx(tx: &TxWitness, blinding: [u8; 16]) -> Self {
-        let mut balance = Self::zero(blinding);
+    pub fn neg(unit: Unit, value: u64) -> Self {
+        Self {
+            unit,
+            pos: 0,
+            neg: value,
+        }
+    }
+}
 
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
+pub struct Balance {
+    pub balances: Vec<UnitBalance>,
+}
+impl Balance {
+    pub fn zero() -> Self {
+        Self {
+            balances: Vec::new(),
+        }
+    }
+
+    pub fn from_tx(tx: &TxWitness) -> Self {
+        let mut balance = Self::zero();
         for input in tx.inputs.iter() {
-            balance.insert_negative(input.note.unit, input.note.value);
+            balance.insert_positive(input.note.unit, input.note.value);
+        }
+        for (output, _data) in tx.outputs.iter() {
+            balance.insert_negative(output.note.unit, output.note.value);
         }
 
-        for (output, _data) in tx.outputs.iter() {
-            balance.insert_positive(output.note.unit, output.note.value);
+        for MintWitness { unit, amount } in &tx.mints {
+            balance.insert_positive(*unit, *amount);
+        }
+
+        for BurnWitness { unit, amount } in &tx.burns {
+            balance.insert_negative(*unit, *amount);
         }
 
         balance.clear_zeros();
@@ -130,40 +135,24 @@ impl BalanceWitness {
         }
     }
 
-    pub fn combine(balances: impl IntoIterator<Item = Self>, blinding: [u8; 16]) -> Self {
-        let mut combined = BalanceWitness::zero(blinding);
-
-        for balance in balances {
-            for unit_bal in balance.balances.iter() {
-                if unit_bal.pos > unit_bal.neg {
-                    combined.insert_positive(unit_bal.unit, unit_bal.pos - unit_bal.neg);
-                } else {
-                    combined.insert_negative(unit_bal.unit, unit_bal.neg - unit_bal.pos);
+    pub fn combine<'a>(balances: impl IntoIterator<Item = &'a Self>) -> Self {
+        let mut combined = balances
+            .into_iter()
+            .fold(Balance::zero(), |mut acc, balance| {
+                for unit_bal in &balance.balances {
+                    if unit_bal.pos > unit_bal.neg {
+                        acc.insert_positive(unit_bal.unit, unit_bal.pos - unit_bal.neg);
+                    } else {
+                        acc.insert_negative(unit_bal.unit, unit_bal.neg - unit_bal.pos);
+                    }
                 }
-            }
-        }
-
+                acc
+            });
         combined.clear_zeros();
-
         combined
     }
 
     pub fn is_zero(&self) -> bool {
         self.balances.is_empty()
-    }
-
-    pub fn commit(&self) -> Balance {
-        let mut hasher = Hash::new();
-        hasher.update(b"NOMOS_CL_BAL_COMMIT");
-
-        for unit_balance in self.balances.iter() {
-            hasher.update(unit_balance.unit);
-            hasher.update(unit_balance.pos.to_le_bytes());
-            hasher.update(unit_balance.neg.to_le_bytes());
-        }
-        hasher.update(self.blinding);
-
-        let commit_bytes: [u8; 32] = hasher.finalize().into();
-        Balance(commit_bytes)
     }
 }

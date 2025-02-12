@@ -4,7 +4,7 @@ pub mod note;
 pub mod nullifier;
 pub mod tx;
 
-pub use balance::{Balance, BalanceWitness, Unit, UnitWitness};
+pub use balance::{Balance, Unit, UnitWitness};
 pub use iow::{InputWitness, OutputWitness};
 pub use note::{Nonce, NoteCommitment, NoteWitness};
 pub use nullifier::{Nullifier, NullifierCommitment, NullifierSecret};

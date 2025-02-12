@@ -4,11 +4,11 @@ use std::collections::BTreeMap;
 
 use crate::{
     crust::{
-        balance::{Balance, BalanceWitness},
+        balance::Balance,
         iow::{BurnWitness, InputWitness, MintWitness, OutputWitness},
         NoteCommitment, Nullifier,
     },
-    ds::mmr::{MMRProof, MMR},
+    ds::mmr::{MMRProof, Root, MMR},
     mantle::ZoneId,
     merkle, Digest, Hash,
 };
@@ -60,7 +60,6 @@ pub struct TxWitness {
     pub inputs: Vec<InputWitness>,
     pub outputs: Vec<(OutputWitness, Vec<u8>)>,
     pub data: Vec<u8>,
-    pub balance_blinding: [u8; 16],
     pub mint_burn_blinding: [u8; 16],
     pub mints: Vec<MintWitness>,
     pub burns: Vec<BurnWitness>,
@@ -70,14 +69,14 @@ pub struct TxWitness {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LedgerUpdate {
     pub zone_id: ZoneId,
-    pub frontier_nodes: Vec<MMR>,
+    pub frontier_nodes: Vec<Root>,
     pub inputs: Vec<Nullifier>,
     pub outputs: Vec<NoteCommitment>,
 }
 
 pub struct LedgerUpdateWitness {
     pub zone_id: ZoneId,
-    pub frontier_nodes: Vec<MMR>,
+    pub frontier_nodes: Vec<Root>,
     pub inputs: Vec<Nullifier>,
     pub outputs: Vec<(NoteCommitment, Vec<u8>)>,
 }
@@ -126,35 +125,39 @@ impl TxWitness {
         frontier_paths: Vec<(MMR, MMRProof)>,
         mut rng: impl CryptoRngCore,
     ) -> Self {
+        let mut mint_burn_blinding = [0u8; 16];
+        rng.fill_bytes(&mut mint_burn_blinding);
         Self {
             inputs,
             outputs,
             data,
             burns,
             mints,
-            balance_blinding: BalanceWitness::random_blinding(&mut rng),
-            mint_burn_blinding: BalanceWitness::random_blinding(&mut rng), // TODO: type
+            mint_burn_blinding,
             frontier_paths,
         }
     }
 
-    pub fn balance(&self) -> BalanceWitness {
-        BalanceWitness::from_tx(self, self.balance_blinding)
+    pub fn balance(&self) -> Balance {
+        Balance::from_tx(self)
     }
 
     pub fn updates(&self) -> BTreeMap<ZoneId, LedgerUpdateWitness> {
         let mut updates = BTreeMap::new();
         assert_eq!(self.inputs.len(), self.frontier_paths.len());
         for (input, (mmr, path)) in self.inputs.iter().zip(&self.frontier_paths) {
-            let entry = updates.entry(input.note.zone_id).or_insert(LedgerUpdateWitness {
-                zone_id: input.note.zone_id,
-                inputs: vec![],
-                outputs: vec![],
-                frontier_nodes: vec![],
-            });
+            let entry = updates
+                .entry(input.note.zone_id)
+                .or_insert(LedgerUpdateWitness {
+                    zone_id: input.note.zone_id,
+                    inputs: vec![],
+                    outputs: vec![],
+                    frontier_nodes: mmr.roots.clone(),
+                });
             entry.inputs.push(input.nullifier());
             assert!(mmr.verify_proof(&input.note_commitment().0, &path));
-            entry.frontier_nodes.push(mmr.clone());
+            // ensure a single MMR per zone per tx
+            assert_eq!(&mmr.roots, &entry.frontier_nodes);
         }
 
         for (output, data) in &self.outputs {
@@ -203,9 +206,7 @@ impl TxWitness {
             mint_burn_root,
             data_root,
         ])));
-
-        // TODO: fix
-        let balance = BalanceWitness::from_tx(self, self.balance_blinding).commit();
+        let balance = self.balance();
 
         Tx {
             root,
@@ -224,21 +225,11 @@ pub struct Bundle {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BundleWitness {
     pub txs: Vec<Tx>,
-    pub balance_witnesses: Vec<BalanceWitness>,
 }
 
 impl BundleWitness {
     pub fn commit(self) -> Bundle {
-        assert_eq!(self.txs.len(), self.balance_witnesses.len());
-        for (balance, witness) in self
-            .txs
-            .iter()
-            .map(|tx| tx.balance)
-            .zip(self.balance_witnesses.iter())
-        {
-            assert_eq!(balance, witness.commit());
-        }
-        assert!(BalanceWitness::combine(self.balance_witnesses, [0; 16]).is_zero());
+        assert!(Balance::combine(self.txs.iter().map(|tx| &tx.balance)).is_zero());
 
         let root = BundleRoot(merkle::root(&merkle::padded_leaves(
             &self.txs.iter().map(|tx| tx.root.0).collect::<Vec<_>>(),
@@ -266,6 +257,17 @@ impl BundleWitness {
             .into_iter()
             .map(|(_, update)| update)
             .collect::<Vec<_>>();
+
+        // de-dup frontier nodes
+        let updates = updates
+            .into_iter()
+            .map(|mut update| {
+                update.frontier_nodes.sort();
+                update.frontier_nodes.dedup();
+                update
+            })
+            .collect();
+
         Bundle { updates, root }
     }
 }
