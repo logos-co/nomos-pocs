@@ -1,6 +1,6 @@
 pub use crate::error::{Error, Result};
 use crate::{ledger::ProvedLedgerTransition, stf::StfProof};
-use cl::zone_layer::tx::UpdateBundle;
+use cl::mantle::update::UpdateBundle;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
@@ -19,10 +19,10 @@ impl ProvedUpdateBundle {
                 return false;
             }
 
-            for bundle in &proof.public().cross_bundles {
-                expected_zones.insert(bundle.id, HashSet::from_iter(bundle.zones.clone()));
+            for bundle in &proof.public().sync_logs {
+                expected_zones.insert(bundle.id.0, HashSet::from_iter(bundle.zones.clone()));
                 actual_zones
-                    .entry(bundle.id)
+                    .entry(bundle.id.0)
                     .or_insert_with(HashSet::new)
                     .insert(proof.public().id);
             }
@@ -45,10 +45,6 @@ impl ProvedUpdateBundle {
             .zip(self.stf_proofs.iter())
             .zip(self.ledger_proofs.iter())
         {
-            if !update.well_formed() {
-                return false;
-            }
-
             if ledger_proof.public().old_ledger != update.old.ledger
                 || ledger_proof.public().ledger != update.new.ledger
             {

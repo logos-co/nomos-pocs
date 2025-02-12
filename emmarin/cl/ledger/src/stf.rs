@@ -1,4 +1,4 @@
-use cl::zone_layer::notes::Stf;
+use cl::mantle::zone::Stf;
 use ledger_proof_statements::stf::StfPublic;
 
 #[derive(Debug, Clone)]

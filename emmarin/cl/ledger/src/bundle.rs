@@ -1,6 +1,5 @@
-use ledger_proof_statements::bundle::{BundlePrivate, BundlePublic};
-
-use crate::partial_tx::ProvedPartialTx;
+use crate::tx::ProvedTx;
+use cl::crust::{Bundle, BundleWitness};
 
 #[derive(Debug, Clone)]
 pub struct ProvedBundle {
@@ -8,12 +7,12 @@ pub struct ProvedBundle {
 }
 
 impl ProvedBundle {
-    pub fn prove(bundle: &BundlePrivate, partials: Vec<ProvedPartialTx>) -> Self {
+    pub fn prove(bundle: &BundleWitness, txs: Vec<ProvedTx>) -> Self {
         //show that all ptx's are individually valid, and balance to 0
         let mut env = risc0_zkvm::ExecutorEnv::builder();
 
-        for proved_ptx in partials {
-            env.add_assumption(proved_ptx.risc0_receipt);
+        for proved_tx in txs {
+            env.add_assumption(proved_tx.risc0_receipt);
         }
 
         let env = env.write(&bundle).unwrap().build().unwrap();
@@ -40,7 +39,7 @@ impl ProvedBundle {
         }
     }
 
-    pub fn public(&self) -> BundlePublic {
+    pub fn public(&self) -> Bundle {
         self.risc0_receipt.journal.decode().unwrap()
     }
 

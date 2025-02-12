@@ -1,7 +1,7 @@
 use cl::{
     cl::{
         note::derive_unit, BalanceWitness, InputWitness, NoteWitness, NullifierCommitment,
-        NullifierSecret, OutputWitness, PartialTxWitness,
+        NullifierSecret, OutputWitness, TxWitness,
     },
     zone_layer::notes::ZoneId,
 };
@@ -33,7 +33,7 @@ fn test_simple_transfer() {
     let change_output =
         OutputWitness::new(NoteWitness::basic(2, nmo, &mut rng), sender_nf_pk, zone_id);
 
-    let ptx_witness = PartialTxWitness {
+    let ptx_witness = TxWitness {
         inputs: vec![InputWitness::from_output(utxo, sender_nf_sk)],
         outputs: vec![recipient_output, change_output],
         balance_blinding: BalanceWitness::random_blinding(&mut rng),

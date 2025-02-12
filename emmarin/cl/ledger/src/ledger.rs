@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use ledger_proof_statements::ledger::{LedgerBundleWitness, LedgerProofPrivate, LedgerProofPublic};
 
 use crate::bundle::ProvedBundle;
-use cl::zone_layer::{ledger::LedgerState, notes::ZoneId};
+use cl::mantle::{ledger::LedgerState, zone::ZoneId};
 
 #[derive(Debug, Clone)]
 pub struct ProvedLedgerTransition {
@@ -22,20 +22,27 @@ impl ProvedLedgerTransition {
             let bundle = proved_bundle.public();
 
             let zone_ledger_update = bundle
-                .zone_ledger_updates
-                .get(&zone_id)
+                .updates
+                .iter()
+                .filter(|update| update.zone_id == zone_id)
+                .next()
                 .expect("why are we proving this bundle for this zone if it's not involved?");
 
-            let cm_root_proofs =
-                BTreeMap::from_iter(zone_ledger_update.cm_roots.iter().map(|root| {
-                    // We make the simplifying assumption that bundle proofs
-                    // are done w.r.t. the latest MMR (hence, empty merkle proofs)
-                    //
-                    // We can remove this assumption by tracking old MMR roots in the LedgerState
-                    (*root, vec![])
-                }));
+            let cm_root_proofs = BTreeMap::from_iter(
+                zone_ledger_update
+                    .frontier_nodes
+                    .iter()
+                    .flat_map(|frontier| frontier.roots.iter())
+                    .map(|root| {
+                        // We make the simplifying assumption that bundle proofs
+                        // are done w.r.t. the latest MMR (hence, empty merkle proofs)
+                        //
+                        // We can remove this assumption by tracking old MMR roots in the LedgerState
+                        (root.root, vec![])
+                    }),
+            );
 
-            nullifiers.extend(zone_ledger_update.nullifiers.clone());
+            nullifiers.extend(zone_ledger_update.inputs.clone());
 
             let ledger_bundle = LedgerBundleWitness {
                 bundle,

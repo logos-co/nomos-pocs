@@ -1,11 +1,13 @@
 use std::collections::BTreeMap;
 
-use crate::bundle::BundleId;
-use crate::bundle::BundlePublic;
-use cl::cl::{indexed::BatchUpdateProof, merkle, NoteCommitment};
-use cl::zone_layer::{
-    ledger::{Ledger, LedgerWitness},
-    notes::ZoneId,
+use cl::{
+    crust::{Bundle, BundleRoot, NoteCommitment},
+    mantle::{
+        indexed::BatchUpdateProof,
+        ledger::{Ledger, LedgerWitness},
+        ZoneId,
+    },
+    merkle,
 };
 use risc0_zkvm::guest::env;
 use serde::{Deserialize, Serialize};
@@ -15,7 +17,7 @@ pub struct LedgerProofPublic {
     pub old_ledger: Ledger,
     pub ledger: Ledger,
     pub id: ZoneId,
-    pub cross_bundles: Vec<CrossZoneBundle>,
+    pub sync_logs: Vec<SyncLog>,
     pub outputs: Vec<NoteCommitment>,
 }
 
@@ -29,13 +31,13 @@ pub struct LedgerProofPrivate {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LedgerBundleWitness {
-    pub bundle: BundlePublic,
+    pub bundle: Bundle,
     pub cm_root_proofs: BTreeMap<[u8; 32], merkle::Path>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CrossZoneBundle {
-    pub id: BundleId,
+pub struct SyncLog {
+    pub id: BundleRoot,
     pub zones: Vec<ZoneId>,
 }
 

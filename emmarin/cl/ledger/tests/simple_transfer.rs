@@ -4,7 +4,7 @@ use cl::{
         mmr::{MMRProof, MMR},
         note::derive_unit,
         BalanceWitness, InputWitness, NoteWitness, NullifierCommitment, NullifierSecret,
-        OutputWitness, PartialTxWitness,
+        OutputWitness, TxWitness,
     },
     zone_layer::{
         ledger::LedgerState,
@@ -14,7 +14,7 @@ use cl::{
 };
 use ledger::{
     bundle::ProvedBundle, constraint::ConstraintProof, ledger::ProvedLedgerTransition,
-    partial_tx::ProvedPartialTx, stf::StfProof, zone_update::ProvedUpdateBundle,
+    partial_tx::ProvedTx, stf::StfProof, zone_update::ProvedUpdateBundle,
 };
 use ledger_proof_statements::{bundle::BundlePrivate, stf::StfPublic};
 use rand_core::CryptoRngCore;
@@ -68,7 +68,7 @@ fn cross_transfer_transition(
     );
 
     // Construct the ptx consuming the input and producing the two outputs.
-    let ptx_witness = PartialTxWitness {
+    let ptx_witness = TxWitness {
         inputs: vec![input],
         outputs: vec![transfer, change],
         balance_blinding: BalanceWitness::random_blinding(&mut rng),
@@ -78,7 +78,7 @@ fn cross_transfer_transition(
     let constraint_proof =
         ConstraintProof::prove_nop(input.nullifier(), ptx_witness.commit().root());
 
-    let proved_ptx = ProvedPartialTx::prove(
+    let proved_ptx = ProvedTx::prove(
         ptx_witness.clone(),
         vec![input_proof],
         vec![constraint_proof.clone()],

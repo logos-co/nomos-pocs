@@ -1,9 +1,7 @@
 pub mod bundle;
-pub mod constraint;
+pub mod covenant;
 pub mod error;
 pub mod ledger;
-pub mod partial_tx;
 pub mod stf;
+pub mod tx;
 pub mod zone_update;
-
-pub use constraint::ConstraintProof;
