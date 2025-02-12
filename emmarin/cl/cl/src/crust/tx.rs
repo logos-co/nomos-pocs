@@ -146,8 +146,8 @@ impl TxWitness {
         let mut updates = BTreeMap::new();
         assert_eq!(self.inputs.len(), self.frontier_paths.len());
         for (input, (mmr, path)) in self.inputs.iter().zip(&self.frontier_paths) {
-            let entry = updates.entry(input.zone_id).or_insert(LedgerUpdateWitness {
-                zone_id: input.zone_id,
+            let entry = updates.entry(input.note.zone_id).or_insert(LedgerUpdateWitness {
+                zone_id: input.note.zone_id,
                 inputs: vec![],
                 outputs: vec![],
                 frontier_nodes: vec![],
@@ -160,9 +160,9 @@ impl TxWitness {
         for (output, data) in &self.outputs {
             assert!(output.note.value > 0);
             updates
-                .entry(output.zone_id)
+                .entry(output.note.zone_id)
                 .or_insert(LedgerUpdateWitness {
-                    zone_id: output.zone_id,
+                    zone_id: output.note.zone_id,
                     inputs: vec![],
                     outputs: vec![],
                     frontier_nodes: vec![],

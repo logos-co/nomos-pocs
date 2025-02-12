@@ -1,4 +1,5 @@
 use crate::crust::{balance::Unit, nullifier::NullifierCommitment};
+use crate::mantle::ZoneId;
 use crate::{Digest, Hash};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
@@ -18,26 +19,28 @@ pub struct NoteWitness {
     pub unit: Unit,
     pub state: [u8; 32],
     pub nonce: Nonce,
+    pub zone_id: ZoneId,
 }
 
 impl NoteWitness {
-    pub fn new(value: u64, unit: Unit, state: [u8; 32], nonce: Nonce) -> Self {
+    pub fn new(value: u64, unit: Unit, state: [u8; 32], nonce: Nonce, zone_id: ZoneId) -> Self {
         Self {
             value,
             unit,
             state,
             nonce,
+            zone_id,
         }
     }
 
-    pub fn stateless(value: u64, unit: Unit, rng: impl RngCore) -> Self {
-        Self::new(value, unit, [0u8; 32], Nonce::random(rng))
+    pub fn stateless(value: u64, unit: Unit, zone_id: ZoneId, rng: impl RngCore) -> Self {
+        Self::new(value, unit, [0u8; 32], Nonce::random(rng), zone_id)
     }
 
-    pub fn commit(&self, tag: &dyn AsRef<[u8]>, nf_pk: NullifierCommitment) -> NoteCommitment {
+    pub fn commit(&self, nf_pk: NullifierCommitment) -> NoteCommitment {
         let mut hasher = Hash::new();
         hasher.update(b"NOMOS_CL_NOTE_CM");
-        hasher.update(tag.as_ref());
+        hasher.update(&self.zone_id);
 
         // COMMIT TO BALANCE
         hasher.update(self.value.to_le_bytes());

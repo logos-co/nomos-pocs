@@ -5,7 +5,6 @@ use crate::{
         nullifier::{Nullifier, NullifierCommitment, NullifierSecret},
         Nonce, NoteCommitment,
     },
-    mantle::ZoneId,
     Digest, Hash,
 };
 use serde::{Deserialize, Serialize};
@@ -14,21 +13,16 @@ use serde::{Deserialize, Serialize};
 pub struct InputWitness {
     pub note: NoteWitness,
     pub nf_sk: NullifierSecret,
-    pub zone_id: ZoneId,
 }
 
 impl InputWitness {
-    pub fn new(note: NoteWitness, nf_sk: NullifierSecret, zone_id: ZoneId) -> Self {
-        Self {
-            note,
-            nf_sk,
-            zone_id,
-        }
+    pub fn new(note: NoteWitness, nf_sk: NullifierSecret) -> Self {
+        Self { note, nf_sk }
     }
 
     pub fn from_output(output: OutputWitness, nf_sk: NullifierSecret) -> Self {
         assert_eq!(nf_sk.commit(), output.nf_pk);
-        Self::new(output.note, nf_sk, output.zone_id)
+        Self::new(output.note, nf_sk)
     }
 
     pub fn evolved_nonce(&self, domain: &[u8]) -> Nonce {
@@ -36,7 +30,7 @@ impl InputWitness {
         hasher.update(b"NOMOS_COIN_EVOLVE");
         hasher.update(domain);
         hasher.update(self.nf_sk.0);
-        hasher.update(self.note.commit(&self.zone_id, self.nf_sk.commit()).0);
+        hasher.update(self.note.commit(self.nf_sk.commit()).0);
 
         let nonce_bytes: [u8; 32] = hasher.finalize().into();
         Nonce::from_bytes(nonce_bytes)
@@ -49,16 +43,15 @@ impl InputWitness {
                 ..self.note
             },
             nf_pk: self.nf_sk.commit(),
-            zone_id: self.zone_id,
         }
     }
 
     pub fn nullifier(&self) -> Nullifier {
-        Nullifier::new(&self.zone_id, self.nf_sk, self.note_commitment())
+        Nullifier::new(&self.note.zone_id, self.nf_sk, self.note_commitment())
     }
 
     pub fn note_commitment(&self) -> NoteCommitment {
-        self.note.commit(&self.zone_id, self.nf_sk.commit())
+        self.note.commit(self.nf_sk.commit())
     }
 }
 
@@ -66,29 +59,20 @@ impl InputWitness {
 pub struct OutputWitness {
     pub note: NoteWitness,
     pub nf_pk: NullifierCommitment,
-    pub zone_id: ZoneId,
 }
 
 impl OutputWitness {
-    pub fn new(note: NoteWitness, nf_pk: NullifierCommitment, zone_id: ZoneId) -> Self {
-        Self {
-            note,
-            nf_pk,
-            zone_id,
-        }
+    pub fn new(note: NoteWitness, nf_pk: NullifierCommitment) -> Self {
+        Self { note, nf_pk }
     }
 
-    pub fn public(note: NoteWitness, zone_id: ZoneId) -> Self {
+    pub fn public(note: NoteWitness) -> Self {
         let nf_pk = NullifierSecret::zero().commit();
-        Self {
-            note,
-            nf_pk,
-            zone_id,
-        }
+        Self { note, nf_pk }
     }
 
     pub fn note_commitment(&self) -> NoteCommitment {
-        self.note.commit(&self.zone_id, self.nf_pk)
+        self.note.commit(self.nf_pk)
     }
 }
 
