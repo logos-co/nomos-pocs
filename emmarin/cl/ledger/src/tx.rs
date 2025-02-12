@@ -1,10 +1,8 @@
-use ledger_proof_statements::tx::TxPrivate;
-
 use crate::{
     covenant::{SpendingCovenantProof, SupplyCovenantProof},
     error::{Error, Result},
 };
-use cl::crust::{Tx, TxWitness, UnitWitness};
+use cl::crust::{Tx, TxWitness};
 
 #[derive(Debug, Clone)]
 pub struct ProvedTx {
@@ -14,19 +12,9 @@ pub struct ProvedTx {
 impl ProvedTx {
     pub fn prove(
         tx_witness: TxWitness,
-        mint_units: Vec<UnitWitness>,
-        burn_units: Vec<UnitWitness>,
-        spend_units: Vec<UnitWitness>,
         supply_covenant_proofs: Vec<SupplyCovenantProof>,
         spending_covenant_proofs: Vec<SpendingCovenantProof>,
     ) -> Result<ProvedTx> {
-        let tx_private = TxPrivate {
-            tx: tx_witness,
-            mint_units,
-            burn_units,
-            spend_units,
-        };
-
         let mut env = risc0_zkvm::ExecutorEnv::builder();
 
         for proof in spending_covenant_proofs {
@@ -37,7 +25,7 @@ impl ProvedTx {
             env.add_assumption(proof.risc0_receipt);
         }
 
-        let env = env.write(&tx_private).unwrap().build().unwrap();
+        let env = env.write(&tx_witness).unwrap().build().unwrap();
 
         // Obtain the default prover.
         let prover = risc0_zkvm::default_prover();

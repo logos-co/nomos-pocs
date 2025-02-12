@@ -4,9 +4,8 @@ use std::collections::BTreeMap;
 
 use crate::{
     crust::{
-        balance::Balance,
-        iow::{BurnWitness, InputWitness, MintWitness, OutputWitness},
-        NoteCommitment, Nullifier,
+        Balance, BurnWitness, InputWitness, MintWitness, NoteCommitment, Nullifier, OutputWitness,
+        Unit,
     },
     ds::mmr::{MMRProof, Root, MMR},
     mantle::ZoneId,
@@ -138,34 +137,28 @@ impl TxWitness {
         }
     }
 
-    pub fn balance(&self) -> Balance {
-        Balance::from_tx(self)
-    }
-
-    pub fn updates(&self) -> BTreeMap<ZoneId, LedgerUpdateWitness> {
+    pub fn compute_updates(&self, inputs: &[InputDerivedFields]) -> Vec<LedgerUpdateWitness> {
         let mut updates = BTreeMap::new();
         assert_eq!(self.inputs.len(), self.frontier_paths.len());
-        for (input, (mmr, path)) in self.inputs.iter().zip(&self.frontier_paths) {
-            let entry = updates
-                .entry(input.note.zone_id)
-                .or_insert(LedgerUpdateWitness {
-                    zone_id: input.note.zone_id,
-                    inputs: vec![],
-                    outputs: vec![],
-                    frontier_nodes: mmr.roots.clone(),
-                });
-            entry.inputs.push(input.nullifier());
-            assert!(mmr.verify_proof(&input.note_commitment().0, &path));
+        for (input, (mmr, path)) in inputs.iter().zip(&self.frontier_paths) {
+            let entry = updates.entry(input.zone_id).or_insert(LedgerUpdateWitness {
+                zone_id: input.zone_id,
+                inputs: vec![],
+                outputs: vec![],
+                frontier_nodes: mmr.roots.clone(),
+            });
+            entry.inputs.push(input.nf);
+            assert!(mmr.verify_proof(&input.cm.0, &path));
             // ensure a single MMR per zone per tx
             assert_eq!(&mmr.roots, &entry.frontier_nodes);
         }
 
         for (output, data) in &self.outputs {
-            assert!(output.note.value > 0);
+            assert!(output.value > 0);
             updates
-                .entry(output.note.zone_id)
+                .entry(output.zone_id)
                 .or_insert(LedgerUpdateWitness {
-                    zone_id: output.note.zone_id,
+                    zone_id: output.zone_id,
                     inputs: vec![],
                     outputs: vec![],
                     frontier_nodes: vec![],
@@ -174,39 +167,109 @@ impl TxWitness {
                 .push((output.note_commitment(), data.clone())); // TODO: avoid clone
         }
 
-        updates
+        updates.into_iter().map(|(_, w)| w).collect()
     }
 
-    pub fn mint_burn_root(&self) -> [u8; 32] {
-        let mint_root = merkle::root(&merkle::padded_leaves(
-            &self.mints.iter().map(|m| m.to_bytes()).collect::<Vec<_>>(),
-        ));
+    pub fn mint_amounts(&self) -> Vec<MintAmount> {
+        self.mints
+            .iter()
+            .map(|MintWitness { unit, amount }| MintAmount {
+                unit: unit.unit(),
+                amount: *amount,
+            })
+            .collect()
+    }
 
+    pub fn burn_amounts(&self) -> Vec<BurnAmount> {
+        self.burns
+            .iter()
+            .map(|BurnWitness { unit, amount }| BurnAmount {
+                unit: unit.unit(),
+                amount: *amount,
+            })
+            .collect()
+    }
+
+    pub fn inputs_derived_fields(&self) -> Vec<InputDerivedFields> {
+        self.inputs
+            .iter()
+            .map(|input| InputDerivedFields {
+                nf: input.nullifier(),
+                cm: input.note_commitment(),
+                zone_id: input.zone_id,
+            })
+            .collect()
+    }
+
+    pub fn mint_burn_root(
+        mints: &[MintAmount],
+        burns: &[BurnAmount],
+        blinding: &[u8; 16],
+    ) -> [u8; 32] {
+        let mint_root = merkle::root(&merkle::padded_leaves(
+            &mints.iter().map(|m| m.to_bytes()).collect::<Vec<_>>(),
+        ));
         let burn_root = merkle::root(&merkle::padded_leaves(
-            &self.burns.iter().map(|b| b.to_bytes()).collect::<Vec<_>>(),
+            &burns.iter().map(|b| b.to_bytes()).collect::<Vec<_>>(),
         ));
 
         let mut hasher = Hash::new();
         hasher.update(&mint_root);
         hasher.update(&burn_root);
-        hasher.update(&self.mint_burn_blinding);
+        hasher.update(&blinding);
         hasher.finalize().into()
     }
 
-    pub fn commit(&self) -> Tx {
-        let (updates, updates_roots): (Vec<_>, Vec<_>) =
-            self.updates().into_iter().map(|(_, w)| w.commit()).unzip();
+    fn io_balance(&self) -> Balance {
+        let mut balance = Balance::zero();
+        for input in &self.inputs {
+            balance.insert_positive(input.unit_witness.unit(), input.value);
+        }
+        for (output, _) in &self.outputs {
+            balance.insert_negative(output.unit, output.value);
+        }
+        balance
+    }
 
-        let update_root = merkle::root(&merkle::padded_leaves(&updates_roots));
-        let mint_burn_root = self.mint_burn_root();
+    pub fn root(&self, update_root: [u8; 32], mint_burn_root: [u8; 32]) -> TxRoot {
         let data_root = merkle::leaf(&self.data);
-
-        let root = TxRoot(merkle::root(&merkle::padded_leaves(&[
+        let root = merkle::root(&merkle::padded_leaves(&[
             update_root,
             mint_burn_root,
             data_root,
-        ])));
-        let balance = self.balance();
+        ]));
+        TxRoot(root)
+    }
+
+    pub fn balance(&self, mints: &[MintAmount], burns: &[BurnAmount]) -> Balance {
+        let mut mint_burn_balance = Balance::zero();
+        for MintAmount { unit, amount } in mints {
+            mint_burn_balance.insert_positive(*unit, *amount);
+        }
+        for BurnAmount { unit, amount } in burns {
+            mint_burn_balance.insert_negative(*unit, *amount);
+        }
+        Balance::combine(&[mint_burn_balance, self.io_balance()])
+    }
+
+    // inputs, mints and burns are provided as a separate argument to allow code reuse
+    // with the proof without having to recompute them
+    pub fn commit(
+        &self,
+        mints: &[MintAmount],
+        burns: &[BurnAmount],
+        inputs: &[InputDerivedFields],
+    ) -> Tx {
+        let mint_burn_root = Self::mint_burn_root(&mints, &burns, &self.mint_burn_blinding);
+
+        let (updates, updates_roots): (Vec<_>, Vec<_>) = self
+            .compute_updates(&inputs)
+            .into_iter()
+            .map(LedgerUpdateWitness::commit)
+            .unzip();
+        let update_root = merkle::root(&merkle::padded_leaves(&updates_roots));
+        let root = self.root(update_root, mint_burn_root);
+        let balance = self.balance(&mints, &burns);
 
         Tx {
             root,
@@ -270,6 +333,44 @@ impl BundleWitness {
 
         Bundle { updates, root }
     }
+}
+
+// ----- Helper structs -----
+// To validate the unit covenants we need the tx root plus some additional information that is computed to
+// calculate the tx root. To avoid recomputation we store this information in the following structs.
+
+pub struct MintAmount {
+    pub unit: Unit,
+    pub amount: u64,
+}
+
+impl MintAmount {
+    fn to_bytes(&self) -> [u8; 40] {
+        let mut bytes = [0; 40];
+        bytes[..32].copy_from_slice(&self.unit);
+        bytes[32..].copy_from_slice(&self.amount.to_le_bytes());
+        bytes
+    }
+}
+
+pub struct BurnAmount {
+    pub unit: Unit,
+    pub amount: u64,
+}
+
+impl BurnAmount {
+    fn to_bytes(&self) -> [u8; 40] {
+        let mut bytes = [0; 40];
+        bytes[..32].copy_from_slice(&self.unit);
+        bytes[32..].copy_from_slice(&self.amount.to_le_bytes());
+        bytes
+    }
+}
+
+pub struct InputDerivedFields {
+    pub nf: Nullifier,
+    pub cm: NoteCommitment,
+    pub zone_id: ZoneId,
 }
 
 #[cfg(test)]

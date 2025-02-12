@@ -1,14 +1,9 @@
-use serde::{Deserialize, Serialize};
-
-use crate::crust::{
-    iow::{BurnWitness, MintWitness},
-    TxWitness,
-};
 use crate::{Digest, Hash};
+use serde::{Deserialize, Serialize};
 
 pub type Value = u64;
 pub type Unit = [u8; 32];
-pub const NOP_VK: [u8; 32] = [0u8; 32];
+pub const NOP_COVENANT: [u8; 32] = [0u8; 32];
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct UnitWitness {
@@ -67,28 +62,6 @@ impl Balance {
         Self {
             balances: Vec::new(),
         }
-    }
-
-    pub fn from_tx(tx: &TxWitness) -> Self {
-        let mut balance = Self::zero();
-        for input in tx.inputs.iter() {
-            balance.insert_positive(input.note.unit, input.note.value);
-        }
-        for (output, _data) in tx.outputs.iter() {
-            balance.insert_negative(output.note.unit, output.note.value);
-        }
-
-        for MintWitness { unit, amount } in &tx.mints {
-            balance.insert_positive(*unit, *amount);
-        }
-
-        for BurnWitness { unit, amount } in &tx.burns {
-            balance.insert_negative(*unit, *amount);
-        }
-
-        balance.clear_zeros();
-
-        balance
     }
 
     pub fn insert_positive(&mut self, unit: Unit, value: Value) {
