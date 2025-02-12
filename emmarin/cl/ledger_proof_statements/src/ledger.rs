@@ -37,7 +37,7 @@ pub struct LedgerBundleWitness {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SyncLog {
-    pub id: BundleRoot,
+    pub bundle: BundleRoot,
     pub zones: Vec<ZoneId>,
 }
 
