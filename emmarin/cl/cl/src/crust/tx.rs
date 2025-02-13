@@ -7,13 +7,13 @@ use crate::{
         Balance, BurnWitness, InputWitness, MintWitness, NoteCommitment, Nullifier, OutputWitness,
         Unit,
     },
-    ds::mmr::{MMRProof, Root, MMR},
+    ds::{
+        merkle,
+        mmr::{MMRProof, Root, MMR},
+    },
     mantle::ZoneId,
-    merkle, Digest, Hash,
+    Digest, Hash,
 };
-
-pub const MAX_INPUTS: usize = 8;
-pub const MAX_OUTPUTS: usize = 8;
 
 /// An identifier of a transaction
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -82,21 +82,15 @@ pub struct LedgerUpdateWitness {
 
 impl LedgerUpdateWitness {
     pub fn commit(self) -> (LedgerUpdate, [u8; 32]) {
-        let input_root = merkle::root(&merkle::padded_leaves(
-            &self.inputs.iter().map(|nf| nf.0).collect::<Vec<_>>(),
-        ));
-        let output_root = merkle::root(&merkle::padded_leaves(
-            &self
-                .outputs
-                .iter()
-                .map(|(cm, data)| {
-                    cm.0.into_iter()
-                        .chain(data.iter().cloned())
-                        .collect::<Vec<_>>()
-                })
-                .collect::<Vec<_>>(),
-        ));
-        let root = merkle::root(&merkle::padded_leaves(&[
+        let input_root = merkle::root(&merkle::padded_leaves(&self.inputs));
+        let output_root = merkle::root(&merkle::padded_leaves(self.outputs.iter().map(
+            |(cm, data)| {
+                cm.0.into_iter()
+                    .chain(data.iter().cloned())
+                    .collect::<Vec<_>>()
+            },
+        )));
+        let root = merkle::root(&merkle::padded_leaves([
             input_root,
             output_root,
             self.zone_id,
@@ -206,17 +200,13 @@ impl TxWitness {
         burns: &[BurnAmount],
         blinding: &[u8; 16],
     ) -> [u8; 32] {
-        let mint_root = merkle::root(&merkle::padded_leaves(
-            &mints.iter().map(|m| m.to_bytes()).collect::<Vec<_>>(),
-        ));
-        let burn_root = merkle::root(&merkle::padded_leaves(
-            &burns.iter().map(|b| b.to_bytes()).collect::<Vec<_>>(),
-        ));
+        let mint_root = merkle::root(&merkle::padded_leaves(mints.iter().map(|m| m.to_bytes())));
+        let burn_root = merkle::root(&merkle::padded_leaves(burns.iter().map(|b| b.to_bytes())));
 
         let mut hasher = Hash::new();
-        hasher.update(&mint_root);
-        hasher.update(&burn_root);
-        hasher.update(&blinding);
+        hasher.update(mint_root);
+        hasher.update(burn_root);
+        hasher.update(blinding);
         hasher.finalize().into()
     }
 
@@ -233,7 +223,7 @@ impl TxWitness {
 
     pub fn root(&self, update_root: [u8; 32], mint_burn_root: [u8; 32]) -> TxRoot {
         let data_root = merkle::leaf(&self.data);
-        let root = merkle::root(&merkle::padded_leaves(&[
+        let root = merkle::root(&merkle::padded_leaves([
             update_root,
             mint_burn_root,
             data_root,
@@ -263,13 +253,13 @@ impl TxWitness {
         let mint_burn_root = Self::mint_burn_root(&mints, &burns, &self.mint_burn_blinding);
 
         let (updates, updates_roots): (Vec<_>, Vec<_>) = self
-            .compute_updates(&inputs)
+            .compute_updates(inputs)
             .into_iter()
             .map(LedgerUpdateWitness::commit)
             .unzip();
-        let update_root = merkle::root(&merkle::padded_leaves(&updates_roots));
+        let update_root = merkle::root(&merkle::padded_leaves(updates_roots));
         let root = self.root(update_root, mint_burn_root);
-        let balance = self.balance(&mints, &burns);
+        let balance = self.balance(mints, burns);
 
         Tx {
             root,
@@ -295,7 +285,7 @@ impl BundleWitness {
         assert!(Balance::combine(self.txs.iter().map(|tx| &tx.balance)).is_zero());
 
         let root = BundleRoot(merkle::root(&merkle::padded_leaves(
-            &self.txs.iter().map(|tx| tx.root.0).collect::<Vec<_>>(),
+            self.txs.iter().map(|tx| tx.root.0),
         )));
 
         let updates = self

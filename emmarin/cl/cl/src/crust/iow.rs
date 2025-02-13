@@ -64,7 +64,7 @@ impl InputWitness {
     }
 
     pub fn note_commitment(&self) -> NoteCommitment {
-        commit_note(
+        NoteCommitment::commit(
             self.state,
             self.value,
             self.unit_witness.unit(),
@@ -87,7 +87,7 @@ pub struct OutputWitness {
 
 impl OutputWitness {
     pub fn note_commitment(&self) -> NoteCommitment {
-        commit_note(
+        NoteCommitment::commit(
             self.state,
             self.value,
             self.unit,
@@ -102,6 +102,26 @@ impl OutputWitness {
 pub struct NoteCommitment(pub [u8; 32]);
 
 impl NoteCommitment {
+    fn commit(
+        state: [u8; 32],
+        value: u64,
+        unit: Unit,
+        nonce: Nonce,
+        zone_id: ZoneId,
+        nf_pk: NullifierCommitment,
+    ) -> Self {
+        let mut hasher = Hash::new();
+        hasher.update(b"NOMOS_NOTE_CM");
+        hasher.update(state);
+        hasher.update(value.to_le_bytes());
+        hasher.update(unit);
+        hasher.update(nonce.as_bytes());
+        hasher.update(nf_pk.as_bytes());
+        hasher.update(zone_id);
+        let commit_bytes: [u8; 32] = hasher.finalize().into();
+        Self(commit_bytes)
+    }
+
     pub fn as_bytes(&self) -> &[u8; 32] {
         &self.0
     }
@@ -124,26 +144,6 @@ impl Nonce {
     pub fn from_bytes(bytes: [u8; 32]) -> Self {
         Self(bytes)
     }
-}
-
-fn commit_note(
-    state: [u8; 32],
-    value: u64,
-    unit: Unit,
-    nonce: Nonce,
-    zone_id: ZoneId,
-    nf_pk: NullifierCommitment,
-) -> NoteCommitment {
-    let mut hasher = Hash::new();
-    hasher.update(b"NOMOS_NOTE_CM");
-    hasher.update(state);
-    hasher.update(value.to_le_bytes());
-    hasher.update(unit);
-    hasher.update(nonce.as_bytes());
-    hasher.update(nf_pk.as_bytes());
-    hasher.update(zone_id);
-    let commit_bytes: [u8; 32] = hasher.finalize().into();
-    NoteCommitment(commit_bytes)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

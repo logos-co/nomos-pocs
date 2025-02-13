@@ -1,4 +1,4 @@
-use cl::merkle;
+use cl::ds::merkle;
 use ledger_proof_statements::ledger::{
     LedgerBundleWitness, LedgerProofPrivate, LedgerProofPublic, SyncLog,
 };

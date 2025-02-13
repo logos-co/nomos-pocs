@@ -27,6 +27,12 @@ pub struct NullifierCommitment([u8; 32]);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Nullifier(pub [u8; 32]);
 
+impl AsRef<[u8]> for Nullifier {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 impl NullifierSecret {
     pub fn random(mut rng: impl RngCore) -> Self {
         let mut sk = [0u8; 16];

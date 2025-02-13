@@ -1,7 +1,7 @@
 use crate::{
     crust::{NoteCommitment, Nullifier},
+    ds::indexed::{BatchUpdateProof, NullifierTree},
     ds::mmr::{MMRProof, MMR},
-    mantle::indexed::{BatchUpdateProof, NullifierTree},
 };
 use serde::{Deserialize, Serialize};
 

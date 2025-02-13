@@ -1,4 +1,3 @@
-pub mod indexed;
 pub mod ledger;
 pub mod update;
 pub mod zone;

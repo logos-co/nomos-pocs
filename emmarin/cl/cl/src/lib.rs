@@ -1,7 +1,6 @@
 pub mod crust;
 pub mod ds;
 pub mod mantle;
-pub mod merkle;
 
 pub type Hash = risc0_zkvm::sha::rust_crypto::Sha256;
 pub use digest::Digest;

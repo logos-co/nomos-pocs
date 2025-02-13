@@ -2,12 +2,12 @@ use std::collections::BTreeMap;
 
 use cl::{
     crust::{Bundle, BundleRoot, NoteCommitment},
+    ds::indexed::BatchUpdateProof,
+    ds::merkle,
     mantle::{
-        indexed::BatchUpdateProof,
         ledger::{Ledger, LedgerWitness},
         ZoneId,
     },
-    merkle,
 };
 use risc0_zkvm::guest::env;
 use serde::{Deserialize, Serialize};
