@@ -30,6 +30,14 @@ impl NullifierTree {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.leaves.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.leaves.len()
+    }
+
     fn hashed_leaves(&self) -> Vec<[u8; 32]> {
         merkle::padded_leaves(self.leaves.iter().map(|l| l.to_bytes()))
     }
