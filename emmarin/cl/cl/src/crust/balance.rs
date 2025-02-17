@@ -5,7 +5,7 @@ pub type Value = u64;
 pub type Unit = [u8; 32];
 pub const NOP_COVENANT: [u8; 32] = [0u8; 32];
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct UnitWitness {
     pub spending_covenant: [u8; 32],
     pub minting_covenant: [u8; 32],
@@ -16,9 +16,9 @@ impl UnitWitness {
     pub fn unit(&self) -> Unit {
         let mut hasher = Hash::new();
         hasher.update(b"NOMOS_CL_UNIT");
-        hasher.update(&self.spending_covenant);
-        hasher.update(&self.minting_covenant);
-        hasher.update(&self.burning_covenant);
+        hasher.update(self.spending_covenant);
+        hasher.update(self.minting_covenant);
+        hasher.update(self.burning_covenant);
 
         hasher.finalize().into()
     }

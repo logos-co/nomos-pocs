@@ -16,7 +16,7 @@ fn main() {
     let tx_public = tx.commit(&mints, &burns, &inputs);
     let tx_root = tx_public.root;
 
-    for (MintAmount { amount, unit }, minting_covenant) in mints
+    for (MintAmount { amount, unit, .. }, minting_covenant) in mints
         .iter()
         .zip(tx.mints.iter().map(|m| m.unit.minting_covenant))
     {
@@ -35,7 +35,7 @@ fn main() {
         .unwrap();
     }
 
-    for (BurnAmount { unit, amount }, burning_covenant) in burns
+    for (BurnAmount { unit, amount, .. }, burning_covenant) in burns
         .iter()
         .zip(tx.burns.iter().map(|b| b.unit.burning_covenant))
     {

@@ -1,4 +1,4 @@
-use rand_core::{CryptoRngCore, RngCore};
+use rand_core::RngCore;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -12,7 +12,6 @@ use crate::{
         mmr::{MMRProof, Root, MMR},
     },
     mantle::ZoneId,
-    Digest, Hash,
 };
 
 /// An identifier of a transaction
@@ -59,7 +58,6 @@ pub struct TxWitness {
     pub inputs: Vec<InputWitness>,
     pub outputs: Vec<(OutputWitness, Vec<u8>)>,
     pub data: Vec<u8>,
-    pub mint_burn_blinding: [u8; 16],
     pub mints: Vec<MintWitness>,
     pub burns: Vec<BurnWitness>,
     pub frontier_paths: Vec<(MMR, MMRProof)>,
@@ -109,28 +107,6 @@ impl LedgerUpdateWitness {
 }
 
 impl TxWitness {
-    pub fn random(
-        inputs: Vec<InputWitness>,
-        outputs: Vec<(OutputWitness, Vec<u8>)>,
-        burns: Vec<BurnWitness>,
-        mints: Vec<MintWitness>,
-        data: Vec<u8>,
-        frontier_paths: Vec<(MMR, MMRProof)>,
-        mut rng: impl CryptoRngCore,
-    ) -> Self {
-        let mut mint_burn_blinding = [0u8; 16];
-        rng.fill_bytes(&mut mint_burn_blinding);
-        Self {
-            inputs,
-            outputs,
-            data,
-            burns,
-            mints,
-            mint_burn_blinding,
-            frontier_paths,
-        }
-    }
-
     pub fn compute_updates(&self, inputs: &[InputDerivedFields]) -> Vec<LedgerUpdateWitness> {
         let mut updates = BTreeMap::new();
         assert_eq!(self.inputs.len(), self.frontier_paths.len());
@@ -167,9 +143,10 @@ impl TxWitness {
     pub fn mint_amounts(&self) -> Vec<MintAmount> {
         self.mints
             .iter()
-            .map(|MintWitness { unit, amount }| MintAmount {
+            .map(|MintWitness { unit, amount, salt }| MintAmount {
                 unit: unit.unit(),
                 amount: *amount,
+                salt: *salt,
             })
             .collect()
     }
@@ -177,9 +154,10 @@ impl TxWitness {
     pub fn burn_amounts(&self) -> Vec<BurnAmount> {
         self.burns
             .iter()
-            .map(|BurnWitness { unit, amount }| BurnAmount {
+            .map(|BurnWitness { unit, amount, salt }| BurnAmount {
                 unit: unit.unit(),
                 amount: *amount,
+                salt: *salt,
             })
             .collect()
     }
@@ -195,19 +173,10 @@ impl TxWitness {
             .collect()
     }
 
-    pub fn mint_burn_root(
-        mints: &[MintAmount],
-        burns: &[BurnAmount],
-        blinding: &[u8; 16],
-    ) -> [u8; 32] {
+    pub fn mint_burn_root(mints: &[MintAmount], burns: &[BurnAmount]) -> [u8; 32] {
         let mint_root = merkle::root(&merkle::padded_leaves(mints.iter().map(|m| m.to_bytes())));
         let burn_root = merkle::root(&merkle::padded_leaves(burns.iter().map(|b| b.to_bytes())));
-
-        let mut hasher = Hash::new();
-        hasher.update(mint_root);
-        hasher.update(burn_root);
-        hasher.update(blinding);
-        hasher.finalize().into()
+        merkle::node(mint_root, burn_root)
     }
 
     fn io_balance(&self) -> Balance {
@@ -233,10 +202,10 @@ impl TxWitness {
 
     pub fn balance(&self, mints: &[MintAmount], burns: &[BurnAmount]) -> Balance {
         let mut mint_burn_balance = Balance::zero();
-        for MintAmount { unit, amount } in mints {
+        for MintAmount { unit, amount, .. } in mints {
             mint_burn_balance.insert_positive(*unit, *amount);
         }
-        for BurnAmount { unit, amount } in burns {
+        for BurnAmount { unit, amount, .. } in burns {
             mint_burn_balance.insert_negative(*unit, *amount);
         }
         Balance::combine(&[mint_burn_balance, self.io_balance()])
@@ -250,7 +219,7 @@ impl TxWitness {
         burns: &[BurnAmount],
         inputs: &[InputDerivedFields],
     ) -> Tx {
-        let mint_burn_root = Self::mint_burn_root(&mints, &burns, &self.mint_burn_blinding);
+        let mint_burn_root = Self::mint_burn_root(mints, burns);
 
         let (updates, updates_roots): (Vec<_>, Vec<_>) = self
             .compute_updates(inputs)
@@ -332,13 +301,15 @@ impl BundleWitness {
 pub struct MintAmount {
     pub unit: Unit,
     pub amount: u64,
+    pub salt: [u8; 16],
 }
 
 impl MintAmount {
-    fn to_bytes(&self) -> [u8; 40] {
-        let mut bytes = [0; 40];
+    fn to_bytes(&self) -> [u8; 56] {
+        let mut bytes = [0; 56];
         bytes[..32].copy_from_slice(&self.unit);
-        bytes[32..].copy_from_slice(&self.amount.to_le_bytes());
+        bytes[32..40].copy_from_slice(&self.amount.to_le_bytes());
+        bytes[40..].copy_from_slice(&self.salt);
         bytes
     }
 }
@@ -346,13 +317,15 @@ impl MintAmount {
 pub struct BurnAmount {
     pub unit: Unit,
     pub amount: u64,
+    pub salt: [u8; 16],
 }
 
 impl BurnAmount {
-    fn to_bytes(&self) -> [u8; 40] {
-        let mut bytes = [0; 40];
+    fn to_bytes(&self) -> [u8; 56] {
+        let mut bytes = [0; 56];
         bytes[..32].copy_from_slice(&self.unit);
-        bytes[32..].copy_from_slice(&self.amount.to_le_bytes());
+        bytes[32..40].copy_from_slice(&self.amount.to_le_bytes());
+        bytes[40..].copy_from_slice(&self.salt);
         bytes
     }
 }

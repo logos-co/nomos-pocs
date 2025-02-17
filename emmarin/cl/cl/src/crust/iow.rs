@@ -9,7 +9,7 @@ use crate::{
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InputWitness {
     pub state: [u8; 32],
     pub value: u64,
@@ -150,10 +150,12 @@ impl Nonce {
 pub struct MintWitness {
     pub amount: u64,
     pub unit: UnitWitness,
+    pub salt: [u8; 16],
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BurnWitness {
     pub amount: u64,
     pub unit: UnitWitness,
+    pub salt: [u8; 16],
 }

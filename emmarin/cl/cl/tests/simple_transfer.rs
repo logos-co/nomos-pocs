@@ -1,18 +1,16 @@
-use cl::{
-    cl::{
-        note::derive_unit, BalanceWitness, InputWitness, NoteWitness, NullifierCommitment,
-        NullifierSecret, OutputWitness, TxWitness,
-    },
-    zone_layer::notes::ZoneId,
-};
+use cl::crust::{InputWitness, Nonce, NullifierSecret, OutputWitness, TxWitness, UnitWitness};
 
-fn receive_utxo(note: NoteWitness, nf_pk: NullifierCommitment, zone_id: ZoneId) -> OutputWitness {
-    OutputWitness::new(note, nf_pk, zone_id)
+fn nmo_unit() -> UnitWitness {
+    UnitWitness {
+        spending_covenant: [0; 32],
+        minting_covenant: [0; 32],
+        burning_covenant: [0; 32],
+    }
 }
 
 #[test]
 fn test_simple_transfer() {
-    let nmo = derive_unit("NMO");
+    let nmo = nmo_unit();
     let mut rng = rand::thread_rng();
     let zone_id = [0; 32];
 
@@ -22,22 +20,43 @@ fn test_simple_transfer() {
     let recipient_nf_pk = NullifierSecret::random(&mut rng).commit();
 
     // Assume the sender has received an unspent output from somewhere
-    let utxo = receive_utxo(NoteWitness::basic(10, nmo, &mut rng), sender_nf_pk, zone_id);
-
-    // and wants to send 8 NMO to some recipient and return 2 NMO to itself.
-    let recipient_output = OutputWitness::new(
-        NoteWitness::basic(8, nmo, &mut rng),
-        recipient_nf_pk,
+    let utxo = OutputWitness {
+        state: [0; 32],
+        value: 10,
+        unit: nmo.unit(),
+        nonce: Nonce::random(&mut rng),
         zone_id,
-    );
-    let change_output =
-        OutputWitness::new(NoteWitness::basic(2, nmo, &mut rng), sender_nf_pk, zone_id);
-
-    let ptx_witness = TxWitness {
-        inputs: vec![InputWitness::from_output(utxo, sender_nf_sk)],
-        outputs: vec![recipient_output, change_output],
-        balance_blinding: BalanceWitness::random_blinding(&mut rng),
+        nf_pk: sender_nf_pk,
     };
 
-    assert!(ptx_witness.balance().is_zero())
+    // and wants to send 8 NMO to some recipient and return 2 NMO to itself.
+    let recipient_output = OutputWitness {
+        state: [0; 32],
+        value: 8,
+        unit: nmo.unit(),
+        nonce: Nonce::random(&mut rng),
+        zone_id,
+        nf_pk: recipient_nf_pk,
+    };
+    let change_output = OutputWitness {
+        state: [0; 32],
+        value: 2,
+        unit: nmo.unit(),
+        nonce: Nonce::random(&mut rng),
+        zone_id,
+        nf_pk: sender_nf_pk,
+    };
+
+    let tx_witness = TxWitness {
+        inputs: vec![InputWitness::from_output(utxo, sender_nf_sk, nmo)],
+        outputs: vec![(recipient_output, Vec::new()), (change_output, Vec::new())],
+        data: vec![],
+        mints: vec![],
+        burns: vec![],
+        frontier_paths: vec![],
+    };
+
+    assert!(tx_witness
+        .balance(&tx_witness.mint_amounts(), &tx_witness.burn_amounts())
+        .is_zero())
 }

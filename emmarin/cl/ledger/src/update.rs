@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
 pub struct ProvedBatchUpdate {
-    pub bundle: BatchUpdate,
+    pub batch: BatchUpdate,
     pub ledger_proofs: Vec<ProvedLedgerTransition>,
     pub stf_proofs: Vec<StfProof>,
 }
@@ -39,7 +39,7 @@ impl ProvedBatchUpdate {
         }
 
         for ((update, stf_proof), ledger_proof) in self
-            .bundle
+            .batch
             .updates
             .iter()
             .zip(self.stf_proofs.iter())

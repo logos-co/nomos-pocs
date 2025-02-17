@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 cl = { path = "../cl" }
 ledger_proof_statements = { path = "../ledger_proof_statements" }
-nomos_cl_risc0_proofs = { path = "../risc0_proofs" }
+nomos_mantle_risc0_proofs = { path = "../risc0_proofs" }
 nomos_cl_bundle_risc0_proof = { path = "../bundle_risc0_proof" }
 nomos_cl_tx_risc0_proof = { path = "../tx_risc0_proof" }
 ledger_validity_proof = { path = "../ledger_validity_proof" }
