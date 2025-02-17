@@ -118,7 +118,7 @@ impl TxWitness {
                 frontier_nodes: mmr.roots.clone(),
             });
             entry.inputs.push(input.nf);
-            assert!(mmr.verify_proof(&input.cm.0, &path));
+            assert!(mmr.verify_proof(&input.cm.0, path));
             // ensure a single MMR per zone per tx
             assert_eq!(&mmr.roots, &entry.frontier_nodes);
         }
@@ -137,7 +137,7 @@ impl TxWitness {
                 .push((output.note_commitment(), data.clone())); // TODO: avoid clone
         }
 
-        updates.into_iter().map(|(_, w)| w).collect()
+        updates.into_values().collect()
     }
 
     pub fn mint_amounts(&self) -> Vec<MintAmount> {
@@ -276,8 +276,7 @@ impl BundleWitness {
 
                 updates
             })
-            .into_iter()
-            .map(|(_, update)| update)
+            .into_values()
             .collect::<Vec<_>>();
 
         // de-dup frontier nodes

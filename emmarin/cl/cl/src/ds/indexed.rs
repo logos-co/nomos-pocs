@@ -198,7 +198,7 @@ struct PathIterator<'p> {
     path: &'p [u8],
 }
 
-impl<'a> Iterator for PathIterator<'a> {
+impl Iterator for PathIterator<'_> {
     type Item = PathNode;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -268,7 +268,7 @@ impl BatchUpdateProof {
                 .peeking_take_while(|v| in_interval(low_nf, **v))
                 .copied()
                 .collect::<Vec<_>>();
-            assert!(in_gap.len() >= 1, "unused low nf");
+            assert!(!in_gap.is_empty(), "unused low nf");
 
             for w in in_gap.windows(2) {
                 new_leaves.push(Leaf {

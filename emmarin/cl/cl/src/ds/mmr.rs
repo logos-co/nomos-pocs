@@ -238,9 +238,11 @@ mod test {
 
     #[test]
     fn test_empty_roots() {
+        assert_eq!(EMPTY_ROOTS.len(), 32);
+
         let mut root = [0; 32];
-        for i in 0..32 {
-            assert_eq!(root, EMPTY_ROOTS[i]);
+        for expected_root in EMPTY_ROOTS {
+            assert_eq!(root, expected_root);
             root = merkle::node(root, root);
         }
     }

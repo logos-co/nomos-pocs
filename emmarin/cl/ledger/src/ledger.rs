@@ -24,8 +24,7 @@ impl ProvedLedgerTransition {
             let zone_ledger_update = bundle
                 .updates
                 .iter()
-                .filter(|update| update.zone_id == zone_id)
-                .next()
+                .find(|update| update.zone_id == zone_id)
                 .expect("why are we proving this bundle for this zone if it's not involved?");
 
             let cm_root_proofs =

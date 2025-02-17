@@ -47,8 +47,7 @@ fn cross_transfer_transition(
     input_proof: (MMR, MMRProof),
     to: User,
     amount: u64,
-    zone_a: ZoneId,
-    zone_b: ZoneId,
+    to_zone: ZoneId,
     mut ledger_a: LedgerState,
     mut ledger_b: LedgerState,
 ) -> (ProvedLedgerTransition, ProvedLedgerTransition) {
@@ -62,7 +61,7 @@ fn cross_transfer_transition(
         value: amount,
         unit: nmo().unit(),
         nonce: Nonce::random(&mut rng),
-        zone_id: zone_b,
+        zone_id: to_zone,
         nf_pk: to.pk(),
     };
     let change = OutputWitness {
@@ -70,7 +69,7 @@ fn cross_transfer_transition(
         value: change,
         unit: nmo().unit(),
         nonce: Nonce::random(&mut rng),
-        zone_id: zone_a,
+        zone_id: input.zone_id,
         nf_pk: input.nf_sk.commit(), // return change to sender
     };
 
@@ -100,10 +99,11 @@ fn cross_transfer_transition(
 
     println!("proving ledger A transition");
     let ledger_a_transition =
-        ProvedLedgerTransition::prove(ledger_a.clone(), zone_a, vec![bundle.clone()]);
+        ProvedLedgerTransition::prove(ledger_a.clone(), input.zone_id, vec![bundle.clone()]);
 
     println!("proving ledger B transition");
-    let ledger_b_transition = ProvedLedgerTransition::prove(ledger_b.clone(), zone_b, vec![bundle]);
+    let ledger_b_transition =
+        ProvedLedgerTransition::prove(ledger_b.clone(), to_zone, vec![bundle]);
 
     ledger_a.add_commitment(&change.note_commitment());
     ledger_a.add_nullifiers(vec![input.nullifier()]);
@@ -169,7 +169,6 @@ fn zone_update_cross() {
         alice_cm_proof,
         bob,
         8,
-        zone_a_id,
         zone_b_id,
         ledger_a,
         ledger_b,

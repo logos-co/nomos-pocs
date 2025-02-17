@@ -48,7 +48,7 @@ pub enum PathNode {
     Right([u8; 32]),
 }
 
-pub fn path_root<'a>(leaf: [u8; 32], path: impl IntoIterator<Item: Borrow<PathNode>>) -> [u8; 32] {
+pub fn path_root(leaf: [u8; 32], path: impl IntoIterator<Item: Borrow<PathNode>>) -> [u8; 32] {
     let mut computed_hash = leaf;
 
     for path_node in path.into_iter() {
