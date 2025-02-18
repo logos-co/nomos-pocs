@@ -40,8 +40,9 @@ impl ProvedTx {
             .map_err(|_| Error::Risc0ProofFailed)?;
 
         println!(
-            "STARK 'ptx' prover time: {:.2?}, total_cycles: {}",
+            "STARK 'tx' prover time: {:.2?}, user_cycles: {}, total_cycles: {}",
             start_t.elapsed(),
+            prove_info.stats.user_cycles,
             prove_info.stats.total_cycles
         );
 

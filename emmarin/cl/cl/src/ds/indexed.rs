@@ -193,7 +193,7 @@ struct BatchUpdateProofInner {
 /// in risc0
 #[derive(Debug, Clone)]
 pub struct BatchUpdateProof {
-    data: Vec<u8>,
+    pub data: Vec<u8>,
 }
 
 struct LowNfIterator<'a> {

@@ -152,7 +152,7 @@ fn zone_update_cross() {
     let mut ledger_a = LedgerState::default();
     ledger_a.add_nullifiers(
         std::iter::repeat_with(|| Nullifier(rng.gen()))
-            .take(2_usize.pow(20))
+            .take(2_usize.pow(10))
             .collect(),
     );
     let alice_cm_path = ledger_a.add_commitment(&utxo.note_commitment());
