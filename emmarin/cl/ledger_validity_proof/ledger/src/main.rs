@@ -28,11 +28,15 @@ fn main() {
         )
         .unwrap();
 
-        // TODO: do not add local updates
-        sync_logs.push(SyncLog {
-            bundle: bundle.root,
-            zones: bundle.updates.iter().map(|update| update.zone_id).collect(),
-        });
+        let zones = Vec::from_iter(bundle.updates.iter().map(|update| update.zone_id));
+        if !(zones.len() == 1 && zones[0] == id) {
+            // This is a cross zone bundle, add a sync log for it to ensure all zones
+            // also approve it.
+            sync_logs.push(SyncLog {
+                bundle: bundle.root,
+                zones,
+            });
+        }
 
         if let Some(ledger_update) = bundle
             .updates
