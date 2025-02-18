@@ -1,16 +1,16 @@
 pub use crate::error::{Error, Result};
 use crate::{ledger::ProvedLedgerTransition, stf::StfProof};
-use cl::zone_layer::tx::UpdateBundle;
+use cl::mantle::update::BatchUpdate;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
-pub struct ProvedUpdateBundle {
-    pub bundle: UpdateBundle,
+pub struct ProvedBatchUpdate {
+    pub batch: BatchUpdate,
     pub ledger_proofs: Vec<ProvedLedgerTransition>,
     pub stf_proofs: Vec<StfProof>,
 }
 
-impl ProvedUpdateBundle {
+impl ProvedBatchUpdate {
     pub fn verify(&self) -> bool {
         let mut expected_zones = HashMap::new();
         let mut actual_zones = HashMap::new();
@@ -19,10 +19,10 @@ impl ProvedUpdateBundle {
                 return false;
             }
 
-            for bundle in &proof.public().cross_bundles {
-                expected_zones.insert(bundle.id, HashSet::from_iter(bundle.zones.clone()));
+            for bundle in &proof.public().sync_logs {
+                expected_zones.insert(bundle.bundle.0, HashSet::from_iter(bundle.zones.clone()));
                 actual_zones
-                    .entry(bundle.id)
+                    .entry(bundle.bundle.0)
                     .or_insert_with(HashSet::new)
                     .insert(proof.public().id);
             }
@@ -39,16 +39,12 @@ impl ProvedUpdateBundle {
         }
 
         for ((update, stf_proof), ledger_proof) in self
-            .bundle
+            .batch
             .updates
             .iter()
             .zip(self.stf_proofs.iter())
             .zip(self.ledger_proofs.iter())
         {
-            if !update.well_formed() {
-                return false;
-            }
-
             if ledger_proof.public().old_ledger != update.old.ledger
                 || ledger_proof.public().ledger != update.new.ledger
             {

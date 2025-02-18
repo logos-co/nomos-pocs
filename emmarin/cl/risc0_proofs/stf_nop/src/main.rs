@@ -1,4 +1,3 @@
-/// Constraint No-op Proof
 use ledger_proof_statements::stf::StfPublic;
 use risc0_zkvm::guest::env;
 

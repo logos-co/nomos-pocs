@@ -8,11 +8,9 @@
 
 use std::cmp::PartialOrd;
 
+use crate::{crust::NoteCommitment, Digest, Hash};
 use rand_core::RngCore;
-use risc0_zkvm::sha::rust_crypto::{Digest, Sha256};
 use serde::{Deserialize, Serialize};
-
-use crate::cl::NoteCommitment;
 
 // Maintained privately by note holder
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -29,6 +27,12 @@ pub struct NullifierCommitment([u8; 32]);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Nullifier(pub [u8; 32]);
 
+impl AsRef<[u8]> for Nullifier {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 impl NullifierSecret {
     pub fn random(mut rng: impl RngCore) -> Self {
         let mut sk = [0u8; 16];
@@ -41,7 +45,7 @@ impl NullifierSecret {
     }
 
     pub fn commit(&self) -> NullifierCommitment {
-        let mut hasher = Sha256::new();
+        let mut hasher = Hash::new();
         hasher.update(b"NOMOS_CL_NULL_COMMIT");
         hasher.update(self.0);
 
@@ -70,7 +74,7 @@ impl NullifierCommitment {
 
 impl Nullifier {
     pub fn new(tag: &dyn AsRef<[u8]>, sk: NullifierSecret, note_cm: NoteCommitment) -> Self {
-        let mut hasher = Sha256::new();
+        let mut hasher = Hash::new();
         hasher.update(tag.as_ref());
         hasher.update(sk.0);
         hasher.update(note_cm.0);

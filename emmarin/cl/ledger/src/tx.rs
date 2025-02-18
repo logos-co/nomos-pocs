@@ -1,36 +1,31 @@
-use ledger_proof_statements::ptx::{PtxPrivate, PtxPublic};
-
 use crate::{
+    covenant::{SpendingCovenantProof, SupplyCovenantProof},
     error::{Error, Result},
-    ConstraintProof,
 };
-use cl::cl::{
-    mmr::{MMRProof, MMR},
-    PartialTxWitness,
-};
+use cl::crust::{Tx, TxWitness};
 
 #[derive(Debug, Clone)]
-pub struct ProvedPartialTx {
+pub struct ProvedTx {
     pub risc0_receipt: risc0_zkvm::Receipt,
 }
 
-impl ProvedPartialTx {
+impl ProvedTx {
     pub fn prove(
-        ptx_witness: PartialTxWitness,
-        input_cm_proofs: Vec<(MMR, MMRProof)>,
-        covenant_proofs: Vec<ConstraintProof>,
-    ) -> Result<ProvedPartialTx> {
-        let ptx_private = PtxPrivate {
-            ptx: ptx_witness,
-            input_cm_proofs,
-        };
-
+        tx_witness: TxWitness,
+        supply_covenant_proofs: Vec<SupplyCovenantProof>,
+        spending_covenant_proofs: Vec<SpendingCovenantProof>,
+    ) -> Result<ProvedTx> {
         let mut env = risc0_zkvm::ExecutorEnv::builder();
 
-        for covenant_proof in covenant_proofs {
-            env.add_assumption(covenant_proof.risc0_receipt);
+        for proof in spending_covenant_proofs {
+            env.add_assumption(proof.risc0_receipt);
         }
-        let env = env.write(&ptx_private).unwrap().build().unwrap();
+
+        for proof in supply_covenant_proofs {
+            env.add_assumption(proof.risc0_receipt);
+        }
+
+        let env = env.write(&tx_witness).unwrap().build().unwrap();
 
         // Obtain the default prover.
         let prover = risc0_zkvm::default_prover();
@@ -41,12 +36,13 @@ impl ProvedPartialTx {
         // This struct contains the receipt along with statistics about execution of the guest
         let opts = risc0_zkvm::ProverOpts::succinct();
         let prove_info = prover
-            .prove_with_opts(env, nomos_cl_ptx_risc0_proof::PTX_ELF, &opts)
+            .prove_with_opts(env, nomos_cl_tx_risc0_proof::TX_ELF, &opts)
             .map_err(|_| Error::Risc0ProofFailed)?;
 
         println!(
-            "STARK 'ptx' prover time: {:.2?}, total_cycles: {}",
+            "STARK 'tx' prover time: {:.2?}, user_cycles: {}, total_cycles: {}",
             start_t.elapsed(),
+            prove_info.stats.user_cycles,
             prove_info.stats.total_cycles
         );
 
@@ -55,13 +51,13 @@ impl ProvedPartialTx {
         })
     }
 
-    pub fn public(&self) -> PtxPublic {
+    pub fn public(&self) -> Tx {
         self.risc0_receipt.journal.decode().unwrap()
     }
 
     pub fn verify(&self) -> bool {
         self.risc0_receipt
-            .verify(nomos_cl_ptx_risc0_proof::PTX_ID)
+            .verify(nomos_cl_tx_risc0_proof::TX_ID)
             .is_ok()
     }
 }

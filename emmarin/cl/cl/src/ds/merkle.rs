@@ -2,15 +2,10 @@ use risc0_zkvm::sha::rust_crypto::{Digest, Sha256};
 use serde::{Deserialize, Serialize};
 use std::borrow::Borrow;
 
-pub fn padded_leaves(elements: &[Vec<u8>]) -> Vec<[u8; 32]> {
-    let mut leaves = std::iter::repeat([0; 32])
-        .take(elements.len().next_power_of_two())
-        .collect::<Vec<_>>();
-
-    for (i, element) in elements.iter().enumerate() {
-        leaves[i] = leaf(element);
-    }
-
+pub fn padded_leaves(elements: impl IntoIterator<Item = impl AsRef<[u8]>>) -> Vec<[u8; 32]> {
+    let mut leaves = Vec::from_iter(elements.into_iter().map(|e| leaf(e.as_ref())));
+    let pad = leaves.len().next_power_of_two() - leaves.len();
+    leaves.extend(std::iter::repeat([0; 32]).take(pad));
     leaves
 }
 
@@ -53,7 +48,7 @@ pub enum PathNode {
     Right([u8; 32]),
 }
 
-pub fn path_root<'a>(leaf: [u8; 32], path: impl IntoIterator<Item: Borrow<PathNode>>) -> [u8; 32] {
+pub fn path_root(leaf: [u8; 32], path: impl IntoIterator<Item: Borrow<PathNode>>) -> [u8; 32] {
     let mut computed_hash = leaf;
 
     for path_node in path.into_iter() {
@@ -102,7 +97,7 @@ mod test {
 
     #[test]
     fn test_root_height_1() {
-        let r = root(&padded_leaves(&[b"sand".into()]));
+        let r = root(&padded_leaves(["sand"]));
 
         let expected = leaf(b"sand");
 
@@ -111,7 +106,7 @@ mod test {
 
     #[test]
     fn test_root_height_2() {
-        let r = root(&padded_leaves(&[b"desert".into(), b"sand".into()]));
+        let r = root(&padded_leaves(["desert", "sand"]));
 
         let expected = node(leaf(b"desert"), leaf(b"sand"));
 
@@ -120,12 +115,7 @@ mod test {
 
     #[test]
     fn test_root_height_3() {
-        let r = root(&padded_leaves(&[
-            b"desert".into(),
-            b"sand".into(),
-            b"feels".into(),
-            b"warm".into(),
-        ]));
+        let r = root(&padded_leaves(["desert", "sand", "feels", "warm"]));
 
         let expected = node(
             node(leaf(b"desert"), leaf(b"sand")),
@@ -137,13 +127,8 @@ mod test {
 
     #[test]
     fn test_root_height_4() {
-        let r = root(&padded_leaves(&[
-            b"desert".into(),
-            b"sand".into(),
-            b"feels".into(),
-            b"warm".into(),
-            b"at".into(),
-            b"night".into(),
+        let r = root(&padded_leaves([
+            "desert", "sand", "feels", "warm", "at", "night",
         ]));
 
         let expected = node(
@@ -162,7 +147,7 @@ mod test {
 
     #[test]
     fn test_path_height_1() {
-        let leaves = padded_leaves(&[b"desert".into()]);
+        let leaves = padded_leaves(["desert"]);
         let r = root(&leaves);
 
         let p = path(&leaves, 0);
@@ -173,7 +158,7 @@ mod test {
 
     #[test]
     fn test_path_height_2() {
-        let leaves = padded_leaves(&[b"desert".into(), b"sand".into()]);
+        let leaves = padded_leaves(["desert", "sand"]);
         let r = root(&leaves);
 
         // --- proof for element at idx 0
@@ -193,12 +178,7 @@ mod test {
 
     #[test]
     fn test_path_height_3() {
-        let leaves = padded_leaves(&[
-            b"desert".into(),
-            b"sand".into(),
-            b"feels".into(),
-            b"warm".into(),
-        ]);
+        let leaves = padded_leaves(["desert", "sand", "feels", "warm"]);
         let r = root(&leaves);
 
         // --- proof for element at idx 0

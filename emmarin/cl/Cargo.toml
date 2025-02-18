@@ -6,7 +6,7 @@ members = [
     "ledger_proof_statements",
     "risc0_proofs",
     "bundle_risc0_proof",
-    "ptx_risc0_proof",
+    "tx_risc0_proof",
     "ledger_validity_proof"
 ]
 

@@ -16,6 +16,7 @@ sha2 = "0.10"
 lazy_static = "1.5.0"
 risc0-zkvm = "1.2"
 itertools = "0.14"
+digest = "0.10"
 
 
 [dev-dependencies]
