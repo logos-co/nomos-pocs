@@ -113,7 +113,7 @@ impl OutputWitness {
         )
     }
 
-    pub fn split_input(
+    pub fn spend_with_change(
         input: InputWitness,
         amount: u64,
         to_pk: NullifierCommitment,
