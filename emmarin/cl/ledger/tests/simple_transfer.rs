@@ -19,6 +19,9 @@ use ledger_proof_statements::stf::StfPublic;
 use rand::Rng;
 use rand_core::CryptoRngCore;
 
+const ZONE_A: ZoneId = [0u8; 32];
+const ZONE_B: ZoneId = [1u8; 32];
+
 fn nmo() -> UnitWitness {
     UnitWitness {
         spending_covenant: NOP_COVENANT,
@@ -53,38 +56,14 @@ fn cross_transfer_transition(
     mut ledger_out: LedgerState,
 ) -> (ProvedLedgerTransition, ProvedLedgerTransition) {
     assert!(amount <= input.value);
-    println!("nfs in zone_a: {}", ledger_in.nullifiers.len());
-    println!("nfs in zone_b: {}", ledger_out.nullifiers.len());
-
     let mut rng = rand::thread_rng();
 
-    let change = input.value - amount;
-    let transfer = OutputWitness {
-        state: Default::default(),
-        value: amount,
-        unit: nmo().unit(),
-        nonce: Nonce::random(&mut rng),
-        zone_id: to_zone,
-        nf_pk: to.pk(),
-    };
-    let change = OutputWitness {
-        state: Default::default(),
-        value: change,
-        unit: nmo().unit(),
-        nonce: Nonce::random(&mut rng),
-        zone_id: input.zone_id,
-        nf_pk: input.nf_sk.commit(), // return change to sender
-    };
+    let (transfer, change) = OutputWitness::split_input(input, amount, to.pk(), to_zone, &mut rng);
 
-    // Construct the tx consuming the input and producing the two outputs.
-    let tx_witness = TxWitness {
-        inputs: vec![input],
-        outputs: vec![(transfer, vec![]), (change, vec![])],
-        data: Default::default(),
-        mints: vec![],
-        burns: vec![],
-        frontier_paths: vec![input_proof],
-    };
+    let tx_witness = TxWitness::default()
+        .add_input(input, input_proof)
+        .add_output(transfer, vec![])
+        .add_output(change, vec![]);
 
     let proved_tx = ProvedTx::prove(
         tx_witness.clone(),
@@ -129,34 +108,25 @@ fn cross_transfer_transition(
 fn zone_update_cross() {
     let mut rng = rand::thread_rng();
 
-    let zone_a_id = [0; 32];
-    let zone_b_id = [1; 32];
-
     // alice is sending 8 NMO to bob.
 
     let alice = User::random(&mut rng);
     let bob = User::random(&mut rng);
 
     // Alice has an unspent note worth 10 NMO
-    let utxo = OutputWitness {
-        state: Default::default(),
-        value: 10,
-        unit: nmo().unit(),
-        nonce: Nonce::random(&mut rng),
-        zone_id: zone_a_id,
-        nf_pk: alice.pk(),
-    };
+    let utxo = OutputWitness::new(10, nmo().unit(), alice.pk(), ZONE_A, &mut rng);
 
     let alice_input = InputWitness::from_output(utxo, alice.sk(), nmo());
 
     let mut ledger_a = LedgerState::default();
+
+    // To make the scenario a bit more realistic, we fill the nullifier set with a bunch of nullififiers
     ledger_a.add_nullifiers(
         std::iter::repeat_with(|| Nullifier(rng.gen()))
             .take(2_usize.pow(10))
             .collect(),
     );
-    let alice_cm_path = ledger_a.add_commitment(&utxo.note_commitment());
-    let alice_cm_proof = (ledger_a.commitments.clone(), alice_cm_path);
+    let alice_cm_proof = ledger_a.add_commitment(&utxo.note_commitment());
 
     let ledger_b = LedgerState::default();
 
@@ -177,7 +147,7 @@ fn zone_update_cross() {
         alice_cm_proof,
         bob,
         8,
-        zone_b_id,
+        ZONE_B,
         ledger_a,
         ledger_b,
     );
