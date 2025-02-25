@@ -53,6 +53,16 @@ impl ProvedLedgerTransition {
             nf_proofs: ledger.add_nullifiers(nullifiers),
         };
 
+        for bundle in &witness.bundles {
+            for update in &bundle.bundle.updates {
+                if update.zone_id == zone_id {
+                    for cm in &update.outputs {
+                        ledger.add_commitment(cm);
+                    }
+                }
+            }
+        }
+
         witness.write(&mut env);
         let env = env.build().unwrap();
 
