@@ -11,7 +11,7 @@ pub struct ProvedLedgerTransition {
 }
 
 impl ProvedLedgerTransition {
-    pub fn prove(mut ledger: LedgerState, zone_id: ZoneId, bundles: Vec<ProvedBundle>) -> Self {
+    pub fn prove(ledger: &mut LedgerState, zone_id: ZoneId, bundles: Vec<ProvedBundle>) -> Self {
         let mut env = risc0_zkvm::ExecutorEnv::builder();
         let mut w_bundles = Vec::new();
         let mut nullifiers = Vec::new();
