@@ -1,4 +1,11 @@
-use cl::crust::{balance::UnitWitness, Nullifier, Tx, Unit};
+use cl::{
+    crust::{
+        balance::{UnitWitness, NOP_COVENANT},
+        Nullifier, Tx, Unit,
+    },
+    mantle::{ledger::Ledger, ZoneId, ZoneState},
+};
+use risc0_zkvm::sha::rust_crypto::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
 const SWAP_GOAL_UNIT: UnitWitness = UnitWitness {
@@ -6,6 +13,12 @@ const SWAP_GOAL_UNIT: UnitWitness = UnitWitness {
     minting_covenant: NOP_COVENANT,
     burning_covenant: NOP_COVENANT,
 };
+
+pub struct SwapVmPrivate {
+    pub old: ZoneState,
+    pub new_ledger: Ledger,
+    pub data: ZoneData,
+}
 
 pub struct Swap {
     pair: Pair,
@@ -49,32 +62,23 @@ pub enum ZoneOp {
     Swap {
         tx: Tx,
         swap: Swap,
-        proof: DataProof,
+        proof: OutputDataProof,
     },
     AddLiquidity {
         tx: Tx,
         add_liquidity: AddLiquidity,
-        proof: DataProof,
+        proof: OutputDataProof,
     },
     RemoveLiquidity {
         tx: Tx,
         remove_liquidity: RemoveLiquidity,
-        proof: DataProof,
-    },
-    UpdatePool {
-        tx: Tx,
-        pool: Pool,
-        proof: DataProof,
+        proof: OutputDataProof,
     },
     Ledger(Tx),
 }
 
 // Txs are of the following form:
 impl ZoneData {
-    pub fn add_liquidity(&mut self) {}
-
-    pub fn remove_liquidity(&mut self) {}
-
     pub fn swap(&mut self, swap: &Swap) {
         assert!(self.check_swap(swap));
         let pool = self.pools.get_mut(&swap.pair).unwrap();
@@ -83,7 +87,7 @@ impl ZoneData {
     }
 
     pub fn check_swap(&self, swap: &Swap) -> bool {
-        let pool = self.pools.get(&swap.pair) else {
+        let Some(pool) = self.pools.get(&swap.pair) else {
             return false;
         };
 
@@ -94,15 +98,19 @@ impl ZoneData {
 
         (balance_0_final * 1000 - 3 * swap.t0_in as u128)
             * (balance_0_final * 1000 - 3 * swap.t1_in as u128)
-            == balance_0_start * balance_1_start;
+            == balance_0_start * balance_1_start
     }
 
     /// Check no pool notes are used in this tx
     pub fn validate_no_pools(&self, tx: &Tx) -> bool {
-        tx.inputs.iter().all(|input| !self.nfs.contains(&input.nf))
+        tx.updates
+            .iter()
+            .filter(|u| u.zone_id == self.zone_id)
+            .flat_map(|u| u.inputs.iter())
+            .all(|nf| !self.nfs.contains(nf))
     }
 
-    pub fn validate_op(&self, op: ZoneOp) -> bool {
+    pub fn validate_op(&self, op: &ZoneOp) -> bool {
         match op {
             ZoneOp::Swap { tx, swap, proof } => {
                 self.check_swap(&swap) && self.validate_no_pools(&tx)
@@ -117,7 +125,17 @@ impl ZoneData {
         }
     }
 
-    pub fn process_op(&mut self, op: ZoneOp) {
+    pub fn expected_pool_balances(&self) -> BTreeMap<Unit, u64> {
+        let mut expected_pool_balances = BTreeMap::new();
+        for (Pair { t0, t1 }, pool) in self.pools.iter() {
+            *expected_pool_balances.entry(*t0).or_insert(0) += pool.balance_0;
+            *expected_pool_balances.entry(*t1).or_insert(0) += pool.balance_1;
+        }
+
+        expected_pool_balances
+    }
+
+    pub fn process_op(&mut self, op: &ZoneOp) {
         match op {
             ZoneOp::Swap { tx, swap, proof } => {
                 self.swap(&swap);
@@ -128,23 +146,35 @@ impl ZoneData {
                 add_liquidity,
                 proof,
             } => {
-                self.add_liquidity(&add_liquidity);
+                todo!()
             }
             ZoneOp::RemoveLiquidity {
                 tx,
                 remove_liquidity,
                 proof,
             } => {
-                self.remove_liquidity(&remove_liquidity);
+                todo!()
             }
             ZoneOp::Ledger(tx) => {
                 // Just a ledger tx that does not directly interact with the zone,
                 // just validate it's not using pool notes
                 self.validate_no_pools(tx);
             }
-            ZoneOp::UpdatePool { tx, pool, proof } => {
-                todo!()
-            }
         }
+    }
+
+    pub fn commit(&self) -> [u8; 32] {
+        let mut hasher = Sha256::new();
+        for nf in &self.nfs {
+            hasher.update(nf);
+        }
+        for (pair, pool) in self.pools.iter() {
+            hasher.update(&pair.t0);
+            hasher.update(&pair.t1);
+            hasher.update(&pool.balance_0.to_le_bytes());
+            hasher.update(&pool.balance_1.to_le_bytes());
+        }
+        hasher.update(&self.zone_id);
+        hasher.finalize().into()
     }
 }
