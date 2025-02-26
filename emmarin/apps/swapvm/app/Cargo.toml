@@ -4,3 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+cl = { path = "../../../cl/cl" }
+risc0-zkvm = "1.2"
