@@ -10,6 +10,7 @@ pub struct UnitWitness {
     pub spending_covenant: [u8; 32],
     pub minting_covenant: [u8; 32],
     pub burning_covenant: [u8; 32],
+    pub arg: [u8; 32],
 }
 
 impl UnitWitness {
@@ -19,7 +20,7 @@ impl UnitWitness {
         hasher.update(self.spending_covenant);
         hasher.update(self.minting_covenant);
         hasher.update(self.burning_covenant);
-
+        hasher.update(self.arg);
         hasher.finalize().into()
     }
 }
