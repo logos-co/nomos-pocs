@@ -6,7 +6,7 @@ fn main() {
 
     for tx in &bundle_private.txs {
         env::verify(
-            nomos_mantle_tx_risc0_proof::TX_ID,
+            risc0_images::nomos_mantle_tx_risc0_proof::TX_ID,
             &serde::to_vec(&tx).unwrap(),
         )
         .unwrap();
