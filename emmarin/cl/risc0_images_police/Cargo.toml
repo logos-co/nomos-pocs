@@ -5,6 +5,7 @@ edition = "2021"
 
 
 [dependencies]
+sha2 = "0.10"
 base64 = "0.22"
 risc0_images = { path = "../risc0_images" }
 nomos_mantle_risc0_proofs = { path = "../risc0_proofs" }

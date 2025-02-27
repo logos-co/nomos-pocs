@@ -9,7 +9,7 @@ macro_rules! gen_risc0_image {
             $module::$id
         );
         println!(
-            "  pub const {}: &[u8] = binary_macros::base64!({:?});",
+            "  pub static {}: &[u8] = binary_macros::base64!({:?});",
             stringify!($elf),
             BASE64_STANDARD.encode(&$module::$elf)
         );
