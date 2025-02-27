@@ -1,50 +1,80 @@
+use app::{ZoneData, ZoneOp};
+use cl::{
+    crust::Tx,
+    mantle::{ledger::Ledger, zone::ZoneState},
+};
+use ledger_proof_statements::{
+    ledger::{LedgerProofPublic, SyncLog},
+    stf::StfPublic,
+};
 use risc0_zkvm::guest::env;
 
 fn main() {
-    let mut inputs: SwapVmPrivate = env::read();
+    let mut zone_data: ZoneData = env::read();
+    let old_ledger: Ledger = env::read();
+    let ledger: Ledger = env::read();
+    let sync_logs: Vec<SyncLog> = env::read();
+    let stf: [u8; 32] = env::read();
+    let ops: Vec<ZoneOp> = env::read();
 
-    let zone_id = inputs.zone_data.zone_id;
+    let zone_id = zone_data.zone_id;
 
-    assert_eq!(inputs.zone_data.commit(), inputs.old.zone_data);
+    let old_zone_data = zone_data.commit();
 
-    for op in ops {
-        zone_data.process_op(tx);
+    for op in &ops {
+        zone_data.process_op(op);
     }
 
-    let txs = ops
+    let txs: Vec<&Tx> = ops
         .iter()
         .map(|op| match op {
-            ZoneOp::Swap { tx, swap, proof } => tx,
+            ZoneOp::Swap { tx, .. } => tx,
             ZoneOp::AddLiquidity { tx, .. } => tx,
             ZoneOp::RemoveLiquidity { tx, .. } => tx,
             ZoneOp::Ledger(tx) => tx,
         })
         .collect();
 
-    let sync_logs = vec![]; // get this from outside
-
     let outputs = txs
         .iter()
-        .flat_map(|tx| tx.outputs.clone())
-        .filter(|o| o.zone_id == zone_id)
+        .flat_map(|tx| tx.updates.iter().filter(|u| u.zone_id == zone_id))
+        .flat_map(|u| u.outputs.iter())
+        .copied()
         .collect();
-    let inputs = txs
+    // TODO: inputs missings from ledger proof public
+    let _inputs: Vec<_> = txs
         .iter()
-        .flat_map(|tx| tx.inputs.clone())
-        .filter(|i| i.zone_id == zone_id)
+        .flat_map(|tx| tx.updates.iter().filter(|u| u.zone_id == zone_id))
+        .flat_map(|u| u.inputs.iter())
+        .copied()
         .collect();
 
     let ledger_public = LedgerProofPublic {
-        old_ledger: inputs.old.ledger,
-        ledger: inputs.new_ledger,
+        old_ledger,
+        ledger,
         id: zone_id,
-        sync_log,
+        sync_logs,
         outputs,
     };
 
     env::verify(
         ledger_validity_proof::LEDGER_ID,
-        &serde::to_vec(&ledger_public).unwrap(),
+        &risc0_zkvm::serde::to_vec(&ledger_public).unwrap(),
     )
     .unwrap();
+
+    let public = StfPublic {
+        old: ZoneState {
+            ledger: old_ledger,
+            zone_data: old_zone_data,
+            stf,
+        },
+        new: ZoneState {
+            ledger,
+            zone_data: zone_data.commit(),
+            stf,
+        },
+    };
+
+    env::commit(&public);
 }

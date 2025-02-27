@@ -1,25 +1,14 @@
 use cl::{
-    crust::{
-        balance::{UnitWitness, NOP_COVENANT},
-        Nullifier, Tx, Unit,
-    },
-    mantle::{ledger::Ledger, ZoneId, ZoneState},
+    crust::{InputWitness, Nullifier, NullifierSecret, Tx, Unit},
+    mantle::ZoneId,
 };
 use risc0_zkvm::sha::rust_crypto::{Digest, Sha256};
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-const SWAP_GOAL_UNIT: UnitWitness = UnitWitness {
-    spending_covenant: NOP_COVENANT,
-    minting_covenant: NOP_COVENANT,
-    burning_covenant: NOP_COVENANT,
-};
+const FUNDS_SK: NullifierSecret = NullifierSecret([0; 16]);
 
-pub struct SwapVmPrivate {
-    pub old: ZoneState,
-    pub new_ledger: Ledger,
-    pub data: ZoneData,
-}
-
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Swap {
     pair: Pair,
     t0_in: u64,
@@ -28,36 +17,42 @@ pub struct Swap {
     t1_out: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AddLiquidity {
-    pair: Pair,
-    t0_in: u64,
-    t1_in: u64,
+    _pair: Pair,
+    _t0_in: u64,
+    _t1_in: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RemoveLiquidity {
-    shares: Unit,
+    _shares: Unit,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ZoneData {
-    nfs: BTreeSet<Nullifier>,
-    pools: BTreeMap<Pair, Pool>,
-    zone_id: ZoneId,
+    pub nfs: BTreeSet<Nullifier>,
+    pub pools: BTreeMap<Pair, Pool>,
+    pub zone_id: ZoneId,
 }
 
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Pair {
     pub t0: Unit,
     pub t1: Unit,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Pool {
     pub balance_0: u64,
     pub balance_1: u64,
 }
 
 /// Prove the data was part of the tx output
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OutputDataProof;
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ZoneOp {
     Swap {
         tx: Tx,
@@ -97,7 +92,7 @@ impl ZoneData {
         let balance_1_final = balance_1_start + swap.t1_in as u128 - swap.t1_out as u128;
 
         (balance_0_final * 1000 - 3 * swap.t0_in as u128)
-            * (balance_0_final * 1000 - 3 * swap.t1_in as u128)
+            * (balance_1_final * 1000 - 3 * swap.t1_in as u128)
             == balance_0_start * balance_1_start
     }
 
@@ -112,9 +107,7 @@ impl ZoneData {
 
     pub fn validate_op(&self, op: &ZoneOp) -> bool {
         match op {
-            ZoneOp::Swap { tx, swap, proof } => {
-                self.check_swap(&swap) && self.validate_no_pools(&tx)
-            }
+            ZoneOp::Swap { tx, swap, .. } => self.check_swap(&swap) && self.validate_no_pools(&tx), // TODO: check proof
             ZoneOp::AddLiquidity { tx, .. } => self.validate_no_pools(&tx),
             ZoneOp::RemoveLiquidity { tx, .. } => self.validate_no_pools(&tx), // should we check shares exist?
             ZoneOp::Ledger(tx) => {
@@ -122,6 +115,37 @@ impl ZoneData {
                 // just validate it's not using pool notes
                 self.validate_no_pools(tx)
             }
+        }
+    }
+
+    pub fn pools_update(&mut self, tx: &Tx, notes: &[InputWitness]) {
+        // check all previous nullifiers are used
+        assert!(self.nfs.iter().all(|nf| tx
+            .updates
+            .iter()
+            .filter(|u| u.zone_id == self.zone_id)
+            .flat_map(|u| u.inputs.iter())
+            .find(|nf2| *nf2 == nf)
+            .is_some()));
+        self.nfs.clear();
+
+        // check the exepected pool balances are reflected in the tx outputs
+        let outputs = tx
+            .updates
+            .iter()
+            .filter(|u| u.zone_id == self.zone_id)
+            .flat_map(|u| u.outputs.iter())
+            .collect::<Vec<_>>();
+
+        let expected_pool_balances = self.expected_pool_balances();
+        for note in notes {
+            assert_eq!(note.nf_sk, FUNDS_SK);
+            // TODO: check nonce derivation
+            let output = note.to_output();
+            let value = expected_pool_balances.get(&output.unit).unwrap();
+            assert_eq!(note.value, *value);
+            assert!(outputs.contains(&&output.note_commitment()));
+            self.nfs.insert(note.nullifier());
         }
     }
 
@@ -137,22 +161,15 @@ impl ZoneData {
 
     pub fn process_op(&mut self, op: &ZoneOp) {
         match op {
-            ZoneOp::Swap { tx, swap, proof } => {
+            ZoneOp::Swap { tx, swap, .. } => {
                 self.swap(&swap);
                 self.validate_no_pools(&tx);
+                // TODO: check the proof
             }
-            ZoneOp::AddLiquidity {
-                tx,
-                add_liquidity,
-                proof,
-            } => {
+            ZoneOp::AddLiquidity { .. } => {
                 todo!()
             }
-            ZoneOp::RemoveLiquidity {
-                tx,
-                remove_liquidity,
-                proof,
-            } => {
+            ZoneOp::RemoveLiquidity { .. } => {
                 todo!()
             }
             ZoneOp::Ledger(tx) => {
@@ -161,6 +178,10 @@ impl ZoneData {
                 self.validate_no_pools(tx);
             }
         }
+    }
+
+    pub fn update_and_commit(self) -> ZoneData {
+        self
     }
 
     pub fn commit(&self) -> [u8; 32] {

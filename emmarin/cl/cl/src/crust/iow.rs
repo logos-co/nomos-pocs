@@ -73,6 +73,17 @@ impl InputWitness {
             self.nf_sk.commit(),
         )
     }
+
+    pub fn to_output(&self) -> OutputWitness {
+        OutputWitness {
+            state: self.state,
+            value: self.value,
+            unit: self.unit_witness.unit(),
+            nonce: self.nonce,
+            zone_id: self.zone_id,
+            nf_pk: self.nf_sk.commit(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
