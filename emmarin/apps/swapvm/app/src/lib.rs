@@ -72,6 +72,12 @@ pub enum ZoneOp {
     Ledger(Tx),
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PoolsUpdate {
+    pub tx: Tx,
+    pub notes: Vec<InputWitness>,
+}
+
 // Txs are of the following form:
 impl ZoneData {
     pub fn swap(&mut self, swap: &Swap) {
@@ -180,8 +186,9 @@ impl ZoneData {
         }
     }
 
-    pub fn update_and_commit(self) -> ZoneData {
-        self
+    pub fn update_and_commit(mut self, updates: &PoolsUpdate) -> [u8; 32] {
+        self.pools_update(&updates.tx, &updates.notes);
+        self.commit()
     }
 
     pub fn commit(&self) -> [u8; 32] {
