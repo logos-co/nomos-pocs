@@ -1,0 +1,38 @@
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn ensure_images_are_correct() {
+        assert_eq!(
+            risc0_images::nomos_mantle_risc0_proofs::STF_NOP_ID,
+            nomos_mantle_risc0_proofs::STF_NOP_ID
+        );
+        assert_eq!(
+            risc0_images::nomos_mantle_risc0_proofs::STF_NOP_ELF,
+            nomos_mantle_risc0_proofs::STF_NOP_ELF
+        );
+        assert_eq!(
+            risc0_images::nomos_mantle_bundle_risc0_proof::BUNDLE_ID,
+            nomos_mantle_bundle_risc0_proof::BUNDLE_ID
+        );
+        assert_eq!(
+            risc0_images::nomos_mantle_bundle_risc0_proof::BUNDLE_ELF,
+            nomos_mantle_bundle_risc0_proof::BUNDLE_ELF
+        );
+        assert_eq!(
+            risc0_images::nomos_mantle_tx_risc0_proof::TX_ID,
+            nomos_mantle_tx_risc0_proof::TX_ID
+        );
+        assert_eq!(
+            risc0_images::nomos_mantle_tx_risc0_proof::TX_ELF,
+            nomos_mantle_tx_risc0_proof::TX_ELF
+        );
+        assert_eq!(
+            risc0_images::ledger_validity_proof::LEDGER_ID,
+            ledger_validity_proof::LEDGER_ID
+        );
+        assert_eq!(
+            risc0_images::ledger_validity_proof::LEDGER_ELF,
+            ledger_validity_proof::LEDGER_ELF
+        );
+    }
+}

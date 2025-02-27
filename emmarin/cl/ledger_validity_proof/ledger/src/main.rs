@@ -23,7 +23,7 @@ fn main() {
     } in bundles
     {
         env::verify(
-            nomos_cl_bundle_risc0_proof::BUNDLE_ID,
+            nomos_mantle_bundle_risc0_proof::BUNDLE_ID,
             &serde::to_vec(&bundle).unwrap(),
         )
         .unwrap();

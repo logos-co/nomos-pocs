@@ -23,7 +23,7 @@ impl ProvedBundle {
 
         let opts = risc0_zkvm::ProverOpts::succinct();
         let prove_info = prover
-            .prove_with_opts(env, nomos_cl_bundle_risc0_proof::BUNDLE_ELF, &opts)
+            .prove_with_opts(env, nomos_mantle_bundle_risc0_proof::BUNDLE_ELF, &opts)
             .unwrap();
 
         println!(
@@ -46,7 +46,7 @@ impl ProvedBundle {
 
     pub fn verify(&self) -> bool {
         self.risc0_receipt
-            .verify(nomos_cl_bundle_risc0_proof::BUNDLE_ID)
+            .verify(nomos_mantle_bundle_risc0_proof::BUNDLE_ID)
             .is_ok()
     }
 }
