@@ -8,6 +8,20 @@ use std::collections::{BTreeMap, BTreeSet};
 
 const FUNDS_SK: NullifierSecret = NullifierSecret([0; 16]);
 
+// TODO: order pair tokens lexicographically
+fn get_pair_share_unit(pair: Pair) -> UnitWitness {
+    let mut hasher = Sha256::new();
+    hasher.update(b"SWAP_PAIR_SHARE_UNIT");
+    hasher.update(&pair.t0);
+    hasher.update(&pair.t1);
+    UnitWitness {
+        spending_covenant: NOP_COVENANT,
+        minting_covenant: NOP_COVENANT,
+        burning_covenant: NOP_COVENANT,
+        arg: hasher.finalize().into(),
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Swap {
     pair: Pair,
@@ -19,9 +33,9 @@ pub struct Swap {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AddLiquidity {
-    _pair: Pair,
-    _t0_in: u64,
-    _t1_in: u64,
+    pub pair: Pair,
+    pub t0_in: u64,
+    pub t1_in: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,6 +60,8 @@ pub struct Pair {
 pub struct Pool {
     pub balance_0: u64,
     pub balance_1: u64,
+    pub shares_unit: Unit,
+    pub total_shares: u64,
 }
 
 /// Prove the data was part of the tx output
@@ -165,18 +181,51 @@ impl ZoneData {
         expected_pool_balances
     }
 
+    pub fn add_liquidity(&mut self, add_liquidity: &AddLiquidity) {
+        let pool = self.pools.entry(add_liquidity.pair).or_insert(Pool {
+            balance_0: add_liquidity.t0_in,
+            balance_1: add_liquidity.t1_in,
+            shares_unit: get_pair_share_unit(add_liquidity.pair),
+            total_shares: 1,
+        });
+        let minted_shares = (add_liquidity.t0_in * pool.total_shares / pool.balance_0)
+            .min(add_liquidity.t1_in * total_shares / pool.balance_1);
+        pool.total_shares += minted_shares; // fix for first deposit
+        pool.balance_0 += add_liquidity.t0_in;
+        pool.balance_1 += add_liquidity.t1_in;
+    }
+
+    pub fn remove_liquidity(&mut self, remove_liquidity: &RemoveLiquidity) {
+        let shares = remove_liquidity.shares;
+        let pool = self
+            .pools
+            .iter_mut()
+            .find(|(_, pool)| pool.shares_unit == shares)
+            .unwrap();
+        let t0_out = pool.balance_0 * shares / pool.total_shares;
+        let t1_out = pool.balance_1 * shares / pool.total_shares;
+        pool.balance_0 -= t0_out;
+        pool.balance_1 -= t1_out;
+        pool.total_shares -= shares;
+    }
+
     pub fn process_op(&mut self, op: &ZoneOp) {
         match op {
             ZoneOp::Swap { tx, swap, .. } => {
                 self.swap(&swap);
-                self.validate_no_pools(&tx);
+                assert!(self.validate_no_pools(&tx);)
                 // TODO: check the proof
             }
-            ZoneOp::AddLiquidity { .. } => {
-                todo!()
+            ZoneOp::AddLiquidity { tx, add_liquidity } => {
+                self.add_liquidity(&add_liquidity);
+                assert!(self.validate_no_pools(&tx);)
             }
-            ZoneOp::RemoveLiquidity { .. } => {
-                todo!()
+            ZoneOp::RemoveLiquidity {
+                tx,
+                remove_liquidity,
+            } => {
+                self.remove_liquidity(&remove_liquidity);
+                assert!(self.validate_no_pools(&tx);)
             }
             ZoneOp::Ledger(tx) => {
                 // Just a ledger tx that does not directly interact with the zone,
