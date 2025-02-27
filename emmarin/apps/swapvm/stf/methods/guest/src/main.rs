@@ -1,4 +1,4 @@
-use app::{ZoneData, ZoneOp};
+use app::{PoolsUpdate, ZoneData, ZoneOp};
 use cl::{
     crust::Tx,
     mantle::{ledger::Ledger, zone::ZoneState},
@@ -16,6 +16,7 @@ fn main() {
     let sync_logs: Vec<SyncLog> = env::read();
     let stf: [u8; 32] = env::read();
     let ops: Vec<ZoneOp> = env::read();
+    let update_tx: PoolsUpdate = env::read();
 
     let zone_id = zone_data.zone_id;
 
@@ -33,6 +34,7 @@ fn main() {
             ZoneOp::RemoveLiquidity { tx, .. } => tx,
             ZoneOp::Ledger(tx) => tx,
         })
+        .chain(std::iter::once(&update_tx.tx))
         .collect();
 
     let outputs = txs
@@ -71,7 +73,7 @@ fn main() {
         },
         new: ZoneState {
             ledger,
-            zone_data: zone_data.commit(),
+            zone_data: zone_data.update_and_commit(&update_tx),
             stf,
         },
     };
