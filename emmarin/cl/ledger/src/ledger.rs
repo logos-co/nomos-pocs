@@ -11,7 +11,7 @@ pub struct ProvedLedgerTransition {
 }
 
 impl ProvedLedgerTransition {
-    pub fn prove(mut ledger: LedgerState, zone_id: ZoneId, bundles: Vec<ProvedBundle>) -> Self {
+    pub fn prove(ledger: &mut LedgerState, zone_id: ZoneId, bundles: Vec<ProvedBundle>) -> Self {
         let mut env = risc0_zkvm::ExecutorEnv::builder();
         let mut w_bundles = Vec::new();
         let mut nullifiers = Vec::new();
@@ -53,6 +53,16 @@ impl ProvedLedgerTransition {
             nf_proofs: ledger.add_nullifiers(nullifiers),
         };
 
+        for bundle in &witness.bundles {
+            for update in &bundle.bundle.updates {
+                if update.zone_id == zone_id {
+                    for cm in &update.outputs {
+                        ledger.add_commitment(cm);
+                    }
+                }
+            }
+        }
+
         witness.write(&mut env);
         let env = env.build().unwrap();
 
@@ -65,7 +75,7 @@ impl ProvedLedgerTransition {
         // This struct contains the receipt along with statistics about execution of the guest
         let opts = risc0_zkvm::ProverOpts::succinct();
         let prove_info = prover
-            .prove_with_opts(env, ledger_validity_proof::LEDGER_ELF, &opts)
+            .prove_with_opts(env, risc0_images::ledger_validity_proof::LEDGER_ELF, &opts)
             .unwrap();
 
         println!(
@@ -89,7 +99,7 @@ impl ProvedLedgerTransition {
 
     pub fn verify(&self) -> bool {
         self.risc0_receipt
-            .verify(ledger_validity_proof::LEDGER_ID)
+            .verify(risc0_images::ledger_validity_proof::LEDGER_ID)
             .is_ok()
     }
 }

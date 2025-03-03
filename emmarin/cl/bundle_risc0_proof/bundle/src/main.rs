@@ -5,7 +5,11 @@ fn main() {
     let bundle_private: BundleWitness = env::read();
 
     for tx in &bundle_private.txs {
-        env::verify(nomos_cl_tx_risc0_proof::TX_ID, &serde::to_vec(&tx).unwrap()).unwrap();
+        env::verify(
+            risc0_images::nomos_mantle_tx_risc0_proof::TX_ID,
+            &serde::to_vec(&tx).unwrap(),
+        )
+        .unwrap();
     }
 
     env::commit(&bundle_private.commit());

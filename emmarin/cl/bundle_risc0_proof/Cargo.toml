@@ -1,5 +1,5 @@
 [package]
-name = "nomos_cl_bundle_risc0_proof"
+name = "nomos_mantle_bundle_risc0_proof"
 version = "0.1.0"
 edition = "2021"
 

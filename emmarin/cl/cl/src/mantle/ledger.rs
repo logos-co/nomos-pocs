@@ -57,8 +57,9 @@ impl LedgerState {
         self.nullifiers.root()
     }
 
-    pub fn add_commitment(&mut self, cm: &NoteCommitment) -> MMRProof {
-        self.commitments.push(&cm.0)
+    pub fn add_commitment(&mut self, cm: &NoteCommitment) -> (MMR, MMRProof) {
+        let proof = self.commitments.push(&cm.0);
+        (self.commitments.clone(), proof)
     }
 
     pub fn add_nullifiers(&mut self, nfs: Vec<Nullifier>) -> BatchUpdateProof {

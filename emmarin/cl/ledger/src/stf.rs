@@ -31,7 +31,7 @@ impl StfProof {
     }
 
     pub fn nop_stf() -> [u8; 32] {
-        risc0_stf(nomos_mantle_risc0_proofs::STF_NOP_ID)
+        risc0_stf(risc0_images::nomos_mantle_risc0_proofs::STF_NOP_ID)
     }
 
     pub fn prove_nop(public: StfPublic) -> Self {
@@ -47,7 +47,11 @@ impl StfProof {
 
         let opts = risc0_zkvm::ProverOpts::succinct();
         let prove_info = prover
-            .prove_with_opts(env, nomos_mantle_risc0_proofs::STF_NOP_ELF, &opts)
+            .prove_with_opts(
+                env,
+                risc0_images::nomos_mantle_risc0_proofs::STF_NOP_ELF,
+                &opts,
+            )
             .unwrap();
 
         println!(
@@ -60,7 +64,7 @@ impl StfProof {
         let receipt = prove_info.receipt;
 
         Self {
-            risc0_id: nomos_mantle_risc0_proofs::STF_NOP_ID,
+            risc0_id: risc0_images::nomos_mantle_risc0_proofs::STF_NOP_ID,
             public,
             risc0_receipt: receipt,
         }

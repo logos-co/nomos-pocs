@@ -53,7 +53,7 @@ pub struct Tx {
     pub updates: Vec<LedgerUpdate>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct TxWitness {
     pub inputs: Vec<InputWitness>,
     pub outputs: Vec<(OutputWitness, Vec<u8>)>,
@@ -107,6 +107,17 @@ impl LedgerUpdateWitness {
 }
 
 impl TxWitness {
+    pub fn add_input(mut self, input: InputWitness, input_cm_proof: (MMR, MMRProof)) -> Self {
+        self.inputs.push(input);
+        self.frontier_paths.push(input_cm_proof);
+        self
+    }
+
+    pub fn add_output(mut self, output: OutputWitness, data: Vec<u8>) -> Self {
+        self.outputs.push((output, data));
+        self
+    }
+
     pub fn compute_updates(&self, inputs: &[InputDerivedFields]) -> Vec<LedgerUpdateWitness> {
         let mut updates = BTreeMap::new();
         assert_eq!(self.inputs.len(), self.frontier_paths.len());

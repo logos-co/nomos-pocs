@@ -86,6 +86,67 @@ pub struct OutputWitness {
 }
 
 impl OutputWitness {
+    pub fn new(
+        value: u64,
+        unit: Unit,
+        nf_pk: NullifierCommitment,
+        zone_id: ZoneId,
+        rng: impl RngCore,
+    ) -> Self {
+        Self {
+            state: [0; 32],
+            value,
+            unit,
+            nonce: Nonce::random(rng),
+            zone_id,
+            nf_pk,
+        }
+    }
+
+    pub fn reissue(input: InputWitness, rng: impl RngCore) -> Self {
+        Self::new(
+            input.value,
+            input.unit_witness.unit(),
+            input.nf_sk.commit(),
+            input.zone_id,
+            rng,
+        )
+    }
+
+    pub fn spend_with_change(
+        input: InputWitness,
+        amount: u64,
+        to_pk: NullifierCommitment,
+        to_zone: ZoneId,
+        mut rng: impl RngCore,
+    ) -> (OutputWitness, OutputWitness) {
+        assert!(input.value > amount);
+
+        let transfer = OutputWitness::reissue(input, &mut rng)
+            .set_value(amount)
+            .set_nf_pk(to_pk)
+            .set_zone(to_zone);
+
+        let change = OutputWitness::reissue(input, &mut rng).set_value(input.value - amount);
+
+        (transfer, change)
+    }
+
+    pub fn set_value(mut self, value: u64) -> Self {
+        self.value = value;
+        self
+    }
+
+    pub fn set_nf_pk(mut self, nf_pk: NullifierCommitment) -> Self {
+        self.nf_pk = nf_pk;
+        self
+    }
+
+    pub fn set_zone(mut self, zone_id: ZoneId) -> Self {
+        self.zone_id = zone_id;
+        self
+    }
+
     pub fn note_commitment(&self) -> NoteCommitment {
         NoteCommitment::commit(
             self.state,
