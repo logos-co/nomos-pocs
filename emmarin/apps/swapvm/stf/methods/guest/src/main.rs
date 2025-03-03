@@ -1,4 +1,4 @@
-use app::{PoolsUpdate, ZoneData, ZoneOp};
+use app::{StateUpdate, ZoneData, ZoneOp};
 use cl::{
     crust::Tx,
     mantle::{ledger::Ledger, zone::ZoneState},
@@ -16,7 +16,7 @@ fn main() {
     let sync_logs: Vec<SyncLog> = env::read();
     let stf: [u8; 32] = env::read();
     let ops: Vec<ZoneOp> = env::read();
-    let update_tx: PoolsUpdate = env::read();
+    let update_tx: StateUpdate = env::read();
 
     let zone_id = zone_data.zone_id;
 
@@ -28,11 +28,11 @@ fn main() {
 
     let txs: Vec<&Tx> = ops
         .iter()
-        .map(|op| match op {
-            ZoneOp::Swap { tx, .. } => tx,
-            ZoneOp::AddLiquidity { tx, .. } => tx,
-            ZoneOp::RemoveLiquidity { tx, .. } => tx,
-            ZoneOp::Ledger(tx) => tx,
+        .filter_map(|op| match op {
+            ZoneOp::Swap(_) => None,
+            ZoneOp::AddLiquidity { tx, .. } => Some(tx),
+            ZoneOp::RemoveLiquidity { tx, .. } => Some(tx),
+            ZoneOp::Ledger(tx) => Some(tx),
         })
         .chain(std::iter::once(&update_tx.tx))
         .collect();

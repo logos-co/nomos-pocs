@@ -1,4 +1,4 @@
-use app::{PoolsUpdate, ZoneOp};
+use app::{StateUpdate, ZoneOp};
 use cl::mantle::{ledger::Ledger, zone::ZoneData};
 use ledger_proof_statements::ledger::SyncLog;
 use methods::{STF_ELF, STF_ID};
@@ -10,7 +10,7 @@ pub struct StfPrivate {
     pub new_ledger: Ledger,
     pub sync_logs: Vec<SyncLog>,
     pub ops: Vec<ZoneOp>,
-    pub update_tx: PoolsUpdate,
+    pub update_tx: StateUpdate,
 }
 
 impl StfPrivate {

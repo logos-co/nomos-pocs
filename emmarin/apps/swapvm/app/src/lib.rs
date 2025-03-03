@@ -1,5 +1,9 @@
 use cl::{
-    crust::{InputWitness, Nullifier, NullifierSecret, Tx, Unit},
+    crust::{
+        balance::{UnitWitness, NOP_COVENANT},
+        InputWitness, Nonce, Nullifier, NullifierCommitment, NullifierSecret, OutputWitness, Tx,
+        Unit,
+    },
     mantle::ZoneId,
 };
 use risc0_zkvm::sha::rust_crypto::{Digest, Sha256};
@@ -36,11 +40,34 @@ pub struct AddLiquidity {
     pub pair: Pair,
     pub t0_in: u64,
     pub t1_in: u64,
+    pub pk_out: NullifierCommitment,
+    pub nonce: Nonce,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SharesToMint {
+    pub amount: u64,
+    pub unit: Unit,
+    pub pk_out: NullifierCommitment,
+    pub nonce: Nonce,
+}
+
+impl SharesToMint {
+    pub fn to_output(&self, zone_id: ZoneId) -> OutputWitness {
+        OutputWitness {
+            state: [0; 32],
+            value: self.amount,
+            unit: self.unit,
+            nonce: self.nonce,
+            zone_id,
+            nf_pk: self.pk_out,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RemoveLiquidity {
-    _shares: Unit,
+    _shares: InputWitness,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,9 +75,10 @@ pub struct ZoneData {
     pub nfs: BTreeSet<Nullifier>,
     pub pools: BTreeMap<Pair, Pool>,
     pub zone_id: ZoneId,
+    pub shares_to_mint: Vec<SharesToMint>,
 }
 
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Pair {
     pub t0: Unit,
     pub t1: Unit,
@@ -70,11 +98,7 @@ pub struct OutputDataProof;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ZoneOp {
-    Swap {
-        tx: Tx,
-        swap: Swap,
-        proof: OutputDataProof,
-    },
+    Swap(Swap),
     AddLiquidity {
         tx: Tx,
         add_liquidity: AddLiquidity,
@@ -88,14 +112,19 @@ pub enum ZoneOp {
     Ledger(Tx),
 }
 
+/// This contains the changes at the ledger level that can only be done by the executor
+/// because they are dependant on the order of transactions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PoolsUpdate {
+pub struct StateUpdate {
     pub tx: Tx,
-    pub notes: Vec<InputWitness>,
+    /// Update the balance of the pool
+    pub pool_notes: Vec<InputWitness>,
 }
 
 // Txs are of the following form:
 impl ZoneData {
+    /// A swap does not need to directly modify the pool balances, but the executor
+    /// should make sure that required funds are provided.
     pub fn swap(&mut self, swap: &Swap) {
         assert!(self.check_swap(swap));
         let pool = self.pools.get_mut(&swap.pair).unwrap();
@@ -129,7 +158,7 @@ impl ZoneData {
 
     pub fn validate_op(&self, op: &ZoneOp) -> bool {
         match op {
-            ZoneOp::Swap { tx, swap, .. } => self.check_swap(&swap) && self.validate_no_pools(&tx), // TODO: check proof
+            ZoneOp::Swap(swap) => self.check_swap(&swap),
             ZoneOp::AddLiquidity { tx, .. } => self.validate_no_pools(&tx),
             ZoneOp::RemoveLiquidity { tx, .. } => self.validate_no_pools(&tx), // should we check shares exist?
             ZoneOp::Ledger(tx) => {
@@ -140,7 +169,7 @@ impl ZoneData {
         }
     }
 
-    pub fn pools_update(&mut self, tx: &Tx, notes: &[InputWitness]) {
+    pub fn pools_update(&mut self, tx: &Tx, pool_notes: &[InputWitness]) {
         // check all previous nullifiers are used
         assert!(self.nfs.iter().all(|nf| tx
             .updates
@@ -160,7 +189,7 @@ impl ZoneData {
             .collect::<Vec<_>>();
 
         let expected_pool_balances = self.expected_pool_balances();
-        for note in notes {
+        for note in pool_notes {
             assert_eq!(note.nf_sk, FUNDS_SK);
             // TODO: check nonce derivation
             let output = note.to_output();
@@ -168,6 +197,21 @@ impl ZoneData {
             assert_eq!(note.value, *value);
             assert!(outputs.contains(&&output.note_commitment()));
             self.nfs.insert(note.nullifier());
+        }
+    }
+
+    pub fn check_minted_shares(&self, tx: &Tx) {
+        // check the exepected pool balances are reflected in the tx outputs
+        let outputs = tx
+            .updates
+            .iter()
+            .filter(|u| u.zone_id == self.zone_id)
+            .flat_map(|u| u.outputs.iter())
+            .collect::<Vec<_>>();
+
+        for shares in &self.shares_to_mint {
+            let output = shares.to_output(self.zone_id);
+            assert!(outputs.contains(&&output.note_commitment()));
         }
     }
 
@@ -185,47 +229,55 @@ impl ZoneData {
         let pool = self.pools.entry(add_liquidity.pair).or_insert(Pool {
             balance_0: add_liquidity.t0_in,
             balance_1: add_liquidity.t1_in,
-            shares_unit: get_pair_share_unit(add_liquidity.pair),
+            shares_unit: get_pair_share_unit(add_liquidity.pair).unit(),
             total_shares: 1,
         });
         let minted_shares = (add_liquidity.t0_in * pool.total_shares / pool.balance_0)
-            .min(add_liquidity.t1_in * total_shares / pool.balance_1);
+            .min(add_liquidity.t1_in * pool.total_shares / pool.balance_1);
         pool.total_shares += minted_shares; // fix for first deposit
         pool.balance_0 += add_liquidity.t0_in;
         pool.balance_1 += add_liquidity.t1_in;
+
+        self.shares_to_mint.push(SharesToMint {
+            amount: minted_shares,
+            unit: pool.shares_unit,
+            pk_out: add_liquidity.pk_out,
+            nonce: add_liquidity.nonce,
+        });
     }
 
     pub fn remove_liquidity(&mut self, remove_liquidity: &RemoveLiquidity) {
-        let shares = remove_liquidity.shares;
+        let shares = remove_liquidity._shares;
         let pool = self
             .pools
             .iter_mut()
-            .find(|(_, pool)| pool.shares_unit == shares)
+            .find(|(_, pool)| pool.shares_unit == shares.unit_witness.unit())
+            .map(|(_pair, pool)| pool)
             .unwrap();
-        let t0_out = pool.balance_0 * shares / pool.total_shares;
-        let t1_out = pool.balance_1 * shares / pool.total_shares;
+        let t0_out = pool.balance_0 * shares.value / pool.total_shares;
+        let t1_out = pool.balance_1 * shares.value / pool.total_shares;
         pool.balance_0 -= t0_out;
         pool.balance_1 -= t1_out;
-        pool.total_shares -= shares;
+        pool.total_shares -= shares.value;
     }
 
     pub fn process_op(&mut self, op: &ZoneOp) {
         match op {
-            ZoneOp::Swap { tx, swap, .. } => {
-                self.swap(&swap);
-                assert!(self.validate_no_pools(&tx);)
-                // TODO: check the proof
-            }
-            ZoneOp::AddLiquidity { tx, add_liquidity } => {
+            ZoneOp::Swap(swap) => self.swap(&swap),
+            ZoneOp::AddLiquidity {
+                tx, add_liquidity, ..
+            } => {
                 self.add_liquidity(&add_liquidity);
-                assert!(self.validate_no_pools(&tx);)
+                assert!(self.validate_no_pools(&tx));
+                // TODo: check proof
             }
             ZoneOp::RemoveLiquidity {
                 tx,
                 remove_liquidity,
+                ..
             } => {
                 self.remove_liquidity(&remove_liquidity);
-                assert!(self.validate_no_pools(&tx);)
+                assert!(self.validate_no_pools(&tx));
             }
             ZoneOp::Ledger(tx) => {
                 // Just a ledger tx that does not directly interact with the zone,
@@ -235,8 +287,9 @@ impl ZoneData {
         }
     }
 
-    pub fn update_and_commit(mut self, updates: &PoolsUpdate) -> [u8; 32] {
-        self.pools_update(&updates.tx, &updates.notes);
+    pub fn update_and_commit(mut self, updates: &StateUpdate) -> [u8; 32] {
+        self.pools_update(&updates.tx, &updates.pool_notes);
+        self.check_minted_shares(&updates.tx);
         self.commit()
     }
 
