@@ -67,7 +67,22 @@ impl SharesToMint {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RemoveLiquidity {
-    _shares: InputWitness,
+    shares: InputWitness,
+    nf_pk: NullifierCommitment,
+    nonce: Nonce,
+}
+
+impl RemoveLiquidity {
+    pub fn to_output(&self, value: u64, unit: Unit, zone_id: ZoneId) -> OutputWitness {
+        OutputWitness {
+            state: [0; 32],
+            value,
+            unit,
+            nonce: self.nonce,
+            zone_id,
+            nf_pk: self.nf_pk,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,6 +91,7 @@ pub struct ZoneData {
     pub pools: BTreeMap<Pair, Pool>,
     pub zone_id: ZoneId,
     pub shares_to_mint: Vec<SharesToMint>,
+    pub shares_to_redeem: Vec<OutputWitness>,
 }
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize)]
@@ -201,7 +217,6 @@ impl ZoneData {
     }
 
     pub fn check_minted_shares(&self, tx: &Tx) {
-        // check the exepected pool balances are reflected in the tx outputs
         let outputs = tx
             .updates
             .iter()
@@ -212,6 +227,19 @@ impl ZoneData {
         for shares in &self.shares_to_mint {
             let output = shares.to_output(self.zone_id);
             assert!(outputs.contains(&&output.note_commitment()));
+        }
+    }
+
+    pub fn check_redeemed_shares(&self, tx: &Tx) {
+        let outputs = tx
+            .updates
+            .iter()
+            .filter(|u| u.zone_id == self.zone_id)
+            .flat_map(|u| u.outputs.iter())
+            .collect::<Vec<_>>();
+
+        for shares in &self.shares_to_redeem {
+            assert!(outputs.contains(&&shares.note_commitment()));
         }
     }
 
@@ -247,18 +275,23 @@ impl ZoneData {
     }
 
     pub fn remove_liquidity(&mut self, remove_liquidity: &RemoveLiquidity) {
-        let shares = remove_liquidity._shares;
-        let pool = self
+        let shares = remove_liquidity.shares;
+        let (pair, pool) = self
             .pools
             .iter_mut()
             .find(|(_, pool)| pool.shares_unit == shares.unit_witness.unit())
-            .map(|(_pair, pool)| pool)
             .unwrap();
         let t0_out = pool.balance_0 * shares.value / pool.total_shares;
         let t1_out = pool.balance_1 * shares.value / pool.total_shares;
         pool.balance_0 -= t0_out;
         pool.balance_1 -= t1_out;
         pool.total_shares -= shares.value;
+
+        self.shares_to_redeem
+            .push(remove_liquidity.to_output(t0_out, pair.t0, self.zone_id));
+
+        self.shares_to_redeem
+            .push(remove_liquidity.to_output(t1_out, pair.t1, self.zone_id));
     }
 
     pub fn process_op(&mut self, op: &ZoneOp) {
@@ -278,6 +311,7 @@ impl ZoneData {
             } => {
                 self.remove_liquidity(&remove_liquidity);
                 assert!(self.validate_no_pools(&tx));
+                // TODO: check proof
             }
             ZoneOp::Ledger(tx) => {
                 // Just a ledger tx that does not directly interact with the zone,
@@ -290,6 +324,7 @@ impl ZoneData {
     pub fn update_and_commit(mut self, updates: &StateUpdate) -> [u8; 32] {
         self.pools_update(&updates.tx, &updates.pool_notes);
         self.check_minted_shares(&updates.tx);
+        self.check_redeemed_shares(&updates.tx);
         self.commit()
     }
 
