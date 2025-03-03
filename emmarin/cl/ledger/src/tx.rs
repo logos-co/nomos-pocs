@@ -36,7 +36,11 @@ impl ProvedTx {
         // This struct contains the receipt along with statistics about execution of the guest
         let opts = risc0_zkvm::ProverOpts::succinct();
         let prove_info = prover
-            .prove_with_opts(env, nomos_cl_tx_risc0_proof::TX_ELF, &opts)
+            .prove_with_opts(
+                env,
+                risc0_images::nomos_mantle_tx_risc0_proof::TX_ELF,
+                &opts,
+            )
             .map_err(|_| Error::Risc0ProofFailed)?;
 
         println!(
@@ -57,7 +61,7 @@ impl ProvedTx {
 
     pub fn verify(&self) -> bool {
         self.risc0_receipt
-            .verify(nomos_cl_tx_risc0_proof::TX_ID)
+            .verify(risc0_images::nomos_mantle_tx_risc0_proof::TX_ID)
             .is_ok()
     }
 }
