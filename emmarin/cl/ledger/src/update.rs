@@ -16,7 +16,6 @@ impl ProvedBatchUpdate {
         let mut actual_zones = HashMap::new();
         for proof in &self.ledger_proofs {
             if !proof.verify() {
-                panic!();
                 return false;
             }
 
@@ -46,17 +45,13 @@ impl ProvedBatchUpdate {
             .zip(self.stf_proofs.iter())
             .zip(self.ledger_proofs.iter())
         {
-            assert_eq!(ledger_proof.public().old_ledger, update.old.ledger);
-            assert_eq!(ledger_proof.public().ledger, update.new.ledger);
             if ledger_proof.public().old_ledger != update.old.ledger
                 || ledger_proof.public().ledger != update.new.ledger
             {
-                panic!();
                 return false;
             }
 
             if stf_proof.public.old != update.old || stf_proof.public.new != update.new {
-                panic!();
                 return false;
             }
         }
