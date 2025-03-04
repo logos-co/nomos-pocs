@@ -226,7 +226,7 @@ impl ZoneData {
 
         for shares in &self.shares_to_mint {
             let output = shares.to_output(self.zone_id);
-            assert!(outputs.contains(&&output.note_commitment()));
+            assert!(outputs.contains(&output.note_commitment()));
         }
     }
 
@@ -239,8 +239,10 @@ impl ZoneData {
             .collect::<Vec<_>>();
 
         for shares in &self.shares_to_redeem {
-            assert!(outputs.contains(&&shares.note_commitment()));
+            assert!(outputs.contains(&shares.note_commitment()));
         }
+
+        // TODO: chech shares have been burned
     }
 
     pub fn expected_pool_balances(&self) -> BTreeMap<Unit, u64> {
