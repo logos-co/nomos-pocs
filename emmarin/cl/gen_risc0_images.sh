@@ -1,15 +1,11 @@
 #!/usr/bin/env bash
 set -e
 
-# We generate in a *loop* because some risc0 proofs are recursive, so if a child
-# proof's id changes, then the parent proof will also change, but we don't see the
-# parent's id change until the next run.
-
 proofs=$(cat <<EOF
 tx_risc0_proof/tx
 risc0_proofs/stf_nop
-ledger_validity_proof/ledger
 bundle_risc0_proof/bundle
+ledger_validity_proof/ledger
 EOF
 )
 
@@ -26,7 +22,7 @@ for proof in $proofs; do
             echo "ELF: $image_elf"
 
             cp $image_elf "risc0_images/src/${image_name}_ELF"
-            echo $image_id > "risc0_images/src/${image_name}_ID"
+            echo $image_id | tr -d '\n' > "risc0_images/src/${image_name}_ID"
         fi
     done
 done
