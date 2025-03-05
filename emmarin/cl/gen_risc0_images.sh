@@ -18,11 +18,11 @@ for proof in $proofs; do
             image_id="${BASH_REMATCH[1]}"
             image_elf="${BASH_REMATCH[2]}"
             image_name=$(basename $image_elf | tr '[:lower:]' '[:upper:]')
-            echo "ID: $image_id"
-            echo "ELF: $image_elf"
+            echo "${image_name}_ID: $image_id"
+            echo "${image_name}_ELF: $(cat $image_elf | xxd -p | head -c 32)..."
 
-            cp $image_elf "risc0_images/src/${image_name}_ELF"
             echo $image_id | tr -d '\n' > "risc0_images/src/${image_name}_ID"
+            cp $image_elf "risc0_images/src/${image_name}_ELF"
         fi
     done
 done
