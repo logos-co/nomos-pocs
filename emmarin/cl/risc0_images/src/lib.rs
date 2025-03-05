@@ -22,5 +22,5 @@ pub mod nomos_mantle_tx_risc0_proof {
 pub mod ledger_validity_proof {
     pub static LEDGER_ID: &str = include_str!("LEDGER_ID");
     #[cfg(feature = "elf")]
-    pub static LEDGER_ELF: &[u8] = include_bytes!("LEDGER_ID");
+    pub static LEDGER_ELF: &[u8] = include_bytes!("LEDGER_ELF");
 }
