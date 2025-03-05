@@ -3,6 +3,7 @@ use crate::{
     error::{Error, Result},
 };
 use cl::crust::{Tx, TxWitness};
+use hex::FromHex;
 
 #[derive(Debug, Clone)]
 pub struct ProvedTx {
@@ -61,7 +62,7 @@ impl ProvedTx {
 
     pub fn verify(&self) -> bool {
         self.risc0_receipt
-            .verify(risc0_images::nomos_mantle_tx_risc0_proof::TX_ID)
+            .verify(<[u8; 32]>::from_hex(risc0_images::nomos_mantle_tx_risc0_proof::TX_ID).unwrap())
             .is_ok()
     }
 }

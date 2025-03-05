@@ -2,12 +2,15 @@ use base64::prelude::*;
 
 macro_rules! gen_risc0_image {
     ($module:ident, $id:ident, $elf:ident) => {
+        println!("#[cfg(feature=\"{}\")]", stringify!($module));
         println!("pub mod {} {{", stringify!($module));
         println!(
             "  pub const {}: [u32; 8] = {:?};",
             stringify!($id),
             $module::$id
         );
+
+        println!("#[cfg(feature=\"elf\")]");
         println!(
             "  pub static {}: &[u8] = binary_macros::base64!({:?});",
             stringify!($elf),

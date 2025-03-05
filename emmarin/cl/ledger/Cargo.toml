@@ -6,9 +6,10 @@ edition = "2021"
 [dependencies]
 cl = { path = "../cl" }
 ledger_proof_statements = { path = "../ledger_proof_statements" }
-risc0_images = { path = "../risc0_images" }
+risc0_images = { path = "../risc0_images", features = ["all"]}
 risc0-zkvm = { version = "1.0", features = ["prove", "metal"] }
 risc0-groth16 = { version = "1.0" }
 rand = "0.8.5"
 rand_core = "0.6.0"
 thiserror = "1.0.62"
+hex = "0.4"

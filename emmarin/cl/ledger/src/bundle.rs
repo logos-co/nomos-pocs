@@ -1,6 +1,8 @@
 use crate::tx::ProvedTx;
 use cl::crust::{Bundle, BundleWitness};
 
+use hex::FromHex;
+
 #[derive(Debug, Clone)]
 pub struct ProvedBundle {
     pub risc0_receipt: risc0_zkvm::Receipt,
@@ -50,7 +52,10 @@ impl ProvedBundle {
 
     pub fn verify(&self) -> bool {
         self.risc0_receipt
-            .verify(risc0_images::nomos_mantle_bundle_risc0_proof::BUNDLE_ID)
+            .verify(
+                <[u8; 32]>::from_hex(risc0_images::nomos_mantle_bundle_risc0_proof::BUNDLE_ID)
+                    .unwrap(),
+            )
             .is_ok()
     }
 }

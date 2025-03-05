@@ -5,6 +5,8 @@ use ledger_proof_statements::ledger::{LedgerBundleWitness, LedgerProofPrivate, L
 use crate::bundle::ProvedBundle;
 use cl::mantle::{ledger::LedgerState, zone::ZoneId};
 
+use hex::FromHex;
+
 #[derive(Debug, Clone)]
 pub struct ProvedLedgerTransition {
     pub risc0_receipt: risc0_zkvm::Receipt,
@@ -99,7 +101,7 @@ impl ProvedLedgerTransition {
 
     pub fn verify(&self) -> bool {
         self.risc0_receipt
-            .verify(risc0_images::ledger_validity_proof::LEDGER_ID)
+            .verify(<[u8; 32]>::from_hex(risc0_images::ledger_validity_proof::LEDGER_ID).unwrap())
             .is_ok()
     }
 }

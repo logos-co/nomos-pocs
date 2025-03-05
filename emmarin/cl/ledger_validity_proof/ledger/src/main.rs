@@ -1,4 +1,5 @@
 use cl::ds::merkle;
+use hex::FromHex;
 use ledger_proof_statements::ledger::{
     LedgerBundleWitness, LedgerProofPrivate, LedgerProofPublic, SyncLog,
 };
@@ -23,7 +24,7 @@ fn main() {
     } in bundles
     {
         env::verify(
-            risc0_images::nomos_mantle_bundle_risc0_proof::BUNDLE_ID,
+            <[u8; 32]>::from_hex(risc0_images::nomos_mantle_bundle_risc0_proof::BUNDLE_ID).unwrap(),
             &serde::to_vec(&bundle).unwrap(),
         )
         .unwrap();
