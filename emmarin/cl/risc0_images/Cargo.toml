@@ -5,13 +5,7 @@ edition = "2021"
 
 [dependencies]
 binary_macros = "1.0.0"
-hex = "0.4"
-lazy_static = "1.5.0"
+
 [features]
 default = []
-all = ["nomos_mantle_tx_risc0_proof", "nomos_mantle_risc0_proofs", "nomos_mantle_bundle_risc0_proof", "ledger_validity_proof", "elf"]
-nomos_mantle_tx_risc0_proof = []
-nomos_mantle_risc0_proofs = []
-nomos_mantle_bundle_risc0_proof = []
-ledger_validity_proof = []
 elf = []

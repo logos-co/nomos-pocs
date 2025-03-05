@@ -6,7 +6,6 @@ members = [
     "ledger_proof_statements",
     "ledger_validity_proof",
     "risc0_images",
-    # "risc0_images_police",
 ]
 
 # Always optimize; building and running the risc0_proofs takes much longer without optimization.

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
+# Order of these proofs is important, we sequence them topologically by composition order
 proofs=$(cat <<EOF
 tx_risc0_proof/tx
 risc0_proofs/stf_nop
@@ -26,25 +27,3 @@ for proof in $proofs; do
         fi
     done
 done
-exit
-
-
-cargo run --release --bin gen_risc0_images > risc0_images/src/lib.rs.new
-
-while ! cmp -s risc0_images/src/lib.rs.new risc0_images/src/lib.rs
-do
-    echo "FOLLOWING PROOF IDS HAVE CHANGED:"
-    diff risc0_images/src/lib.rs.new risc0_images/src/lib.rs  | rg '_ID' | grep "^<" | while read line; do id=$(echo "$line" | grep -o "[A-Z_]*_ID"); if [ -n "$id" ]; then hash=$(echo -n "$line" | sha256sum | cut -d" " -f1); echo " - $id  ${hash:0:5}"; fi; done
-
-    echo "FOLLOWING PROOF ELFS HAVE CHANGED:"
-    diff risc0_images/src/lib.rs.new risc0_images/src/lib.rs  | rg '_ELF' | grep "^<" | while read line; do elf=$(echo "$line" | grep -o "[A-Z_]*_ELF"); if [ -n "$elf" ]; then hash=$(echo -n "$line" | sha256sum | cut -d" " -f1); echo " - $elf ${hash:0:5}"; fi; done
-
-
-    mv risc0_images/src/lib.rs.new risc0_images/src/lib.rs
-    cargo run --release --bin gen_risc0_images > risc0_images/src/lib.rs.new
-    echo "-------- FINISHED UPDATE ITERATION --------"
-done
-
-rm risc0_images/src/lib.rs.new
-
-cargo test -p risc0_images_police
