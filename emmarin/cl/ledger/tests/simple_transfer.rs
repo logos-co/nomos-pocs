@@ -27,6 +27,7 @@ fn nmo() -> UnitWitness {
         spending_covenant: NOP_COVENANT,
         minting_covenant: NOP_COVENANT,
         burning_covenant: NOP_COVENANT,
+        arg: [0; 32],
     }
 }
 

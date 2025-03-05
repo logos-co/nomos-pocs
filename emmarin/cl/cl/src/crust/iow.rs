@@ -6,7 +6,7 @@ use crate::{
     mantle::ZoneId,
     Digest, Hash,
 };
-use rand::RngCore;
+use rand_core::RngCore;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -72,6 +72,17 @@ impl InputWitness {
             self.zone_id,
             self.nf_sk.commit(),
         )
+    }
+
+    pub fn to_output(&self) -> OutputWitness {
+        OutputWitness {
+            state: self.state,
+            value: self.value,
+            unit: self.unit_witness.unit(),
+            nonce: self.nonce,
+            zone_id: self.zone_id,
+            nf_pk: self.nf_sk.commit(),
+        }
     }
 }
 
