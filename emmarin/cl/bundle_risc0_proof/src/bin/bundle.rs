@@ -7,7 +7,7 @@ fn main() {
 
     for tx in &bundle_private.txs {
         env::verify(
-            <[u8; 32]>::from_hex(risc0_images::nomos_mantle_tx_risc0_proof::TX_ID).unwrap(),
+            <[u8; 32]>::from_hex(risc0_images::risc0_proofs::TX_ID).unwrap(),
             &serde::to_vec(&tx).unwrap(),
         )
         .unwrap();

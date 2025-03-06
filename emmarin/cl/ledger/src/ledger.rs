@@ -77,7 +77,7 @@ impl ProvedLedgerTransition {
         // This struct contains the receipt along with statistics about execution of the guest
         let opts = risc0_zkvm::ProverOpts::succinct();
         let prove_info = prover
-            .prove_with_opts(env, risc0_images::ledger_validity_proof::LEDGER_ELF, &opts)
+            .prove_with_opts(env, risc0_images::ledger_risc0_proof::LEDGER_ELF, &opts)
             .unwrap();
 
         println!(
@@ -101,7 +101,7 @@ impl ProvedLedgerTransition {
 
     pub fn verify(&self) -> bool {
         self.risc0_receipt
-            .verify(<[u8; 32]>::from_hex(risc0_images::ledger_validity_proof::LEDGER_ID).unwrap())
+            .verify(<[u8; 32]>::from_hex(risc0_images::ledger_risc0_proof::LEDGER_ID).unwrap())
             .is_ok()
     }
 }

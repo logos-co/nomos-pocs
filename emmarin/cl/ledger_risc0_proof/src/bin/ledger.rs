@@ -24,7 +24,7 @@ fn main() {
     } in bundles
     {
         env::verify(
-            <[u8; 32]>::from_hex(risc0_images::nomos_mantle_bundle_risc0_proof::BUNDLE_ID).unwrap(),
+            <[u8; 32]>::from_hex(risc0_images::bundle_risc0_proof::BUNDLE_ID).unwrap(),
             &serde::to_vec(&bundle).unwrap(),
         )
         .unwrap();
@@ -42,8 +42,7 @@ fn main() {
         if let Some(ledger_update) = bundle
             .updates
             .into_iter()
-            .filter(|update| update.zone_id == id)
-            .next()
+            .find(|update| update.zone_id == id)
         {
             for node in &ledger_update.frontier_nodes {
                 let past_cm_root_proof = cm_root_proofs
