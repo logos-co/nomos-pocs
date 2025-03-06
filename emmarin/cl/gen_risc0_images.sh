@@ -3,10 +3,9 @@ set -e
 
 # Order of these proofs is important, we sequence them topologically by composition order
 proofs=$(cat <<EOF
-tx_risc0_proof/tx
-risc0_proofs/stf_nop
-bundle_risc0_proof/bundle
-ledger_validity_proof/ledger
+risc0_proofs
+bundle_risc0_proof
+ledger_risc0_proof
 EOF
 )
 

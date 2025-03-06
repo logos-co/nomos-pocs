@@ -4,7 +4,9 @@ members = [
     "cl",
     "ledger",
     "ledger_proof_statements",
-    "ledger_validity_proof",
+    "ledger_risc0_proof",
+    "bundle_risc0_proof",
+    "risc0_proofs",
     "risc0_images",
 ]
 
