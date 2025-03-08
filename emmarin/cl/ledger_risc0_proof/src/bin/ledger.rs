@@ -24,7 +24,7 @@ fn main() {
     } in bundles
     {
         env::verify(
-            <[u8; 32]>::from_hex(risc0_images::bundle_risc0_proof::BUNDLE_ID).unwrap(),
+            <[u8; 32]>::from_hex(risc0_images::BUNDLE_ID).unwrap(),
             &serde::to_vec(&bundle).unwrap(),
         )
         .unwrap();
@@ -54,7 +54,7 @@ fn main() {
 
             for cm in &ledger_update.outputs {
                 ledger.add_commitment(cm);
-                outputs.push(*cm)
+                outputs.push(*cm);
             }
 
             nullifiers.extend(ledger_update.inputs);

@@ -37,7 +37,7 @@ impl ProvedTx {
         // This struct contains the receipt along with statistics about execution of the guest
         let opts = risc0_zkvm::ProverOpts::succinct();
         let prove_info = prover
-            .prove_with_opts(env, risc0_images::risc0_proofs::TX_ELF, &opts)
+            .prove_with_opts(env, risc0_images::TX_ELF, &opts)
             .map_err(|_| Error::Risc0ProofFailed)?;
 
         println!(
@@ -58,7 +58,7 @@ impl ProvedTx {
 
     pub fn verify(&self) -> bool {
         self.risc0_receipt
-            .verify(<[u8; 32]>::from_hex(risc0_images::risc0_proofs::TX_ID).unwrap())
+            .verify(<[u8; 32]>::from_hex(risc0_images::TX_ID).unwrap())
             .is_ok()
     }
 }
