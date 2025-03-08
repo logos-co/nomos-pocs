@@ -59,6 +59,8 @@ fn main() {
 
             nullifiers.extend(ledger_update.inputs);
         }
+
+        ledger.add_bundle(bundle.root.0);
     }
 
     // TODO: sort outside and check
