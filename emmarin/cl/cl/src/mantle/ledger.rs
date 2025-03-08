@@ -1,5 +1,5 @@
 use crate::{
-    crust::{tx::LedgerUpdate, Bundle, NoteCommitment, Nullifier},
+    crust::{BundleRoot, NoteCommitment, Nullifier},
     ds::{
         indexed::{BatchUpdateProof, NullifierTree},
         mmr::{MMRProof, MMR},
@@ -38,8 +38,8 @@ impl LedgerWitness {
         self.commitments.push(&cm.0);
     }
 
-    pub fn add_bundle(&mut self, bundle_root: [u8; 32]) {
-        self.bundles.push(&bundle_root);
+    pub fn add_bundle(&mut self, bundle_root: BundleRoot) {
+        self.bundles.push(&bundle_root.0);
     }
 
     pub fn assert_nfs_update(&mut self, nullifiers: &[Nullifier], proof: &BatchUpdateProof) {
@@ -77,8 +77,8 @@ impl LedgerState {
         self.nullifiers.insert_batch(nfs)
     }
 
-    pub fn add_bundle(&mut self, bundle_root: [u8; 32]) -> (MMR, MMRProof) {
-        let proof = self.bundles.push(&bundle_root);
+    pub fn add_bundle(&mut self, bundle_root: BundleRoot) -> (MMR, MMRProof) {
+        let proof = self.bundles.push(&bundle_root.0);
         (self.bundles.clone(), proof)
     }
 }

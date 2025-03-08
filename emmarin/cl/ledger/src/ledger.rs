@@ -25,8 +25,7 @@ impl ProvedLedgerTransition {
 
             let zone_ledger_update = bundle
                 .updates
-                .iter()
-                .find(|update| update.zone_id == zone_id)
+                .get(&zone_id)
                 .expect("why are we proving this bundle for this zone if it's not involved?");
 
             let cm_root_proofs =
@@ -45,7 +44,7 @@ impl ProvedLedgerTransition {
                 cm_root_proofs,
             };
 
-            w_bundles.push(ledger_bundle)
+            w_bundles.push(ledger_bundle);
         }
 
         let witness = LedgerProofPrivate {
@@ -56,13 +55,17 @@ impl ProvedLedgerTransition {
         };
 
         for bundle in &witness.bundles {
-            for update in &bundle.bundle.updates {
-                if update.zone_id == zone_id {
-                    for cm in &update.outputs {
-                        ledger.add_commitment(cm);
-                    }
-                }
+            let update = bundle
+                .bundle
+                .updates
+                .get(&zone_id)
+                .expect("should have a bundle from the zone we are proofing for");
+
+            for cm in &update.outputs {
+                ledger.add_commitment(cm);
             }
+
+            ledger.add_bundle(bundle.bundle.root);
         }
 
         witness.write(&mut env);

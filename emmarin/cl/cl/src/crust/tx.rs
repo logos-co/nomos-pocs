@@ -50,7 +50,7 @@ impl TxRoot {
 pub struct Tx {
     pub root: TxRoot,
     pub balance: Balance,
-    pub updates: Vec<LedgerUpdate>,
+    pub updates: BTreeMap<ZoneId, LedgerUpdate>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -63,16 +63,16 @@ pub struct TxWitness {
     pub frontier_paths: Vec<(MMR, MMRProof)>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+// TODO: this LedgerUpdate and LedgerUpdateWitness need to be merged
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct LedgerUpdate {
-    pub zone_id: ZoneId,
     pub frontier_nodes: Vec<Root>,
     pub inputs: Vec<Nullifier>,
     pub outputs: Vec<NoteCommitment>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct LedgerUpdateWitness {
-    pub zone_id: ZoneId,
     pub frontier_nodes: Vec<Root>,
     pub inputs: Vec<Nullifier>,
     pub outputs: Vec<(NoteCommitment, Vec<u8>)>,
@@ -88,21 +88,29 @@ impl LedgerUpdateWitness {
                     .collect::<Vec<_>>()
             },
         )));
-        let root = merkle::root(&merkle::padded_leaves([
-            input_root,
-            output_root,
-            self.zone_id,
-        ]));
+        let root = merkle::root(&merkle::padded_leaves([input_root, output_root]));
 
         (
             LedgerUpdate {
-                zone_id: self.zone_id,
                 inputs: self.inputs,
                 outputs: self.outputs.into_iter().map(|(cm, _)| cm).collect(),
                 frontier_nodes: self.frontier_nodes,
             },
             root,
         )
+    }
+
+    pub fn add_input(&mut self, nf: Nullifier, mmr: MMR) -> &mut Self {
+        self.inputs.push(nf);
+        self.frontier_nodes.extend(mmr.roots);
+        self.frontier_nodes.sort();
+        self.frontier_nodes.dedup();
+        self
+    }
+
+    pub fn add_output(&mut self, cm: NoteCommitment, data: Vec<u8>) -> &mut Self {
+        self.outputs.push((cm, data));
+        self
     }
 }
 
@@ -118,17 +126,19 @@ impl TxWitness {
         self
     }
 
-    pub fn compute_updates(&self, inputs: &[InputDerivedFields]) -> Vec<LedgerUpdateWitness> {
-        let mut updates = BTreeMap::new();
+    pub fn compute_updates(
+        &self,
+        inputs: &[InputDerivedFields],
+    ) -> BTreeMap<ZoneId, LedgerUpdateWitness> {
+        let mut updates: BTreeMap<ZoneId, LedgerUpdateWitness> = Default::default();
+
         assert_eq!(self.inputs.len(), self.frontier_paths.len());
         for (input, (mmr, path)) in inputs.iter().zip(&self.frontier_paths) {
-            let entry = updates.entry(input.zone_id).or_insert(LedgerUpdateWitness {
-                zone_id: input.zone_id,
-                inputs: vec![],
-                outputs: vec![],
-                frontier_nodes: mmr.roots.clone(),
-            });
-            entry.inputs.push(input.nf);
+            let entry = updates
+                .entry(input.zone_id)
+                .or_default()
+                .add_input(input.nf, mmr.clone());
+
             assert!(mmr.verify_proof(&input.cm.0, path));
             // ensure a single MMR per zone per tx
             assert_eq!(&mmr.roots, &entry.frontier_nodes);
@@ -138,17 +148,11 @@ impl TxWitness {
             assert!(output.value > 0);
             updates
                 .entry(output.zone_id)
-                .or_insert(LedgerUpdateWitness {
-                    zone_id: output.zone_id,
-                    inputs: vec![],
-                    outputs: vec![],
-                    frontier_nodes: vec![],
-                })
-                .outputs
-                .push((output.note_commitment(), data.clone())); // TODO: avoid clone
+                .or_default()
+                .add_output(output.note_commitment(), data.clone()); // TODO: avoid clone
         }
 
-        updates.into_values().collect()
+        updates
     }
 
     pub fn mint_amounts(&self) -> Vec<MintAmount> {
@@ -232,11 +236,15 @@ impl TxWitness {
     ) -> Tx {
         let mint_burn_root = Self::mint_burn_root(mints, burns);
 
-        let (updates, updates_roots): (Vec<_>, Vec<_>) = self
+        let (updates, updates_roots): (BTreeMap<_, _>, Vec<_>) = self
             .compute_updates(inputs)
             .into_iter()
-            .map(LedgerUpdateWitness::commit)
+            .map(|(zone_id, update)| {
+                let (update_cm, update_root) = update.commit();
+                ((zone_id, update_cm), merkle::node(zone_id, update_root))
+            })
             .unzip();
+
         let update_root = merkle::root(&merkle::padded_leaves(updates_roots));
         let root = self.root(update_root, mint_burn_root);
         let balance = self.balance(mints, burns);
@@ -251,7 +259,7 @@ impl TxWitness {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Bundle {
-    pub updates: Vec<LedgerUpdate>,
+    pub updates: BTreeMap<ZoneId, LedgerUpdate>,
     pub root: BundleRoot,
 }
 
@@ -268,37 +276,25 @@ impl BundleWitness {
             self.txs.iter().map(|tx| tx.root.0),
         )));
 
-        let updates = self
+        let mut updates = self
             .txs
             .into_iter()
             .fold(BTreeMap::new(), |mut updates, tx| {
-                for update in tx.updates {
-                    let entry = updates.entry(update.zone_id).or_insert(LedgerUpdate {
-                        zone_id: update.zone_id,
-                        inputs: vec![],
-                        outputs: vec![],
-                        frontier_nodes: vec![],
-                    });
-
+                for (zone_id, update) in tx.updates {
+                    let entry: &mut LedgerUpdate = updates.entry(zone_id).or_default();
                     entry.inputs.extend(update.inputs);
                     entry.outputs.extend(update.outputs);
                     entry.frontier_nodes.extend(update.frontier_nodes); // TODO: maybe merge?
                 }
 
                 updates
-            })
-            .into_values()
-            .collect::<Vec<_>>();
+            });
 
         // de-dup frontier nodes
-        let updates = updates
-            .into_iter()
-            .map(|mut update| {
-                update.frontier_nodes.sort();
-                update.frontier_nodes.dedup();
-                update
-            })
-            .collect();
+        updates.iter_mut().for_each(|(_, update)| {
+            update.frontier_nodes.sort();
+            update.frontier_nodes.dedup();
+        });
 
         Bundle { updates, root }
     }

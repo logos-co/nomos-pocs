@@ -29,38 +29,37 @@ fn main() {
         )
         .unwrap();
 
-        let zones = Vec::from_iter(bundle.updates.iter().map(|update| update.zone_id));
-        if !(zones.len() == 1 && zones[0] == id) {
+        if bundle.updates.len() > 1 {
             // This is a cross zone bundle, add a sync log for it to ensure all zones
             // also approve it.
             sync_logs.push(SyncLog {
                 bundle: bundle.root,
-                zones,
+                zones: bundle.updates.keys().copied().collect(),
             });
         }
 
-        if let Some(ledger_update) = bundle
+        let ledger_update = bundle
             .updates
-            .into_iter()
-            .find(|update| update.zone_id == id)
-        {
-            for node in &ledger_update.frontier_nodes {
-                let past_cm_root_proof = cm_root_proofs
-                    .get(&node.root)
-                    .expect("missing cm root proof");
-                let expected_current_cm_root = merkle::path_root(node.root, past_cm_root_proof);
-                assert!(old_ledger.valid_cm_root(expected_current_cm_root))
-            }
+            .get(&id)
+            .expect("attempting to prove a bundle that is not for this zone");
 
-            for cm in &ledger_update.outputs {
-                ledger.add_commitment(cm);
-                outputs.push(*cm);
-            }
+        for node in &ledger_update.frontier_nodes {
+            let past_cm_root_proof = cm_root_proofs
+                .get(&node.root)
+                .expect("missing cm root proof");
 
-            nullifiers.extend(ledger_update.inputs);
+            let expected_current_cm_root = merkle::path_root(node.root, past_cm_root_proof);
+            assert!(old_ledger.valid_cm_root(expected_current_cm_root))
         }
 
-        ledger.add_bundle(bundle.root.0);
+        for cm in &ledger_update.outputs {
+            ledger.add_commitment(cm);
+            outputs.push(*cm);
+        }
+
+        nullifiers.extend(ledger_update.inputs.clone());
+
+        ledger.add_bundle(bundle.root);
     }
 
     // TODO: sort outside and check
