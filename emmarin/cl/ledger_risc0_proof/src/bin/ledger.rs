@@ -52,7 +52,7 @@ fn main() {
             assert!(old_ledger.valid_cm_root(expected_current_cm_root))
         }
 
-        for cm in &ledger_update.outputs {
+        for (cm, _data) in &ledger_update.outputs {
             ledger.add_commitment(cm);
             outputs.push(*cm);
         }

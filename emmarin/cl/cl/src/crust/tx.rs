@@ -51,6 +51,7 @@ pub struct Tx {
     pub root: TxRoot,
     pub balance: Balance,
     pub updates: BTreeMap<ZoneId, LedgerUpdate>,
+    pub data: Vec<u8>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -63,23 +64,15 @@ pub struct TxWitness {
     pub frontier_paths: Vec<(MMR, MMRProof)>,
 }
 
-// TODO: this LedgerUpdate and LedgerUpdateWitness need to be merged
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct LedgerUpdate {
-    pub frontier_nodes: Vec<Root>,
-    pub inputs: Vec<Nullifier>,
-    pub outputs: Vec<NoteCommitment>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct LedgerUpdateWitness {
     pub frontier_nodes: Vec<Root>,
     pub inputs: Vec<Nullifier>,
     pub outputs: Vec<(NoteCommitment, Vec<u8>)>,
 }
 
-impl LedgerUpdateWitness {
-    pub fn commit(self) -> (LedgerUpdate, [u8; 32]) {
+impl LedgerUpdate {
+    pub fn root(&self, zone_id: ZoneId) -> [u8; 32] {
         let input_root = merkle::root(&merkle::padded_leaves(&self.inputs));
         let output_root = merkle::root(&merkle::padded_leaves(self.outputs.iter().map(
             |(cm, data)| {
@@ -88,16 +81,7 @@ impl LedgerUpdateWitness {
                     .collect::<Vec<_>>()
             },
         )));
-        let root = merkle::root(&merkle::padded_leaves([input_root, output_root]));
-
-        (
-            LedgerUpdate {
-                inputs: self.inputs,
-                outputs: self.outputs.into_iter().map(|(cm, _)| cm).collect(),
-                frontier_nodes: self.frontier_nodes,
-            },
-            root,
-        )
+        merkle::root(&merkle::padded_leaves([zone_id, input_root, output_root]))
     }
 
     pub fn add_input(&mut self, nf: Nullifier, mmr: MMR) -> &mut Self {
@@ -126,11 +110,8 @@ impl TxWitness {
         self
     }
 
-    pub fn compute_updates(
-        &self,
-        inputs: &[InputDerivedFields],
-    ) -> BTreeMap<ZoneId, LedgerUpdateWitness> {
-        let mut updates: BTreeMap<ZoneId, LedgerUpdateWitness> = Default::default();
+    pub fn compute_updates(&self, inputs: &[InputDerivedFields]) -> BTreeMap<ZoneId, LedgerUpdate> {
+        let mut updates: BTreeMap<ZoneId, LedgerUpdate> = Default::default();
 
         assert_eq!(self.inputs.len(), self.frontier_paths.len());
         for (input, (mmr, path)) in inputs.iter().zip(&self.frontier_paths) {
@@ -236,16 +217,12 @@ impl TxWitness {
     ) -> Tx {
         let mint_burn_root = Self::mint_burn_root(mints, burns);
 
-        let (updates, updates_roots): (BTreeMap<_, _>, Vec<_>) = self
-            .compute_updates(inputs)
-            .into_iter()
-            .map(|(zone_id, update)| {
-                let (update_cm, update_root) = update.commit();
-                ((zone_id, update_cm), merkle::node(zone_id, update_root))
-            })
-            .unzip();
-
-        let update_root = merkle::root(&merkle::padded_leaves(updates_roots));
+        let updates = self.compute_updates(inputs);
+        let update_root = merkle::root(&merkle::padded_leaves(
+            updates
+                .iter()
+                .map(|(zone_id, update)| update.root(*zone_id)),
+        ));
         let root = self.root(update_root, mint_burn_root);
         let balance = self.balance(mints, burns);
 
@@ -253,6 +230,7 @@ impl TxWitness {
             root,
             balance,
             updates,
+            data: self.data.clone(),
         }
     }
 }

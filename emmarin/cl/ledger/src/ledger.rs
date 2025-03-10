@@ -61,7 +61,7 @@ impl ProvedLedgerTransition {
                 .get(&zone_id)
                 .expect("should have a bundle from the zone we are proofing for");
 
-            for cm in &update.outputs {
+            for (cm, _data) in &update.outputs {
                 ledger.add_commitment(cm);
             }
 
