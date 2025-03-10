@@ -41,6 +41,20 @@ fn pair_price() {
         swapvm_state.pair_price(mem().unit(), nmo().unit()),
         Some(0.1)
     );
+
+    // Due to slippage, the amount we get out is less than what the price would imply
+    assert_eq!(
+        swapvm_state.amount_out(nmo().unit(), mem().unit(), 1),
+        Some(9) // 1 MEM slippage
+    );
+    assert_eq!(
+        swapvm_state.amount_out(nmo().unit(), mem().unit(), 2),
+        Some(18) // 2 MEM slippage
+    );
+    assert_eq!(
+        swapvm_state.amount_out(nmo().unit(), mem().unit(), 5),
+        Some(39) // 11 MEM slippage
+    );
 }
 
 #[test]

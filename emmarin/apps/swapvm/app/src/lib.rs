@@ -267,6 +267,24 @@ impl ZoneData {
         })
     }
 
+    pub fn amount_out(&self, t_in: Unit, t_out: Unit, amount_in: u64) -> Option<u64> {
+        let pair = Pair::new(t_in, t_out);
+        let pool = self.pools.get(&pair)?;
+
+        let (balance_in, balance_out) = if pair.t0 == t_in {
+            (pool.balance_0, pool.balance_1)
+        } else {
+            (pool.balance_1, pool.balance_0)
+        };
+
+        let amount_in_after_fee = amount_in * 1000 - amount_in * 3;
+
+        let amount_out =
+            (balance_out * 1000 * amount_in_after_fee) / (balance_in * 1000 + amount_in_after_fee);
+
+        Some(amount_out / 1000)
+    }
+
     /// A swap does not need to directly modify the pool balances, but the executor
     /// should make sure that required funds are provided.
     pub fn swap(&mut self, swap: &Swap) {
