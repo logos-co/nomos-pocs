@@ -16,8 +16,8 @@ const FUNDS_SK: NullifierSecret = NullifierSecret([0; 16]);
 fn get_pair_share_unit(pair: Pair) -> UnitWitness {
     let mut hasher = Sha256::new();
     hasher.update(b"SWAP_PAIR_SHARE_UNIT");
-    hasher.update(&pair.t0);
-    hasher.update(&pair.t1);
+    hasher.update(pair.t0);
+    hasher.update(pair.t1);
     UnitWitness {
         spending_covenant: NOP_COVENANT,
         minting_covenant: NOP_COVENANT,
@@ -165,18 +165,20 @@ impl ZoneData {
 
     /// Check no pool notes are used in this tx
     pub fn validate_no_pools(&self, tx: &Tx) -> bool {
-        tx.updates
-            .iter()
-            .filter(|u| u.zone_id == self.zone_id)
-            .flat_map(|u| u.inputs.iter())
-            .all(|nf| !self.nfs.contains(nf))
+        let Some(update) = tx.updates.get(&self.zone_id) else {
+            // this tx is not involving this zone, therefore it is
+            // guaranteed to have no pool notes
+            return true;
+        };
+
+        update.inputs.iter().all(|nf| !self.nfs.contains(nf))
     }
 
     pub fn validate_op(&self, op: &ZoneOp) -> bool {
         match op {
-            ZoneOp::Swap(swap) => self.check_swap(&swap),
-            ZoneOp::AddLiquidity { tx, .. } => self.validate_no_pools(&tx),
-            ZoneOp::RemoveLiquidity { tx, .. } => self.validate_no_pools(&tx), // should we check shares exist?
+            ZoneOp::Swap(swap) => self.check_swap(swap),
+            ZoneOp::AddLiquidity { tx, .. } => self.validate_no_pools(tx),
+            ZoneOp::RemoveLiquidity { tx, .. } => self.validate_no_pools(tx), // should we check shares exist?
             ZoneOp::Ledger(tx) => {
                 // Just a ledger tx that does not directly interact with the zone,
                 // just validate it's not using pool notes
@@ -186,24 +188,15 @@ impl ZoneData {
     }
 
     pub fn pools_update(&mut self, tx: &Tx, pool_notes: &[InputWitness]) {
+        let Some(zone_update) = tx.updates.get(&self.zone_id) else {
+            // The tx is not involving this zone, nothing to do.
+            return;
+        };
         // check all previous nullifiers are used
-        assert!(self.nfs.iter().all(|nf| tx
-            .updates
-            .iter()
-            .filter(|u| u.zone_id == self.zone_id)
-            .flat_map(|u| u.inputs.iter())
-            .find(|nf2| *nf2 == nf)
-            .is_some()));
+        assert!(self.nfs.iter().all(|nf| zone_update.inputs.contains(nf)));
         self.nfs.clear();
 
         // check the exepected pool balances are reflected in the tx outputs
-        let outputs = tx
-            .updates
-            .iter()
-            .filter(|u| u.zone_id == self.zone_id)
-            .flat_map(|u| u.outputs.iter())
-            .collect::<Vec<_>>();
-
         let expected_pool_balances = self.expected_pool_balances();
         for note in pool_notes {
             assert_eq!(note.nf_sk, FUNDS_SK);
@@ -211,35 +204,39 @@ impl ZoneData {
             let output = note.to_output();
             let value = expected_pool_balances.get(&output.unit).unwrap();
             assert_eq!(note.value, *value);
-            assert!(outputs.contains(&&output.note_commitment()));
+
+            assert!(zone_update
+                .outputs
+                .find(|(cm, _data)| cm == &output.note_commitment())
+                .is_some());
             self.nfs.insert(note.nullifier());
         }
     }
 
     pub fn check_minted_shares(&self, tx: &Tx) {
-        let outputs = tx
-            .updates
-            .iter()
-            .filter(|u| u.zone_id == self.zone_id)
-            .flat_map(|u| u.outputs.iter())
-            .collect::<Vec<_>>();
+        let Some(zone_update) = tx.updates.get(&self.zone_id) else {
+            return;
+        };
 
         for shares in &self.shares_to_mint {
             let output = shares.to_output(self.zone_id);
-            assert!(outputs.contains(&output.note_commitment()));
+            assert!(zone_update
+                .outputs
+                .find(|(cm, _data)| cm == &output.note_commitment())
+                .is_some());
         }
     }
 
     pub fn check_redeemed_shares(&self, tx: &Tx) {
-        let outputs = tx
-            .updates
-            .iter()
-            .filter(|u| u.zone_id == self.zone_id)
-            .flat_map(|u| u.outputs.iter())
-            .collect::<Vec<_>>();
+        let Some(zone_update) = tx.updates.get(&self.zone_id) else {
+            return;
+        };
 
         for shares in &self.shares_to_redeem {
-            assert!(outputs.contains(&shares.note_commitment()));
+            assert!(zone_update
+                .outputs
+                .find(|(cm, _data)| cm == &shares.note_commitment())
+                .is_some());
         }
 
         // TODO: chech shares have been burned
@@ -298,12 +295,12 @@ impl ZoneData {
 
     pub fn process_op(&mut self, op: &ZoneOp) {
         match op {
-            ZoneOp::Swap(swap) => self.swap(&swap),
+            ZoneOp::Swap(swap) => self.swap(swap),
             ZoneOp::AddLiquidity {
                 tx, add_liquidity, ..
             } => {
-                self.add_liquidity(&add_liquidity);
-                assert!(self.validate_no_pools(&tx));
+                self.add_liquidity(add_liquidity);
+                assert!(self.validate_no_pools(tx));
                 // TODo: check proof
             }
             ZoneOp::RemoveLiquidity {
@@ -311,8 +308,8 @@ impl ZoneData {
                 remove_liquidity,
                 ..
             } => {
-                self.remove_liquidity(&remove_liquidity);
-                assert!(self.validate_no_pools(&tx));
+                self.remove_liquidity(remove_liquidity);
+                assert!(self.validate_no_pools(tx));
                 // TODO: check proof
             }
             ZoneOp::Ledger(tx) => {
@@ -336,12 +333,12 @@ impl ZoneData {
             hasher.update(nf);
         }
         for (pair, pool) in self.pools.iter() {
-            hasher.update(&pair.t0);
-            hasher.update(&pair.t1);
-            hasher.update(&pool.balance_0.to_le_bytes());
-            hasher.update(&pool.balance_1.to_le_bytes());
+            hasher.update(pair.t0);
+            hasher.update(pair.t1);
+            hasher.update(pool.balance_0.to_le_bytes());
+            hasher.update(pool.balance_1.to_le_bytes());
         }
-        hasher.update(&self.zone_id);
+        hasher.update(self.zone_id);
         hasher.finalize().into()
     }
 }
