@@ -109,6 +109,33 @@ pub struct AddLiquidity {
     pub nonce: Nonce,
 }
 
+impl AddLiquidity {
+    pub fn new(
+        t0: Unit,
+        mut t0_in: u64,
+        t1: Unit,
+        mut t1_in: u64,
+        pk_out: NullifierCommitment,
+        nonce: Nonce,
+    ) -> Self {
+        let pair = Pair::new(t0, t1);
+
+        (t0_in, t1_in) = if t0 == pair.t0 {
+            (t0_in, t1_in)
+        } else {
+            (t1_in, t0_in)
+        };
+
+        Self {
+            pair,
+            t0_in,
+            t1_in,
+            pk_out,
+            nonce,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SharesToMint {
     pub amount: u64,
@@ -165,12 +192,27 @@ pub struct Pair {
     pub t1: Unit,
 }
 
+impl Pair {
+    pub fn new(t_a: Unit, t_b: Unit) -> Self {
+        Self {
+            t0: std::cmp::min(t_a, t_b),
+            t1: std::cmp::max(t_a, t_b),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Pool {
     pub balance_0: u64,
     pub balance_1: u64,
     pub shares_unit: Unit,
     pub total_shares: u64,
+}
+
+impl Pool {
+    pub fn price(&self) -> f64 {
+        self.balance_1 as f64 / self.balance_0 as f64
+    }
 }
 
 /// Prove the data was part of the tx output
@@ -204,6 +246,27 @@ pub struct StateUpdate {
 
 // Txs are of the following form:
 impl ZoneData {
+    pub fn new() -> Self {
+        Self {
+            nfs: Default::default(),
+            pools: Default::default(),
+            zone_id: ZONE_ID,
+            shares_to_mint: Default::default(),
+            shares_to_redeem: Default::default(),
+        }
+    }
+
+    pub fn pair_price(&self, t_in: Unit, t_out: Unit) -> Option<f64> {
+        let pair = Pair::new(t_in, t_out);
+        self.pools.get(&pair).map(|pool| pool.price()).map(|price| {
+            if t_in == pair.t0 {
+                price
+            } else {
+                1.0 / price
+            }
+        })
+    }
+
     /// A swap does not need to directly modify the pool balances, but the executor
     /// should make sure that required funds are provided.
     pub fn swap(&mut self, swap: &Swap) {
@@ -396,5 +459,11 @@ impl ZoneData {
         }
         hasher.update(self.zone_id);
         hasher.finalize().into()
+    }
+}
+
+impl Default for ZoneData {
+    fn default() -> Self {
+        Self::new()
     }
 }
