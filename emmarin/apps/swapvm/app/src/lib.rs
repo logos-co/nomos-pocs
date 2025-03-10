@@ -6,11 +6,76 @@ use cl::{
     },
     mantle::ZoneId,
 };
+use rand::RngCore;
 use risc0_zkvm::sha::rust_crypto::{Digest, Sha256};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 const FUNDS_SK: NullifierSecret = NullifierSecret([0; 16]);
+pub const ZONE_ID: [u8; 32] = [128; 32];
+
+pub fn swap_goal_unit() -> UnitWitness {
+    UnitWitness::nop(b"SWAP")
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SwapOutput {
+    // value will be set at the market price
+    pub state: [u8; 32],
+    pub unit: Unit,
+    pub nonce: Nonce,
+    pub zone_id: ZoneId,
+    pub nf_pk: NullifierCommitment,
+}
+impl SwapOutput {
+    pub fn basic(
+        unit: Unit,
+        zone_id: ZoneId,
+        nf_pk: NullifierCommitment,
+        rng: impl RngCore,
+    ) -> Self {
+        Self {
+            state: [0; 32],
+            unit,
+            nonce: Nonce::random(rng),
+            zone_id,
+            nf_pk,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SwapArgs {
+    // the user specifies the template forthe output note
+    pub output: SwapOutput,
+    // minimum value of the output note
+    pub limit: u64,
+}
+
+impl SwapArgs {
+    pub fn to_output(self, value: u64) -> OutputWitness {
+        assert!(value >= self.limit);
+        OutputWitness {
+            state: self.output.state,
+            value,
+            unit: self.output.unit,
+            nonce: self.output.nonce,
+            zone_id: self.output.zone_id,
+            nf_pk: self.output.nf_pk,
+        }
+    }
+}
+
+pub fn swap_goal_note(rng: impl RngCore) -> OutputWitness {
+    OutputWitness {
+        state: [0u8; 32],
+        value: 1,
+        unit: swap_goal_unit().unit(),
+        nonce: Nonce::random(rng),
+        zone_id: ZONE_ID,
+        nf_pk: NullifierSecret::zero().commit(),
+    }
+}
 
 // TODO: order pair tokens lexicographically
 fn get_pair_share_unit(pair: Pair) -> UnitWitness {
@@ -230,7 +295,7 @@ impl ZoneData {
             assert!(zone_update.has_output(&shares.note_commitment()));
         }
 
-        // TODO: chech shares have been burned
+        // TODO: check shares have been burned
     }
 
     pub fn expected_pool_balances(&self) -> BTreeMap<Unit, u64> {

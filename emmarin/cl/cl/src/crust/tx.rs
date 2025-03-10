@@ -113,8 +113,9 @@ impl TxWitness {
         self
     }
 
-    pub fn add_output(mut self, output: OutputWitness, data: Vec<u8>) -> Self {
-        self.outputs.push((output, data));
+    pub fn add_output(mut self, output: OutputWitness, data: impl Serialize) -> Self {
+        self.outputs.push((output, crate::serialize(data)));
+
         self
     }
 

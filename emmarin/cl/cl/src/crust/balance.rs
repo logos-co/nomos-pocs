@@ -14,6 +14,15 @@ pub struct UnitWitness {
 }
 
 impl UnitWitness {
+    pub fn nop(args: &[u8]) -> Self {
+        Self {
+            spending_covenant: NOP_COVENANT,
+            minting_covenant: NOP_COVENANT,
+            burning_covenant: NOP_COVENANT,
+            arg: crate::hash(args),
+        }
+    }
+
     pub fn unit(&self) -> Unit {
         let mut hasher = Hash::new();
         hasher.update(b"NOMOS_CL_UNIT");
