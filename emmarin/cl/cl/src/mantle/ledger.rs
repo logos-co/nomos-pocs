@@ -9,9 +9,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Ledger {
-    cm_root: [u8; 32],
-    nf_root: [u8; 32],
-    bundles_root: [u8; 32],
+    pub cm_root: [u8; 32],
+    pub nf_root: [u8; 32],
+    pub bundles_root: [u8; 32],
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

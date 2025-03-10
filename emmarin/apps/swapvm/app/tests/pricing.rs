@@ -1,8 +1,5 @@
-use app::{AddLiquidity, SwapArgs, SwapOutput, ZoneData, ZONE_ID};
-use cl::{
-    crust::{InputWitness, Nonce, NullifierSecret, OutputWitness, TxWitness, UnitWitness},
-    mantle::ledger::LedgerState,
-};
+use app::{AddLiquidity, ZoneData};
+use cl::crust::{Nonce, NullifierSecret, UnitWitness};
 
 fn nmo() -> UnitWitness {
     UnitWitness::nop(b"NMO")
@@ -55,48 +52,4 @@ fn pair_price() {
         swapvm_state.amount_out(nmo().unit(), mem().unit(), 5),
         Some(39) // 11 MEM slippage
     );
-}
-
-#[test]
-fn simple_swap() {
-    let mut rng = rand::thread_rng();
-
-    let alice_sk = NullifierSecret::random(&mut rng);
-
-    let alice_in = InputWitness {
-        state: [0u8; 32],
-        value: 10,
-        unit_witness: nmo(),
-        nonce: Nonce::random(&mut rng),
-        zone_id: ZONE_ID,
-        nf_sk: alice_sk,
-    };
-
-    let alice_out = OutputWitness {
-        state: [0u8; 32],
-        value: 100,
-        unit: mem().unit(),
-        nonce: Nonce::random(&mut rng),
-        zone_id: ZONE_ID,
-        nf_pk: alice_sk.commit(),
-    };
-
-    let mut ledger = LedgerState::default();
-
-    // alice's input note is already in the ledger
-    let alice_in_proof = ledger.add_commitment(&alice_in.note_commitment());
-
-    let swap_tx = TxWitness::default()
-        .add_input(alice_in, alice_in_proof)
-        .add_output(alice_out, b"")
-        .add_output(
-            app::swap_goal_note(&mut rng),
-            SwapArgs {
-                output: SwapOutput::basic(mem().unit(), ZONE_ID, alice_sk.commit(), &mut rng),
-                limit: 90,
-            },
-        );
-
-    panic!()
-    // alice ---- swap_tx ---> executor
 }

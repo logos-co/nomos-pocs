@@ -1,6 +1,7 @@
 use cl::{
     crust::{
         balance::{UnitWitness, NOP_COVENANT},
+        tx::LedgerUpdate,
         InputWitness, Nonce, Nullifier, NullifierCommitment, NullifierSecret, OutputWitness, Tx,
         Unit,
     },
@@ -50,6 +51,8 @@ pub struct SwapArgs {
     pub output: SwapOutput,
     // minimum value of the output note
     pub limit: u64,
+    // the nonce used in the swap goal note
+    pub nonce: Nonce,
 }
 
 impl SwapArgs {
@@ -66,12 +69,12 @@ impl SwapArgs {
     }
 }
 
-pub fn swap_goal_note(rng: impl RngCore) -> OutputWitness {
+pub fn swap_goal_note(nonce: Nonce) -> OutputWitness {
     OutputWitness {
         state: [0u8; 32],
         value: 1,
         unit: swap_goal_unit().unit(),
-        nonce: Nonce::random(rng),
+        nonce,
         zone_id: ZONE_ID,
         nf_pk: NullifierSecret::zero().commit(),
     }
@@ -310,25 +313,38 @@ impl ZoneData {
     }
 
     /// Check no pool notes are used in this tx
-    pub fn validate_no_pools(&self, tx: &Tx) -> bool {
-        let Some(zone_update) = tx.updates.get(&self.zone_id) else {
-            // this tx is not involving this zone, therefore it is
-            // guaranteed to not consume pool notes
-            return true;
-        };
-
+    pub fn validate_no_pools(&self, zone_update: &LedgerUpdate) -> bool {
         self.nfs.iter().all(|nf| !zone_update.has_input(nf))
     }
 
     pub fn validate_op(&self, op: &ZoneOp) -> bool {
         match op {
             ZoneOp::Swap(swap) => self.check_swap(swap),
-            ZoneOp::AddLiquidity { tx, .. } => self.validate_no_pools(tx),
-            ZoneOp::RemoveLiquidity { tx, .. } => self.validate_no_pools(tx), // should we check shares exist?
+            ZoneOp::AddLiquidity { tx, .. } => {
+                let Some(zone_update) = tx.updates.get(&self.zone_id) else {
+                    // this tx is not involving this zone, therefore it is
+                    // guaranteed to not consume pool notes
+                    return true;
+                };
+                self.validate_no_pools(zone_update)
+            }
+            ZoneOp::RemoveLiquidity { tx, .. } => {
+                let Some(zone_update) = tx.updates.get(&self.zone_id) else {
+                    // this tx is not involving this zone, therefore it is
+                    // guaranteed to not consume pool notes
+                    return true;
+                };
+                self.validate_no_pools(zone_update) // should we check shares exist?
+            }
             ZoneOp::Ledger(tx) => {
+                let Some(zone_update) = tx.updates.get(&self.zone_id) else {
+                    // this tx is not involving this zone, therefore it is
+                    // guaranteed to not consume pool notes
+                    return true;
+                };
                 // Just a ledger tx that does not directly interact with the zone,
                 // just validate it's not using pool notes
-                self.validate_no_pools(tx)
+                self.validate_no_pools(zone_update)
             }
         }
     }
@@ -433,26 +449,19 @@ impl ZoneData {
     pub fn process_op(&mut self, op: &ZoneOp) {
         match op {
             ZoneOp::Swap(swap) => self.swap(swap),
-            ZoneOp::AddLiquidity {
-                tx, add_liquidity, ..
-            } => {
+            ZoneOp::AddLiquidity { add_liquidity, .. } => {
                 self.add_liquidity(add_liquidity);
-                assert!(self.validate_no_pools(tx));
                 // TODo: check proof
             }
             ZoneOp::RemoveLiquidity {
-                tx,
-                remove_liquidity,
-                ..
+                remove_liquidity, ..
             } => {
                 self.remove_liquidity(remove_liquidity);
-                assert!(self.validate_no_pools(tx));
                 // TODO: check proof
             }
-            ZoneOp::Ledger(tx) => {
+            ZoneOp::Ledger(_) => {
                 // Just a ledger tx that does not directly interact with the zone,
                 // just validate it's not using pool notes
-                self.validate_no_pools(tx);
             }
         }
     }

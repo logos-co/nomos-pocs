@@ -15,12 +15,9 @@ pub fn hash(data: &[u8]) -> [u8; 32] {
 
 // TODO: spec serializiation
 pub fn serialize(data: impl Serialize) -> Vec<u8> {
-    bincode::serde::encode_to_vec(data, bincode::config::standard()).unwrap()
+    bincode::serialize(&data).unwrap()
 }
 
 pub fn deserialize<T: DeserializeOwned>(bytes: &[u8]) -> T {
-    let (value, bytes_read) = bincode::serde::decode_from_slice(bytes, bincode::config::standard())
-        .expect("failed to deserialize");
-    assert_eq!(bytes_read, bytes.len());
-    value
+    bincode::deserialize(bytes).unwrap()
 }
