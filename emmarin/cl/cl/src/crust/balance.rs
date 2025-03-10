@@ -33,24 +33,32 @@ pub struct UnitBalance {
 }
 
 impl UnitBalance {
-    pub fn is_zero(&self) -> bool {
-        self.pos == self.neg
-    }
-
-    pub fn pos(unit: Unit, value: u64) -> Self {
+    pub fn zero(unit: Unit) -> Self {
         Self {
             unit,
-            pos: value,
+            pos: 0,
             neg: 0,
         }
     }
 
-    pub fn neg(unit: Unit, value: u64) -> Self {
-        Self {
-            unit,
-            pos: 0,
-            neg: value,
-        }
+    pub fn pos(unit: Unit, pos: u64) -> Self {
+        Self { unit, pos, neg: 0 }
+    }
+
+    pub fn neg(unit: Unit, neg: u64) -> Self {
+        Self { unit, pos: 0, neg }
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.pos == self.neg
+    }
+
+    pub fn is_neg(&self) -> bool {
+        self.neg > self.pos
+    }
+
+    pub fn is_pos(&self) -> bool {
+        self.pos > self.neg
     }
 }
 
@@ -63,6 +71,14 @@ impl Balance {
         Self {
             balances: Vec::new(),
         }
+    }
+
+    pub fn unit_balance(&self, unit: Unit) -> UnitBalance {
+        self.balances
+            .iter()
+            .find(|b| b.unit == unit)
+            .cloned()
+            .unwrap_or_else(|| UnitBalance::zero(unit))
     }
 
     pub fn insert_positive(&mut self, unit: Unit, value: Value) {

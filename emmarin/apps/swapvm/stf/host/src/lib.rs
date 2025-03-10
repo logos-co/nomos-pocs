@@ -1,4 +1,5 @@
 use app::{StateUpdate, ZoneOp};
+use cl::crust::BundleWitness;
 use cl::mantle::{ledger::Ledger, zone::ZoneData};
 use ledger_proof_statements::ledger::SyncLog;
 use methods::{STF_ELF, STF_ID};
@@ -11,6 +12,7 @@ pub struct StfPrivate {
     pub sync_logs: Vec<SyncLog>,
     pub ops: Vec<ZoneOp>,
     pub update_tx: StateUpdate,
+    pub bundles: BundleWitness,
 }
 
 impl StfPrivate {

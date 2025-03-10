@@ -165,13 +165,13 @@ impl ZoneData {
 
     /// Check no pool notes are used in this tx
     pub fn validate_no_pools(&self, tx: &Tx) -> bool {
-        let Some(update) = tx.updates.get(&self.zone_id) else {
+        let Some(zone_update) = tx.updates.get(&self.zone_id) else {
             // this tx is not involving this zone, therefore it is
-            // guaranteed to have no pool notes
+            // guaranteed to not consume pool notes
             return true;
         };
 
-        update.inputs.iter().all(|nf| !self.nfs.contains(nf))
+        self.nfs.iter().all(|nf| !zone_update.has_input(nf))
     }
 
     pub fn validate_op(&self, op: &ZoneOp) -> bool {
@@ -193,7 +193,7 @@ impl ZoneData {
             return;
         };
         // check all previous nullifiers are used
-        assert!(self.nfs.iter().all(|nf| zone_update.inputs.contains(nf)));
+        assert!(self.nfs.iter().all(|nf| zone_update.has_input(nf)));
         self.nfs.clear();
 
         // check the exepected pool balances are reflected in the tx outputs
@@ -205,10 +205,7 @@ impl ZoneData {
             let value = expected_pool_balances.get(&output.unit).unwrap();
             assert_eq!(note.value, *value);
 
-            assert!(zone_update
-                .outputs
-                .find(|(cm, _data)| cm == &output.note_commitment())
-                .is_some());
+            assert!(zone_update.has_output(&output.note_commitment()));
             self.nfs.insert(note.nullifier());
         }
     }
@@ -220,10 +217,7 @@ impl ZoneData {
 
         for shares in &self.shares_to_mint {
             let output = shares.to_output(self.zone_id);
-            assert!(zone_update
-                .outputs
-                .find(|(cm, _data)| cm == &output.note_commitment())
-                .is_some());
+            assert!(zone_update.has_output(&output.note_commitment()));
         }
     }
 
@@ -233,10 +227,7 @@ impl ZoneData {
         };
 
         for shares in &self.shares_to_redeem {
-            assert!(zone_update
-                .outputs
-                .find(|(cm, _data)| cm == &shares.note_commitment())
-                .is_some());
+            assert!(zone_update.has_output(&shares.note_commitment()));
         }
 
         // TODO: chech shares have been burned

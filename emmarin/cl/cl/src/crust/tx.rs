@@ -96,6 +96,14 @@ impl LedgerUpdate {
         self.outputs.push((cm, data));
         self
     }
+
+    pub fn has_input(&self, nf: &Nullifier) -> bool {
+        self.inputs.contains(nf)
+    }
+
+    pub fn has_output(&self, cm: &NoteCommitment) -> bool {
+        self.outputs.iter().any(|(out_cm, _data)| out_cm == cm)
+    }
 }
 
 impl TxWitness {
@@ -247,12 +255,16 @@ pub struct BundleWitness {
 }
 
 impl BundleWitness {
+    pub fn root(&self) -> BundleRoot {
+        BundleRoot(merkle::root(&merkle::padded_leaves(
+            self.txs.iter().map(|tx| tx.root.0),
+        )))
+    }
+
     pub fn commit(self) -> Bundle {
         assert!(Balance::combine(self.txs.iter().map(|tx| &tx.balance)).is_zero());
 
-        let root = BundleRoot(merkle::root(&merkle::padded_leaves(
-            self.txs.iter().map(|tx| tx.root.0),
-        )));
+        let root = self.root();
 
         let mut updates = self
             .txs
