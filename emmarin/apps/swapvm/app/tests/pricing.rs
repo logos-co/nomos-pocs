@@ -1,5 +1,5 @@
-use app::{AddLiquidity, ZoneData};
-use cl::crust::{Nonce, NullifierSecret, UnitWitness};
+use app::ZoneData;
+use cl::crust::{NullifierSecret, UnitWitness};
 
 fn nmo() -> UnitWitness {
     UnitWitness::nop(b"NMO")
@@ -17,17 +17,9 @@ fn pair_price() {
     // initially there is no NMO/MEM pair
     assert_eq!(swapvm_state.pair_price(nmo().unit(), mem().unit()), None);
 
-    let lp_sk = NullifierSecret::random(&mut rng);
-    swapvm_state.add_liquidity(&AddLiquidity::new(
-        nmo().unit(),
-        10,
-        mem().unit(),
-        100,
-        lp_sk.commit(),
-        Nonce::random(&mut rng),
-    ));
+    swapvm_state.add_liquidity(nmo().unit(), mem().unit(), 10, 100);
 
-    // given that there is 1nmo:10mem in the pool, the price should show that we get 10 NEM for 1 NMO
+    // given that there is 1nmo:10mem in the pool, the price should show that we get 10 MEM for 1 NMO
     assert_eq!(
         swapvm_state.pair_price(nmo().unit(), mem().unit()),
         Some(10.0)
@@ -46,10 +38,10 @@ fn pair_price() {
     );
     assert_eq!(
         swapvm_state.amount_out(nmo().unit(), mem().unit(), 2),
-        Some(18) // 2 MEM slippage
+        Some(16) // 4 MEM slippage
     );
     assert_eq!(
         swapvm_state.amount_out(nmo().unit(), mem().unit(), 5),
-        Some(39) // 11 MEM slippage
+        Some(33) // 17 MEM slippage
     );
 }

@@ -1,7 +1,8 @@
-use app::{AddLiquidity, ZONE_ID};
-use cl::crust::{InputWitness, Nonce, NullifierSecret, TxWitness, UnitWitness};
-use host::ExecutorState;
-use ledger::tx::ProvedTx;
+use app::ZONE_ID;
+use cl::crust::{BundleWitness, InputWitness, Nonce, NullifierSecret, TxWitness, UnitWitness};
+use cl::mantle::ledger::LedgerState;
+use host::{ExecutorState, StfPrivate};
+use ledger::{bundle::ProvedBundle, tx::ProvedTx};
 use rand::RngCore;
 
 fn nmo() -> UnitWitness {
@@ -11,8 +12,9 @@ fn mem() -> UnitWitness {
     UnitWitness::nop(b"MEM")
 }
 
-fn setup_executor(mut rng: impl RngCore) -> ExecutorState {
+fn setup_executor(mut rng: impl RngCore, ledger: LedgerState) -> ExecutorState {
     let mut exec_state = ExecutorState::default();
+    exec_state.ledger = ledger;
 
     let nmo_fund = InputWitness {
         state: [0u8; 32],
@@ -43,14 +45,9 @@ fn setup_executor(mut rng: impl RngCore) -> ExecutorState {
 
     // HACK: we don't currently support liquidity notes, we directly hard code the corresponding liquidity
     // in the swapvm instead of minting pool LP tokens
-    exec_state.swapvm.add_liquidity(&AddLiquidity::new(
-        nmo().unit(),
-        nmo_fund.value,
-        mem().unit(),
-        mem_fund.value,
-        NullifierSecret::random(&mut rng).commit(),
-        Nonce::random(&mut rng),
-    ));
+    exec_state
+        .swapvm
+        .add_liquidity(nmo().unit(), mem().unit(), nmo_fund.value, mem_fund.value);
 
     exec_state
 }
@@ -58,11 +55,9 @@ fn setup_executor(mut rng: impl RngCore) -> ExecutorState {
 #[test]
 fn simple_swap() {
     let mut rng = rand::thread_rng();
+    let mut ledger = LedgerState::default();
 
     // ---- setup scenario ----
-    let mut exec_state = setup_executor(&mut rng);
-
-    // setup fund notes
 
     let alice_sk = NullifierSecret::random(&mut rng);
 
@@ -74,13 +69,9 @@ fn simple_swap() {
         zone_id: ZONE_ID,
         nf_sk: alice_sk,
     };
+    let alice_in_proof = ledger.add_commitment(&alice_in.note_commitment());
 
-    // alice's note lands in the ledger through some other executor
-    let mut other_exec_ledger = exec_state.ledger.clone();
-    let alice_in_proof = other_exec_ledger.add_commitment(&alice_in.note_commitment());
-
-    // executor becomes aware of the commitment through observing a zone update
-    exec_state.observe_cms([alice_in.note_commitment()]);
+    let mut exec_state = setup_executor(&mut rng, ledger.clone());
 
     // ----- end setup ----
     // Alice now has a valid 10 NMO note, she wants to swap it for 90 MEM
@@ -104,24 +95,22 @@ fn simple_swap() {
     // alice ---- (swap_tx, swap_tx_proof) ---> executor
     //
     // alice sends the tx to an executor
+    exec_state.process_tx(&swap_tx_proof.public());
 
-    // ensure the pair price is above the minimum realized price (90 out / 10 in = 9.0)
-    assert_eq!(
-        exec_state
-            .swapvm
-            .pair_price(nmo().unit(), mem().unit())
-            .unwrap(),
-        9.0
-    );
+    // the executor builds the solving tx
+    let (exec_tx, fund_notes) = exec_state.update_and_get_executor_tx();
+    let proved_exec_tx = ProvedTx::prove(exec_tx, vec![], vec![]).unwrap();
 
-    // ensure that the realized output is above the limit order
-    assert!(
-        exec_state
-            .swapvm
-            .amount_out(nmo().unit(), mem().unit(), 10)
-            .unwrap()
-            >= 90
-    );
-
-    panic!();
+    // prove stf
+    StfPrivate {
+        zone_data: exec_state.swapvm.clone(),
+        old_ledger: ledger.to_witness().commit(),
+        new_ledger: exec_state.ledger.clone().to_witness().commit(),
+        sync_logs: Vec::new(),
+        fund_notes,
+        bundle: BundleWitness {
+            txs: vec![swap_tx_proof.public(), proved_exec_tx.public()],
+        },
+    }
+    .prove(risc0_zkvm::default_prover().as_ref());
 }

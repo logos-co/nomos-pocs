@@ -9,9 +9,13 @@ pub struct ProvedBundle {
 }
 
 impl ProvedBundle {
-    pub fn prove(bundle: &BundleWitness, txs: Vec<ProvedTx>) -> Self {
+    pub fn prove(txs: Vec<ProvedTx>) -> Self {
         //show that all ptx's are individually valid, and balance to 0
         let mut env = risc0_zkvm::ExecutorEnv::builder();
+
+        let bundle = BundleWitness {
+            txs: txs.iter().map(|tx| tx.public()).collect(),
+        };
 
         for proved_tx in txs {
             env.add_assumption(proved_tx.risc0_receipt);

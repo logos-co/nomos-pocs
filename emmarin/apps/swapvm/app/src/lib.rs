@@ -104,89 +104,11 @@ pub struct Swap {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AddLiquidity {
-    pub pair: Pair,
-    pub t0_in: u64,
-    pub t1_in: u64,
-    pub pk_out: NullifierCommitment,
-    pub nonce: Nonce,
-}
-
-impl AddLiquidity {
-    pub fn new(
-        t0: Unit,
-        mut t0_in: u64,
-        t1: Unit,
-        mut t1_in: u64,
-        pk_out: NullifierCommitment,
-        nonce: Nonce,
-    ) -> Self {
-        let pair = Pair::new(t0, t1);
-
-        (t0_in, t1_in) = if t0 == pair.t0 {
-            (t0_in, t1_in)
-        } else {
-            (t1_in, t0_in)
-        };
-
-        Self {
-            pair,
-            t0_in,
-            t1_in,
-            pk_out,
-            nonce,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SharesToMint {
-    pub amount: u64,
-    pub unit: Unit,
-    pub pk_out: NullifierCommitment,
-    pub nonce: Nonce,
-}
-
-impl SharesToMint {
-    pub fn to_output(&self, zone_id: ZoneId) -> OutputWitness {
-        OutputWitness {
-            state: [0; 32],
-            value: self.amount,
-            unit: self.unit,
-            nonce: self.nonce,
-            zone_id,
-            nf_pk: self.pk_out,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RemoveLiquidity {
-    shares: InputWitness,
-    nf_pk: NullifierCommitment,
-    nonce: Nonce,
-}
-
-impl RemoveLiquidity {
-    pub fn to_output(&self, value: u64, unit: Unit, zone_id: ZoneId) -> OutputWitness {
-        OutputWitness {
-            state: [0; 32],
-            value,
-            unit,
-            nonce: self.nonce,
-            zone_id,
-            nf_pk: self.nf_pk,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ZoneData {
     pub nfs: BTreeSet<Nullifier>,
     pub pools: BTreeMap<Pair, Pool>,
     pub zone_id: ZoneId,
-    pub shares_to_mint: Vec<SharesToMint>,
-    pub shares_to_redeem: Vec<OutputWitness>,
+    pub swaps_output: Vec<OutputWitness>,
 }
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Serialize, Deserialize)]
@@ -218,35 +140,6 @@ impl Pool {
     }
 }
 
-/// Prove the data was part of the tx output
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OutputDataProof;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ZoneOp {
-    Swap(Swap),
-    AddLiquidity {
-        tx: Tx,
-        add_liquidity: AddLiquidity,
-        proof: OutputDataProof,
-    },
-    RemoveLiquidity {
-        tx: Tx,
-        remove_liquidity: RemoveLiquidity,
-        proof: OutputDataProof,
-    },
-    Ledger(Tx),
-}
-
-/// This contains the changes at the ledger level that can only be done by the executor
-/// because they are dependant on the order of transactions.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StateUpdate {
-    pub tx: Tx,
-    /// Update the balance of the pool
-    pub pool_notes: Vec<InputWitness>,
-}
-
 // Txs are of the following form:
 impl ZoneData {
     pub fn new() -> Self {
@@ -254,8 +147,7 @@ impl ZoneData {
             nfs: Default::default(),
             pools: Default::default(),
             zone_id: ZONE_ID,
-            shares_to_mint: Default::default(),
-            shares_to_redeem: Default::default(),
+            swaps_output: Default::default(),
         }
     }
 
@@ -290,63 +182,27 @@ impl ZoneData {
 
     /// A swap does not need to directly modify the pool balances, but the executor
     /// should make sure that required funds are provided.
-    pub fn swap(&mut self, swap: &Swap) {
-        assert!(self.check_swap(swap));
-        let pool = self.pools.get_mut(&swap.pair).unwrap();
-        pool.balance_0 += swap.t0_in - swap.t0_out;
-        pool.balance_1 += swap.t1_in - swap.t1_out;
-    }
+    pub fn swap(&mut self, t_in: Unit, amount_in: u64, swap: SwapArgs) {
+        // TODO: calculate amout outside proof and check here for efficiency
+        let amount_out = self.amount_out(t_in, swap.output.unit, amount_in).unwrap();
 
-    pub fn check_swap(&self, swap: &Swap) -> bool {
-        let Some(pool) = self.pools.get(&swap.pair) else {
-            return false;
+        let pair = Pair::new(t_in, swap.output.unit);
+        let pool = self.pools.get_mut(&pair).unwrap();
+
+        let (balance_in, balance_out) = if pair.t0 == t_in {
+            (&mut pool.balance_0, &mut pool.balance_1)
+        } else {
+            (&mut pool.balance_1, &mut pool.balance_0)
         };
 
-        let balance_0_start = pool.balance_0 as u128;
-        let balance_1_start = pool.balance_1 as u128;
-        let balance_0_final = balance_0_start + swap.t0_in as u128 - swap.t0_out as u128;
-        let balance_1_final = balance_1_start + swap.t1_in as u128 - swap.t1_out as u128;
-
-        (balance_0_final * 1000 - 3 * swap.t0_in as u128)
-            * (balance_1_final * 1000 - 3 * swap.t1_in as u128)
-            == balance_0_start * balance_1_start
+        *balance_in += amount_in;
+        *balance_out -= amount_out;
+        self.swaps_output.push(swap.to_output(amount_out));
     }
 
     /// Check no pool notes are used in this tx
     pub fn validate_no_pools(&self, zone_update: &LedgerUpdate) -> bool {
         self.nfs.iter().all(|nf| !zone_update.has_input(nf))
-    }
-
-    pub fn validate_op(&self, op: &ZoneOp) -> bool {
-        match op {
-            ZoneOp::Swap(swap) => self.check_swap(swap),
-            ZoneOp::AddLiquidity { tx, .. } => {
-                let Some(zone_update) = tx.updates.get(&self.zone_id) else {
-                    // this tx is not involving this zone, therefore it is
-                    // guaranteed to not consume pool notes
-                    return true;
-                };
-                self.validate_no_pools(zone_update)
-            }
-            ZoneOp::RemoveLiquidity { tx, .. } => {
-                let Some(zone_update) = tx.updates.get(&self.zone_id) else {
-                    // this tx is not involving this zone, therefore it is
-                    // guaranteed to not consume pool notes
-                    return true;
-                };
-                self.validate_no_pools(zone_update) // should we check shares exist?
-            }
-            ZoneOp::Ledger(tx) => {
-                let Some(zone_update) = tx.updates.get(&self.zone_id) else {
-                    // this tx is not involving this zone, therefore it is
-                    // guaranteed to not consume pool notes
-                    return true;
-                };
-                // Just a ledger tx that does not directly interact with the zone,
-                // just validate it's not using pool notes
-                self.validate_no_pools(zone_update)
-            }
-        }
     }
 
     pub fn pools_update(&mut self, tx: &Tx, pool_notes: &[InputWitness]) {
@@ -372,29 +228,6 @@ impl ZoneData {
         }
     }
 
-    pub fn check_minted_shares(&self, tx: &Tx) {
-        let Some(zone_update) = tx.updates.get(&self.zone_id) else {
-            return;
-        };
-
-        for shares in &self.shares_to_mint {
-            let output = shares.to_output(self.zone_id);
-            assert!(zone_update.has_output(&output.note_commitment()));
-        }
-    }
-
-    pub fn check_redeemed_shares(&self, tx: &Tx) {
-        let Some(zone_update) = tx.updates.get(&self.zone_id) else {
-            return;
-        };
-
-        for shares in &self.shares_to_redeem {
-            assert!(zone_update.has_output(&shares.note_commitment()));
-        }
-
-        // TODO: check shares have been burned
-    }
-
     pub fn expected_pool_balances(&self) -> BTreeMap<Unit, u64> {
         let mut expected_pool_balances = BTreeMap::new();
         for (Pair { t0, t1 }, pool) in self.pools.iter() {
@@ -405,71 +238,35 @@ impl ZoneData {
         expected_pool_balances
     }
 
-    pub fn add_liquidity(&mut self, add_liquidity: &AddLiquidity) {
-        let pool = self.pools.entry(add_liquidity.pair).or_insert(Pool {
-            balance_0: add_liquidity.t0_in,
-            balance_1: add_liquidity.t1_in,
-            shares_unit: get_pair_share_unit(add_liquidity.pair).unit(),
-            total_shares: 1,
+    // TODO: only for testing purposes
+    pub fn add_liquidity(&mut self, t0_unit: Unit, t1_unit: Unit, t0_in: u64, t1_in: u64) {
+        let pair = Pair::new(t0_unit, t1_unit);
+        let pool = self.pools.entry(pair).or_insert(Pool {
+            balance_0: 0,
+            balance_1: 0,
+            shares_unit: get_pair_share_unit(pair).unit(),
+            total_shares: 0,
         });
-        let minted_shares = (add_liquidity.t0_in * pool.total_shares / pool.balance_0)
-            .min(add_liquidity.t1_in * pool.total_shares / pool.balance_1);
-        pool.total_shares += minted_shares; // fix for first deposit
-        pool.balance_0 += add_liquidity.t0_in;
-        pool.balance_1 += add_liquidity.t1_in;
+        let (balance_0, balance_1) = if pair.t0 == t0_unit {
+            (&mut pool.balance_0, &mut pool.balance_1)
+        } else {
+            (&mut pool.balance_1, &mut pool.balance_0)
+        };
 
-        self.shares_to_mint.push(SharesToMint {
-            amount: minted_shares,
-            unit: pool.shares_unit,
-            pk_out: add_liquidity.pk_out,
-            nonce: add_liquidity.nonce,
-        });
+        *balance_0 += t0_in;
+        *balance_1 += t1_in;
     }
 
-    pub fn remove_liquidity(&mut self, remove_liquidity: &RemoveLiquidity) {
-        let shares = remove_liquidity.shares;
-        let (pair, pool) = self
-            .pools
-            .iter_mut()
-            .find(|(_, pool)| pool.shares_unit == shares.unit_witness.unit())
-            .unwrap();
-        let t0_out = pool.balance_0 * shares.value / pool.total_shares;
-        let t1_out = pool.balance_1 * shares.value / pool.total_shares;
-        pool.balance_0 -= t0_out;
-        pool.balance_1 -= t1_out;
-        pool.total_shares -= shares.value;
-
-        self.shares_to_redeem
-            .push(remove_liquidity.to_output(t0_out, pair.t0, self.zone_id));
-
-        self.shares_to_redeem
-            .push(remove_liquidity.to_output(t1_out, pair.t1, self.zone_id));
-    }
-
-    pub fn process_op(&mut self, op: &ZoneOp) {
-        match op {
-            ZoneOp::Swap(swap) => self.swap(swap),
-            ZoneOp::AddLiquidity { add_liquidity, .. } => {
-                self.add_liquidity(add_liquidity);
-                // TODo: check proof
-            }
-            ZoneOp::RemoveLiquidity {
-                remove_liquidity, ..
-            } => {
-                self.remove_liquidity(remove_liquidity);
-                // TODO: check proof
-            }
-            ZoneOp::Ledger(_) => {
-                // Just a ledger tx that does not directly interact with the zone,
-                // just validate it's not using pool notes
-            }
+    pub fn check_swaps_executed(&self, tx: &Tx) {
+        let zone_update = tx.updates.get(&self.zone_id).unwrap();
+        for output in &self.swaps_output {
+            assert!(zone_update.has_output(&output.note_commitment()));
         }
     }
 
-    pub fn update_and_commit(mut self, updates: &StateUpdate) -> [u8; 32] {
-        self.pools_update(&updates.tx, &updates.pool_notes);
-        self.check_minted_shares(&updates.tx);
-        self.check_redeemed_shares(&updates.tx);
+    pub fn update_and_commit(mut self, tx: &Tx, pool_notes: &[InputWitness]) -> [u8; 32] {
+        self.pools_update(&tx, pool_notes);
+        self.check_swaps_executed(&tx);
         self.commit()
     }
 

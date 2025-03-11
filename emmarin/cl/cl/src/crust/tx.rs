@@ -122,7 +122,13 @@ impl TxWitness {
     pub fn compute_updates(&self, inputs: &[InputDerivedFields]) -> BTreeMap<ZoneId, LedgerUpdate> {
         let mut updates: BTreeMap<ZoneId, LedgerUpdate> = Default::default();
 
-        assert_eq!(self.inputs.len(), self.frontier_paths.len());
+        assert_eq!(
+            self.inputs.len(),
+            self.frontier_paths.len(),
+            "out: {} {}",
+            self.inputs.len(),
+            self.frontier_paths.len()
+        );
         for (input, (mmr, path)) in inputs.iter().zip(&self.frontier_paths) {
             let entry = updates
                 .entry(input.zone_id)
