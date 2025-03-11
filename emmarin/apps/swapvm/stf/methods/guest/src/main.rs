@@ -41,21 +41,28 @@ fn main() {
                 continue
             };
 
-            zone_data.validate_no_pools(zone_update);
+            if zone_data.validate_no_pools(zone_update) {
+                // This tx does not touch pool notes, we can allow zone ops.
 
-            if tx.balance.unit_balance(app::swap_goal_unit().unit()).is_neg() {
-                // This TX encodes a SWAP request.
-                // as a simplifying assumption, we will assume that the SWAP goal note is the only output
-                assert_eq!(zone_update.outputs.len(), 1);
-                let (swap_goal_cm, swap_args_bytes) = &zone_update.outputs[0];
-                let swap_args: SwapArgs = cl::deserialize(&swap_args_bytes);
+                // is it a SWAP?
+                if tx.balance.unit_balance(app::swap_goal_unit().unit()).is_neg() {
+                    // This TX encodes a SWAP request.
+                    // as a simplifying assumption, we will assume that the SWAP goal note is the only output
+                    assert_eq!(zone_update.outputs.len(), 1);
+                    let (swap_goal_cm, swap_args_bytes) = &zone_update.outputs[0];
+                    let swap_args: SwapArgs = cl::deserialize(&swap_args_bytes);
 
-                // ensure the witness corresponds to the swap goal cm
-                assert_eq!(
-                    swap_goal_cm,
-                    &app::swap_goal_note(swap_args.nonce).note_commitment()
-                );
-                panic!("zone_data.swap()");
+                    // ensure the witness corresponds to the swap goal cm
+                    assert_eq!(
+                        swap_goal_cm,
+                        &app::swap_goal_note(swap_args.nonce).note_commitment()
+                    );
+                    panic!("zone_data.swap()");
+                }
+                // otherwise it's a normal ledger Tx
+            } else {
+                // This tx does touch pool notes. therefore we must ensure the changes reflect the zone balances
+                panic!();
             }
         }
     }
