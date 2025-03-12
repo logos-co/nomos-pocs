@@ -1,7 +1,10 @@
 use app::ZONE_ID;
 use cl::crust::{BundleWitness, InputWitness, Nonce, NullifierSecret, TxWitness, UnitWitness};
 use cl::mantle::ledger::LedgerState;
+use cl::mantle::update::{BatchUpdate, Update};
 use host::{ExecutorState, StfPrivate};
+use ledger::ledger::ProvedLedgerTransition;
+use ledger::update::ProvedBatchUpdate;
 use ledger::{bundle::ProvedBundle, tx::ProvedTx};
 use rand::RngCore;
 
@@ -25,9 +28,7 @@ fn setup_executor(mut rng: impl RngCore, ledger: LedgerState) -> ExecutorState {
         nf_sk: NullifierSecret::zero(),
     };
 
-    let (mmr, mmr_proof) = exec_state
-        .ledger
-        .add_commitment(&nmo_fund.note_commitment());
+    let ((mmr, mmr_proof), _) = exec_state.observe_cm(&nmo_fund.note_commitment());
     exec_state.set_fund_note(nmo_fund, mmr, mmr_proof);
 
     let mem_fund = InputWitness {
@@ -38,9 +39,7 @@ fn setup_executor(mut rng: impl RngCore, ledger: LedgerState) -> ExecutorState {
         zone_id: ZONE_ID,
         nf_sk: NullifierSecret::zero(),
     };
-    let (mmr, mmr_proof) = exec_state
-        .ledger
-        .add_commitment(&mem_fund.note_commitment());
+    let ((mmr, mmr_proof), _) = exec_state.observe_cm(&mem_fund.note_commitment());
     exec_state.set_fund_note(mem_fund, mmr, mmr_proof);
 
     // HACK: we don't currently support liquidity notes, we directly hard code the corresponding liquidity
@@ -77,11 +76,15 @@ fn simple_swap() {
     // Alice now has a valid 10 NMO note, she wants to swap it for 90 MEM
     // ---- begin swap ----
 
+    let old_zone_state = exec_state.zone_state();
+
+    let mut temp_ledger_state = exec_state.ledger.clone();
+
     let swap_goal_nonce = Nonce::random(&mut rng);
     let swap_tx = TxWitness::default()
         .add_input(alice_in, alice_in_proof)
         .add_output(
-            app::swap_goal_note(swap_goal_nonce),
+            app::swap_goal_note(swap_goal_nonce).to_output(),
             app::SwapArgs {
                 output: app::SwapOutput::basic(mem().unit(), ZONE_ID, alice_sk.commit(), &mut rng),
                 limit: 90,
@@ -101,16 +104,44 @@ fn simple_swap() {
     let (exec_tx, fund_notes) = exec_state.update_and_get_executor_tx();
     let proved_exec_tx = ProvedTx::prove(exec_tx, vec![], vec![]).unwrap();
 
+    let swap_bundle = BundleWitness {
+        txs: vec![swap_tx_proof.public(), proved_exec_tx.public()],
+    };
+
+    let _ = swap_bundle.clone().commit();
+
+    let swap_bundle_proof = ProvedBundle::prove(vec![swap_tx_proof, proved_exec_tx]);
+
     // prove stf
-    StfPrivate {
+    let stf_proof = StfPrivate {
         zone_data: exec_state.swapvm.clone(),
         old_ledger: ledger.to_witness().commit(),
         new_ledger: exec_state.ledger.clone().to_witness().commit(),
         sync_logs: Vec::new(),
         fund_notes,
-        bundle: BundleWitness {
-            txs: vec![swap_tx_proof.public(), proved_exec_tx.public()],
-        },
+        bundle: swap_bundle,
     }
-    .prove(risc0_zkvm::default_prover().as_ref());
+    .prove(risc0_zkvm::default_prover().as_ref())
+    .unwrap();
+
+    let ledger_proof =
+        ProvedLedgerTransition::prove(&mut temp_ledger_state, ZONE_ID, vec![swap_bundle_proof]);
+
+    let new_zone_state = exec_state.zone_state();
+
+    assert_eq!(ledger_proof.public().old_ledger, old_zone_state.ledger);
+    assert_eq!(ledger_proof.public().ledger, new_zone_state.ledger);
+
+    let zone_update = ProvedBatchUpdate {
+        batch: BatchUpdate {
+            updates: vec![Update {
+                old: old_zone_state,
+                new: new_zone_state,
+            }],
+        },
+        ledger_proofs: vec![ledger_proof],
+        stf_proofs: vec![stf_proof],
+    };
+
+    assert!(zone_update.verify())
 }

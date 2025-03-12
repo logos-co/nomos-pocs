@@ -108,8 +108,20 @@ impl LedgerUpdate {
 
 impl TxWitness {
     pub fn add_input(mut self, input: InputWitness, input_cm_proof: (MMR, MMRProof)) -> Self {
+        assert!(input_cm_proof
+            .0
+            .verify_proof(&input.note_commitment().0, &input_cm_proof.1));
+
+        for (i, other_input) in self.inputs.iter().enumerate() {
+            if other_input.zone_id == input.zone_id {
+                // ensure a single MMR per zone per tx
+                assert_eq!(self.frontier_paths[i].0, input_cm_proof.0);
+            }
+        }
+
         self.inputs.push(input);
         self.frontier_paths.push(input_cm_proof);
+
         self
     }
 

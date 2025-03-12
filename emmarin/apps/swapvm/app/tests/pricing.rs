@@ -1,5 +1,5 @@
 use app::ZoneData;
-use cl::crust::{NullifierSecret, UnitWitness};
+use cl::crust::UnitWitness;
 
 fn nmo() -> UnitWitness {
     UnitWitness::nop(b"NMO")
@@ -10,8 +10,6 @@ fn mem() -> UnitWitness {
 
 #[test]
 fn pair_price() {
-    let mut rng = rand::thread_rng();
-
     let mut swapvm_state = ZoneData::new();
 
     // initially there is no NMO/MEM pair

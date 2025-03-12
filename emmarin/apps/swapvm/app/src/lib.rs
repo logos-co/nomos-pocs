@@ -69,14 +69,14 @@ impl SwapArgs {
     }
 }
 
-pub fn swap_goal_note(nonce: Nonce) -> OutputWitness {
-    OutputWitness {
+pub fn swap_goal_note(nonce: Nonce) -> InputWitness {
+    InputWitness {
         state: [0u8; 32],
         value: 1,
-        unit: swap_goal_unit().unit(),
+        unit_witness: swap_goal_unit(),
         nonce,
         zone_id: ZONE_ID,
-        nf_pk: NullifierSecret::zero().commit(),
+        nf_sk: NullifierSecret::zero(),
     }
 }
 

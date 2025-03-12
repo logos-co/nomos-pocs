@@ -153,13 +153,13 @@ impl MMRProof {
         merkle::path_root(leaf, &self.path)
     }
 
-    pub fn update(&mut self, elem: &[u8], folds: MMRFolds) {
-        for (l, r) in folds.folds {
+    pub fn update(&mut self, elem: &[u8], folds: &MMRFolds) {
+        for (l, r) in &folds.folds {
             let root = self.root(elem);
-            if root == l {
-                self.path.push(merkle::PathNode::Right(r))
-            } else if root == r {
-                self.path.push(merkle::PathNode::Left(l))
+            if &root == l {
+                self.path.push(merkle::PathNode::Right(*r))
+            } else if &root == r {
+                self.path.push(merkle::PathNode::Left(*l))
             }
         }
     }
