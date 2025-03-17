@@ -5,3 +5,7 @@ edition = "2021"
 
 [dependencies]
 binary_macros = "1.0.0"
+
+[features]
+default = []
+elf = []

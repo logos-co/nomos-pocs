@@ -1,9 +1,11 @@
 use cl::mantle::zone::Stf;
 use ledger_proof_statements::stf::StfPublic;
 
+use hex::FromHex;
+
 #[derive(Debug, Clone)]
 pub struct StfProof {
-    pub risc0_id: [u32; 8],
+    pub risc0_id: [u8; 32],
     pub public: StfPublic,
     pub risc0_receipt: risc0_zkvm::Receipt,
 }
@@ -15,7 +17,7 @@ pub fn risc0_stf(risc0_id: [u32; 8]) -> Stf {
 }
 
 impl StfProof {
-    pub fn from_risc0(risc0_id: [u32; 8], risc0_receipt: risc0_zkvm::Receipt) -> Self {
+    pub fn from_risc0(risc0_id: [u8; 32], risc0_receipt: risc0_zkvm::Receipt) -> Self {
         Self {
             risc0_id,
             public: risc0_receipt.journal.decode().unwrap(),
@@ -24,14 +26,14 @@ impl StfProof {
     }
 
     pub fn stf(&self) -> Stf {
-        risc0_stf(self.risc0_id)
+        self.risc0_id
     }
     pub fn verify(&self) -> bool {
         self.risc0_receipt.verify(self.risc0_id).is_ok()
     }
 
     pub fn nop_stf() -> [u8; 32] {
-        risc0_stf(risc0_images::nomos_mantle_risc0_proofs::STF_NOP_ID)
+        FromHex::from_hex(risc0_images::STF_NOP_ID).unwrap()
     }
 
     pub fn prove_nop(public: StfPublic) -> Self {
@@ -47,11 +49,7 @@ impl StfProof {
 
         let opts = risc0_zkvm::ProverOpts::succinct();
         let prove_info = prover
-            .prove_with_opts(
-                env,
-                risc0_images::nomos_mantle_risc0_proofs::STF_NOP_ELF,
-                &opts,
-            )
+            .prove_with_opts(env, risc0_images::STF_NOP_ELF, &opts)
             .unwrap();
 
         println!(
@@ -64,7 +62,7 @@ impl StfProof {
         let receipt = prove_info.receipt;
 
         Self {
-            risc0_id: risc0_images::nomos_mantle_risc0_proofs::STF_NOP_ID,
+            risc0_id: FromHex::from_hex(risc0_images::STF_NOP_ID).unwrap(),
             public,
             risc0_receipt: receipt,
         }

@@ -1,11 +1,17 @@
 [package]
-name = "nomos_mantle_bundle_risc0_proof"
+name = "bundle_risc0_proof"
 version = "0.1.0"
 edition = "2021"
 
-[build-dependencies]
-risc0-build = { version = "1.0" }
+[dependencies]
+risc0-zkvm = { version = "1.0", default-features = false, features = ['std'] }
+cl = { path = "../cl" }
+risc0_images = { path = "../risc0_images" }
+hex = "0.4"
 
-[package.metadata.risc0]
-methods = ["bundle"]
 
+[patch.crates-io]
+# add RISC Zero accelerator support for all downstream usages of the following crates.
+sha2 = { git = "https://github.com/risc0/RustCrypto-hashes", tag = "sha2-v0.10.8-risczero.0" }
+crypto-bigint = { git = "https://github.com/risc0/RustCrypto-crypto-bigint", tag = "v0.5.5-risczero.0" }
+curve25519-dalek = { git = "https://github.com/risc0/curve25519-dalek", tag = "curve25519-4.1.2-risczero.0" }

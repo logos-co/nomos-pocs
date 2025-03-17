@@ -10,16 +10,26 @@ pub struct UnitWitness {
     pub spending_covenant: [u8; 32],
     pub minting_covenant: [u8; 32],
     pub burning_covenant: [u8; 32],
+    pub arg: [u8; 32],
 }
 
 impl UnitWitness {
+    pub fn nop(args: &[u8]) -> Self {
+        Self {
+            spending_covenant: NOP_COVENANT,
+            minting_covenant: NOP_COVENANT,
+            burning_covenant: NOP_COVENANT,
+            arg: crate::hash(args),
+        }
+    }
+
     pub fn unit(&self) -> Unit {
         let mut hasher = Hash::new();
         hasher.update(b"NOMOS_CL_UNIT");
         hasher.update(self.spending_covenant);
         hasher.update(self.minting_covenant);
         hasher.update(self.burning_covenant);
-
+        hasher.update(self.arg);
         hasher.finalize().into()
     }
 }
@@ -32,24 +42,32 @@ pub struct UnitBalance {
 }
 
 impl UnitBalance {
-    pub fn is_zero(&self) -> bool {
-        self.pos == self.neg
-    }
-
-    pub fn pos(unit: Unit, value: u64) -> Self {
+    pub fn zero(unit: Unit) -> Self {
         Self {
             unit,
-            pos: value,
+            pos: 0,
             neg: 0,
         }
     }
 
-    pub fn neg(unit: Unit, value: u64) -> Self {
-        Self {
-            unit,
-            pos: 0,
-            neg: value,
-        }
+    pub fn pos(unit: Unit, pos: u64) -> Self {
+        Self { unit, pos, neg: 0 }
+    }
+
+    pub fn neg(unit: Unit, neg: u64) -> Self {
+        Self { unit, pos: 0, neg }
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.pos == self.neg
+    }
+
+    pub fn is_neg(&self) -> bool {
+        self.neg > self.pos
+    }
+
+    pub fn is_pos(&self) -> bool {
+        self.pos > self.neg
     }
 }
 
@@ -62,6 +80,14 @@ impl Balance {
         Self {
             balances: Vec::new(),
         }
+    }
+
+    pub fn unit_balance(&self, unit: Unit) -> UnitBalance {
+        self.balances
+            .iter()
+            .find(|b| b.unit == unit)
+            .cloned()
+            .unwrap_or_else(|| UnitBalance::zero(unit))
     }
 
     pub fn insert_positive(&mut self, unit: Unit, value: Value) {

@@ -45,15 +45,10 @@ impl ProvedBatchUpdate {
             .zip(self.stf_proofs.iter())
             .zip(self.ledger_proofs.iter())
         {
-            if ledger_proof.public().old_ledger != update.old.ledger
-                || ledger_proof.public().ledger != update.new.ledger
-            {
-                return false;
-            }
-
-            if stf_proof.public.old != update.old || stf_proof.public.new != update.new {
-                return false;
-            }
+            assert_eq!(ledger_proof.public().old_ledger, update.old.ledger);
+            assert_eq!(ledger_proof.public().ledger, update.new.ledger);
+            assert_eq!(stf_proof.public.old, update.old);
+            assert_eq!(stf_proof.public.new, update.new);
         }
 
         true

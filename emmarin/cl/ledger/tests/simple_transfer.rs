@@ -27,6 +27,7 @@ fn nmo() -> UnitWitness {
         spending_covenant: NOP_COVENANT,
         minting_covenant: NOP_COVENANT,
         burning_covenant: NOP_COVENANT,
+        arg: [0; 32],
     }
 }
 
@@ -63,8 +64,8 @@ fn cross_transfer_transition(
 
     let tx_witness = TxWitness::default()
         .add_input(input, input_proof)
-        .add_output(transfer, vec![])
-        .add_output(change, vec![]);
+        .add_output(transfer, "")
+        .add_output(change, "");
 
     let proved_tx = ProvedTx::prove(
         tx_witness.clone(),
@@ -73,12 +74,7 @@ fn cross_transfer_transition(
     )
     .unwrap();
 
-    let bundle = ProvedBundle::prove(
-        &BundleWitness {
-            txs: vec![proved_tx.public()],
-        },
-        vec![proved_tx],
-    );
+    let bundle = ProvedBundle::prove(vec![proved_tx]);
 
     println!("proving ledger A transition");
     let ledger_in_transition =

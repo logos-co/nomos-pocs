@@ -3,6 +3,7 @@ use crate::{
     error::{Error, Result},
 };
 use cl::crust::{Tx, TxWitness};
+use hex::FromHex;
 
 #[derive(Debug, Clone)]
 pub struct ProvedTx {
@@ -36,11 +37,7 @@ impl ProvedTx {
         // This struct contains the receipt along with statistics about execution of the guest
         let opts = risc0_zkvm::ProverOpts::succinct();
         let prove_info = prover
-            .prove_with_opts(
-                env,
-                risc0_images::nomos_mantle_tx_risc0_proof::TX_ELF,
-                &opts,
-            )
+            .prove_with_opts(env, risc0_images::TX_ELF, &opts)
             .map_err(|_| Error::Risc0ProofFailed)?;
 
         println!(
@@ -61,7 +58,7 @@ impl ProvedTx {
 
     pub fn verify(&self) -> bool {
         self.risc0_receipt
-            .verify(risc0_images::nomos_mantle_tx_risc0_proof::TX_ID)
+            .verify(<[u8; 32]>::from_hex(risc0_images::TX_ID).unwrap())
             .is_ok()
     }
 }

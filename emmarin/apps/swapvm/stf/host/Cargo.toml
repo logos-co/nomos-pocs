@@ -1,0 +1,15 @@
+[package]
+name = "host"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rand = "0.8"
+methods = { path = "../methods" }
+risc0-zkvm = { version = "1.2.0" }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde = "1.0"
+ledger_proof_statements = { path = "../../../../cl/ledger_proof_statements" }
+app = { path = "../../app" }
+cl = { path = "../../../../cl/cl" }
+ledger = { path = "../../../../cl/ledger" }

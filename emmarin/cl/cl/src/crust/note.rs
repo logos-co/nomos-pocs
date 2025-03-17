@@ -1,7 +1,6 @@
 use crate::crust::{balance::Unit, nullifier::NullifierCommitment};
 use crate::mantle::ZoneId;
 use crate::{Digest, Hash};
-use rand::RngCore;
 use serde::{Deserialize, Serialize};
 
 #[cfg(test)]

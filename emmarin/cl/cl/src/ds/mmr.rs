@@ -152,11 +152,46 @@ impl MMRProof {
         let leaf = merkle::leaf(elem);
         merkle::path_root(leaf, &self.path)
     }
+
+    pub fn update(&mut self, elem: &[u8], folds: &MMRFolds) {
+        for (l, r) in &folds.folds {
+            let root = self.root(elem);
+            if &root == l {
+                self.path.push(merkle::PathNode::Right(*r))
+            } else if &root == r {
+                self.path.push(merkle::PathNode::Left(*l))
+            }
+        }
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct MMRFolds {
+    folds: Vec<([u8; 32], [u8; 32])>,
 }
 
 impl MMR {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn folds(&self, elem: &[u8]) -> MMRFolds {
+        let mut folds = MMRFolds::default();
+
+        let mut height = 1;
+        let mut right = merkle::leaf(elem);
+
+        for i in (0..self.roots.len()).rev() {
+            if self.roots[i].height == height {
+                folds.folds.push((self.roots[i].root, right));
+                right = merkle::node(self.roots[i].root, right);
+                height += 1;
+            } else {
+                break;
+            }
+        }
+
+        folds
     }
 
     pub fn push(&mut self, elem: &[u8]) -> MMRProof {
@@ -303,5 +338,30 @@ mod test {
             )
         );
         assert!(mmr.verify_proof(b"!", &proof));
+    }
+
+    #[test]
+    fn test_mmr_proof_update() {
+        let mut mmr = MMR::new();
+
+        let mut proofs = vec![];
+
+        for x in 'a'..='z' {
+            let b = [x as u8];
+            proofs.push((b, mmr.push(&b), mmr.clone()));
+        }
+
+        while !proofs.is_empty() {
+            let (x, mut x_pf, mut x_mmr) = proofs.remove(0);
+            assert!(x_mmr.verify_proof(&x, &x_pf));
+
+            for (y, _, y_mmr) in proofs.iter() {
+                x_pf.update(&x, x_mmr.folds(y));
+                assert!(y_mmr.verify_proof(&x, &x_pf));
+
+                x_mmr.push(y);
+                assert_eq!(&x_mmr, y_mmr);
+            }
+        }
     }
 }
