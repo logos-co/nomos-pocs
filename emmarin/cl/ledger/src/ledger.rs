@@ -23,21 +23,21 @@ impl ProvedLedgerTransition {
 
             let bundle = proved_bundle.public();
 
-            let zone_ledger_update = bundle
+            let zone_ledger_updates = bundle
                 .updates
                 .get(&zone_id)
                 .expect("why are we proving this bundle for this zone if it's not involved?");
 
-            let cm_root_proofs =
-                BTreeMap::from_iter(zone_ledger_update.frontier_nodes.iter().map(|root| {
-                    // We make the simplifying assumption that bundle proofs
-                    // are done w.r.t. the latest MMR (hence, empty merkle proofs)
-                    //
-                    // We can remove this assumption by tracking old MMR roots in the LedgerState
-                    (root.root, vec![])
-                }));
-
-            nullifiers.extend(zone_ledger_update.inputs.clone());
+            let mut cm_root_proofs = BTreeMap::new();
+            for zone_ledger_update in zone_ledger_updates {
+                cm_root_proofs.extend(
+                    zone_ledger_update
+                        .frontier_nodes
+                        .iter()
+                        .map(|root| (root.root, vec![])),
+                );
+                nullifiers.extend(zone_ledger_update.inputs.clone());
+            }
 
             let ledger_bundle = LedgerBundleWitness {
                 bundle,
@@ -55,14 +55,16 @@ impl ProvedLedgerTransition {
         };
 
         for bundle in &witness.bundles {
-            let update = bundle
+            let updates = bundle
                 .bundle
                 .updates
                 .get(&zone_id)
                 .expect("should have a bundle from the zone we are proofing for");
 
-            for (cm, _data) in &update.outputs {
-                ledger.add_commitment(cm);
+            for update in updates {
+                for (cm, _data) in &update.outputs {
+                    ledger.add_commitment(cm);
+                }
             }
 
             ledger.add_bundle(bundle.bundle.root);

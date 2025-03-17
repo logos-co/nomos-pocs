@@ -142,14 +142,11 @@ impl TxWitness {
             self.frontier_paths.len()
         );
         for (input, (mmr, path)) in inputs.iter().zip(&self.frontier_paths) {
-            let entry = updates
+            assert!(mmr.verify_proof(&input.cm.0, path));
+            updates
                 .entry(input.zone_id)
                 .or_default()
                 .add_input(input.nf, mmr.clone());
-
-            assert!(mmr.verify_proof(&input.cm.0, path));
-            // ensure a single MMR per zone per tx
-            assert_eq!(&mmr.roots, &entry.frontier_nodes);
         }
 
         for (output, data) in &self.outputs {
@@ -264,7 +261,7 @@ impl TxWitness {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Bundle {
-    pub updates: BTreeMap<ZoneId, LedgerUpdate>,
+    pub updates: BTreeMap<ZoneId, Vec<LedgerUpdate>>,
     pub root: BundleRoot,
 }
 
@@ -285,25 +282,15 @@ impl BundleWitness {
 
         let root = self.root();
 
-        let mut updates = self
+        let updates = self
             .txs
             .into_iter()
-            .fold(BTreeMap::new(), |mut updates, tx| {
+            .fold(<BTreeMap<_, Vec<_>>>::new(), |mut updates, tx| {
                 for (zone_id, update) in tx.updates {
-                    let entry: &mut LedgerUpdate = updates.entry(zone_id).or_default();
-                    entry.inputs.extend(update.inputs);
-                    entry.outputs.extend(update.outputs);
-                    entry.frontier_nodes.extend(update.frontier_nodes); // TODO: maybe merge?
+                    updates.entry(zone_id).or_default().push(update);
                 }
-
                 updates
             });
-
-        // de-dup frontier nodes
-        updates.iter_mut().for_each(|(_, update)| {
-            update.frontier_nodes.sort();
-            update.frontier_nodes.dedup();
-        });
 
         Bundle { updates, root }
     }

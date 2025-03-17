@@ -38,26 +38,30 @@ fn main() {
             });
         }
 
-        let ledger_update = bundle
+        let ledger_updates = bundle
             .updates
             .get(&id)
             .expect("attempting to prove a bundle that is not for this zone");
 
-        for node in &ledger_update.frontier_nodes {
-            let past_cm_root_proof = cm_root_proofs
-                .get(&node.root)
-                .expect("missing cm root proof");
+        for ledger_update in ledger_updates {
+            for node in &ledger_update.frontier_nodes {
+                let past_cm_root_proof = cm_root_proofs
+                    .get(&node.root)
+                    .expect("missing cm root proof");
 
-            let expected_current_cm_root = merkle::path_root(node.root, past_cm_root_proof);
-            assert!(old_ledger.valid_cm_root(expected_current_cm_root))
+                let expected_current_cm_root = merkle::path_root(node.root, past_cm_root_proof);
+                assert!(
+                    old_ledger.valid_cm_root(expected_current_cm_root)
+                        || ledger.valid_cm_root(expected_current_cm_root)
+                );
+            }
+
+            for (cm, _data) in &ledger_update.outputs {
+                ledger.add_commitment(cm);
+                outputs.push(*cm);
+            }
+            nullifiers.extend(ledger_update.inputs.clone());
         }
-
-        for (cm, _data) in &ledger_update.outputs {
-            ledger.add_commitment(cm);
-            outputs.push(*cm);
-        }
-
-        nullifiers.extend(ledger_update.inputs.clone());
 
         ledger.add_bundle(bundle.root);
     }
