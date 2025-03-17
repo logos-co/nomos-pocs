@@ -54,7 +54,7 @@ fn setup_executor(mut rng: impl RngCore, ledger: LedgerState) -> ExecutorState {
 #[test]
 fn simple_swap() {
     let mut rng = rand::thread_rng();
-    let mut ledger = LedgerState::default();
+    let ledger = LedgerState::default();
 
     // ---- setup scenario ----
 
@@ -68,15 +68,16 @@ fn simple_swap() {
         zone_id: ZONE_ID,
         nf_sk: alice_sk,
     };
-    let alice_in_proof = ledger.add_commitment(&alice_in.note_commitment());
 
-    let mut exec_state = setup_executor(&mut rng, ledger.clone());
+    let mut exec_state = setup_executor(&mut rng, ledger);
+    let (alice_in_proof, _) = exec_state.observe_cm(&alice_in.note_commitment());
 
     // ----- end setup ----
     // Alice now has a valid 10 NMO note, she wants to swap it for 90 MEM
     // ---- begin swap ----
 
     let old_zone_state = exec_state.zone_state();
+    let old_zone_data = exec_state.swapvm.clone();
 
     let mut temp_ledger_state = exec_state.ledger.clone();
 
@@ -108,16 +109,24 @@ fn simple_swap() {
         txs: vec![swap_tx_proof.public(), proved_exec_tx.public()],
     };
 
-    let _ = swap_bundle.clone().commit();
-
     let swap_bundle_proof = ProvedBundle::prove(vec![swap_tx_proof, proved_exec_tx]);
-
+    exec_state.ledger.add_bundle(swap_bundle.root());
+    exec_state.observe_nfs(
+        swap_bundle
+            .clone()
+            .commit()
+            .updates
+            .get(&exec_state.swapvm.zone_id)
+            .unwrap()
+            .into_iter()
+            .flat_map(|u| u.inputs.iter().copied())
+            .collect::<Vec<_>>(),
+    );
     // prove stf
     let stf_proof = StfPrivate {
-        zone_data: exec_state.swapvm.clone(),
-        old_ledger: ledger.to_witness().commit(),
+        zone_data: old_zone_data,
+        old_ledger: temp_ledger_state.to_witness(),
         new_ledger: exec_state.ledger.clone().to_witness().commit(),
-        sync_logs: Vec::new(),
         fund_notes,
         bundle: swap_bundle,
     }

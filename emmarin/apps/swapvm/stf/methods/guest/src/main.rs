@@ -25,11 +25,12 @@ fn main() {
         stf,
     };
 
+    ledger_witness.add_bundle(bundle.root());
+    // ensure that we've seen every bundle in this ledger update
+    assert_eq!(ledger_witness.bundles.commit(), new_ledger.bundles_root);
+
     // The last bundle should be a single executor tx that updates the zone data
     let executor_tx = bundle.txs.pop().unwrap();
-
-    ledger_witness.add_bundle(bundle.root());
-
     for tx in bundle.txs {
         let Some(zone_update) = tx.updates.get(&zone_id) else {
             // this tx does not concern this zone, ignore it.
@@ -69,9 +70,6 @@ fn main() {
             zone_data.swap(t_in, amount_in, swap_args);
         }
     }
-
-    // ensure that we've seen every bundle in this ledger update
-    assert_eq!(ledger_witness.bundles.commit(), new_ledger.bundles_root);
 
     let public = StfPublic {
         old: old_state,

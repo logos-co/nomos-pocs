@@ -3,11 +3,9 @@ use std::collections::BTreeMap;
 use app::{swap_goal_unit, SwapArgs, ZoneData};
 use cl::crust::{BundleWitness, InputWitness, NoteCommitment, Nullifier, Tx, TxWitness, Unit};
 use cl::ds::mmr::{MMRFolds, MMRProof, MMR};
-use cl::mantle::ledger::Ledger;
-use cl::mantle::ledger::LedgerState;
+use cl::mantle::ledger::{Ledger, LedgerState, LedgerWitness};
 use cl::mantle::ZoneState;
 use ledger::stf::{risc0_stf, StfProof};
-use ledger_proof_statements::ledger::SyncLog;
 use methods::{STF_ELF, STF_ID};
 use risc0_zkvm::{ExecutorEnv, Prover, Result};
 
@@ -92,10 +90,6 @@ impl ExecutorState {
             }
         }
 
-        for nf in &swapvm_update.inputs {
-            self.ledger.add_nullifiers(vec![*nf]);
-        }
-
         if tx.balance.unit_balance(swap_goal_unit().unit()).is_neg() {
             // this is a SWAP
             let (swap_goal_cm, swap_args_bytes) = &swapvm_update.outputs[0];
@@ -133,16 +127,16 @@ impl ExecutorState {
     pub fn update_and_get_executor_tx(&mut self) -> (TxWitness, Vec<InputWitness>) {
         let mut tx = TxWitness::default();
         let mut new_fund_notes = Vec::new();
-        let mut ledger = self.ledger.clone();
 
         let expected_pool_balances = self.swapvm.expected_pool_balances();
         let fund_notes = std::mem::take(&mut self.fund_notes);
 
         for note in &self.swapvm.swaps_output {
             tx = tx.add_output(note.clone(), "");
-            ledger.add_commitment(&note.note_commitment());
+            self.ledger.add_commitment(&note.note_commitment());
         }
 
+        self.swapvm.nfs.clear();
         for (unit, value) in expected_pool_balances {
             let note = if let Some(note) = fund_notes.get(&unit) {
                 note.evolve(value)
@@ -152,9 +146,10 @@ impl ExecutorState {
             new_fund_notes.push(note);
             let output = note.to_output();
             tx = tx.add_output(output, "");
-            let (mmr, path) = ledger.add_commitment(&output.note_commitment());
+            let (mmr, path) = self.ledger.add_commitment(&output.note_commitment());
             self.fund_notes
                 .insert(note.unit_witness.unit(), FundNote { note, mmr, path });
+            self.swapvm.nfs.insert(note.nullifier());
         }
 
         for (_, FundNote { note, mmr, path }) in fund_notes.into_iter() {
@@ -164,7 +159,6 @@ impl ExecutorState {
         for (goal_note, mmr, path) in std::mem::take(&mut self.goal_notes) {
             tx = tx.add_input(goal_note, (mmr, path));
         }
-
         (tx, new_fund_notes)
     }
 
@@ -176,9 +170,8 @@ impl ExecutorState {
 
 pub struct StfPrivate {
     pub zone_data: ZoneData,
-    pub old_ledger: Ledger,
+    pub old_ledger: LedgerWitness,
     pub new_ledger: Ledger,
-    pub sync_logs: Vec<SyncLog>,
     pub fund_notes: Vec<InputWitness>,
     pub bundle: BundleWitness,
 }
@@ -189,7 +182,7 @@ impl StfPrivate {
             .write(&self.zone_data)?
             .write(&self.old_ledger)?
             .write(&self.new_ledger)?
-            .write(&STF_ID)?
+            .write(&unsafe { std::intrinsics::transmute::<_, [u8; 32]>(STF_ID) })?
             .write(&self.bundle)?
             .write(&self.fund_notes)?
             .build()?;
