@@ -1,15 +1,21 @@
 use crate::tx::ProvedTx;
 use cl::crust::{Bundle, BundleWitness};
 
+use hex::FromHex;
+
 #[derive(Debug, Clone)]
 pub struct ProvedBundle {
     pub risc0_receipt: risc0_zkvm::Receipt,
 }
 
 impl ProvedBundle {
-    pub fn prove(bundle: &BundleWitness, txs: Vec<ProvedTx>) -> Self {
+    pub fn prove(txs: Vec<ProvedTx>) -> Self {
         //show that all ptx's are individually valid, and balance to 0
         let mut env = risc0_zkvm::ExecutorEnv::builder();
+
+        let bundle = BundleWitness {
+            txs: txs.iter().map(|tx| tx.public()).collect(),
+        };
 
         for proved_tx in txs {
             env.add_assumption(proved_tx.risc0_receipt);
@@ -23,11 +29,7 @@ impl ProvedBundle {
 
         let opts = risc0_zkvm::ProverOpts::succinct();
         let prove_info = prover
-            .prove_with_opts(
-                env,
-                risc0_images::nomos_mantle_bundle_risc0_proof::BUNDLE_ELF,
-                &opts,
-            )
+            .prove_with_opts(env, risc0_images::BUNDLE_ELF, &opts)
             .unwrap();
 
         println!(
@@ -50,7 +52,7 @@ impl ProvedBundle {
 
     pub fn verify(&self) -> bool {
         self.risc0_receipt
-            .verify(risc0_images::nomos_mantle_bundle_risc0_proof::BUNDLE_ID)
+            .verify(<[u8; 32]>::from_hex(risc0_images::BUNDLE_ID).unwrap())
             .is_ok()
     }
 }

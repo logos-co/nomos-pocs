@@ -4,12 +4,10 @@ members = [
     "cl",
     "ledger",
     "ledger_proof_statements",
-    "risc0_proofs",
+    "ledger_risc0_proof",
     "bundle_risc0_proof",
-    "tx_risc0_proof",
-    "ledger_validity_proof",
+    "risc0_proofs",
     "risc0_images",
-    "risc0_images_police",
 ]
 
 # Always optimize; building and running the risc0_proofs takes much longer without optimization.

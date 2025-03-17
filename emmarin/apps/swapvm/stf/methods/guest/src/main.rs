@@ -1,79 +1,81 @@
-use app::{StateUpdate, ZoneData, ZoneOp};
+use app::{SwapArgs, ZoneData};
 use cl::{
-    crust::Tx,
-    mantle::{ledger::Ledger, zone::ZoneState},
+    crust::{BundleWitness, InputWitness},
+    mantle::{
+        ledger::{Ledger, LedgerWitness},
+        zone::ZoneState,
+    },
 };
-use ledger_proof_statements::{
-    ledger::{LedgerProofPublic, SyncLog},
-    stf::StfPublic,
-};
+use ledger_proof_statements::stf::StfPublic;
 use risc0_zkvm::guest::env;
 
 fn main() {
     let mut zone_data: ZoneData = env::read();
-    let old_ledger: Ledger = env::read();
-    let ledger: Ledger = env::read();
-    let sync_logs: Vec<SyncLog> = env::read();
+    let mut ledger_witness: LedgerWitness = env::read();
+    let new_ledger: Ledger = env::read();
     let stf: [u8; 32] = env::read();
-    let ops: Vec<ZoneOp> = env::read();
-    let update_tx: StateUpdate = env::read();
+    let mut bundle: BundleWitness = env::read();
+    let pools_notes: Vec<InputWitness> = env::read();
 
     let zone_id = zone_data.zone_id;
 
-    let old_zone_data = zone_data.commit();
-
-    for op in &ops {
-        zone_data.process_op(op);
-    }
-
-    let txs: Vec<&Tx> = ops
-        .iter()
-        .filter_map(|op| match op {
-            ZoneOp::Swap(_) => None,
-            ZoneOp::AddLiquidity { tx, .. } => Some(tx),
-            ZoneOp::RemoveLiquidity { tx, .. } => Some(tx),
-            ZoneOp::Ledger(tx) => Some(tx),
-        })
-        .chain(std::iter::once(&update_tx.tx))
-        .collect();
-
-    let outputs = txs
-        .iter()
-        .flat_map(|tx| tx.updates.iter().filter(|u| u.zone_id == zone_id))
-        .flat_map(|u| u.outputs.iter())
-        .copied()
-        .collect();
-    // TODO: inputs missings from ledger proof public
-    let _inputs: Vec<_> = txs
-        .iter()
-        .flat_map(|tx| tx.updates.iter().filter(|u| u.zone_id == zone_id))
-        .flat_map(|u| u.inputs.iter())
-        .copied()
-        .collect();
-
-    let ledger_public = LedgerProofPublic {
-        old_ledger,
-        ledger,
-        id: zone_id,
-        sync_logs,
-        outputs,
+    let old_state = ZoneState {
+        ledger: ledger_witness.commit(),
+        zone_data: zone_data.commit(),
+        stf,
     };
 
-    env::verify(
-        ledger_validity_proof::LEDGER_ID,
-        &risc0_zkvm::serde::to_vec(&ledger_public).unwrap(),
-    )
-    .unwrap();
+    ledger_witness.add_bundle(bundle.root());
+    // ensure that we've seen every bundle in this ledger update
+    assert_eq!(ledger_witness.bundles.commit(), new_ledger.bundles_root);
+
+    // The last bundle should be a single executor tx that updates the zone data
+    let executor_tx = bundle.txs.pop().unwrap();
+    for tx in bundle.txs {
+        let Some(zone_update) = tx.updates.get(&zone_id) else {
+            // this tx does not concern this zone, ignore it.
+            continue;
+        };
+
+        assert!(zone_data.validate_no_pools(zone_update));
+
+        // is it a SWAP?
+        if tx
+            .balance
+            .unit_balance(app::swap_goal_unit().unit())
+            .is_neg()
+        {
+            // This TX encodes a SWAP request.
+            // as a simplifying assumption, we will assume that the SWAP goal note is the only output
+            // and a single input represents the funds provided by the user for the swap.
+            assert_eq!(zone_update.outputs.len(), 1);
+            assert_eq!(zone_update.inputs.len(), 1);
+            let (swap_goal_cm, swap_args_bytes) = &zone_update.outputs[0];
+            let swap_args: SwapArgs = cl::deserialize(&swap_args_bytes);
+
+            // ensure the witness corresponds to the swap goal cm
+            assert_eq!(
+                swap_goal_cm,
+                &app::swap_goal_note(swap_args.nonce).note_commitment()
+            );
+
+            let funds = tx
+                .balance
+                .balances
+                .iter()
+                .find(|bal| bal.unit != app::swap_goal_unit().unit())
+                .unwrap();
+            let t_in = funds.unit;
+            let amount_in = funds.pos - funds.neg;
+            zone_data.swap(t_in, amount_in, swap_args);
+        }
+    }
 
     let public = StfPublic {
-        old: ZoneState {
-            ledger: old_ledger,
-            zone_data: old_zone_data,
-            stf,
-        },
+        old: old_state,
         new: ZoneState {
-            ledger,
-            zone_data: zone_data.update_and_commit(&update_tx),
+            ledger: new_ledger,
+            zone_data: zone_data.update_and_commit(&executor_tx, &pools_notes),
             stf,
         },
     };

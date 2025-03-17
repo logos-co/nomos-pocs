@@ -6,7 +6,7 @@ use crate::{
     mantle::ZoneId,
     Digest, Hash,
 };
-use rand::RngCore;
+use rand_core::RngCore;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
