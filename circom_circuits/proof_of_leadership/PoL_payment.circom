@@ -15,7 +15,8 @@ template ticket_calculator(){
     signal output out;
 
     component hash = Poseidon2_hash(5);
-    hash.inp[0] <== 76696568;       // 76696568 = LEAD in ASCII
+    // int.from_bytes(hashlib.sha256(b"LEAD").digest()[:-1], "little") = 137836078329650723736739065075984465408055658421620421917147974048265460598
+    hash.inp[0] <== 137836078329650723736739065075984465408055658421620421917147974048265460598;
     hash.inp[1] <== epoch_nonce;
     hash.inp[2] <== slot;
     hash.inp[3] <== commitment;
@@ -30,7 +31,8 @@ template derive_secret_key(){
     signal output out;
 
     component hash = Poseidon2_hash(3);
-    hash.inp[0] <== 78797779839583696782698495756989;       //78797779839583696782698495756989 = NOMOS_SECRET_KEY in ASCII
+    // int.from_bytes(hashlib.sha256(b"NOMOS_SECRET_KEY").digest()[:-1], "little") = 344114695764831179145057610008294480248205750382057360672614582644594850870
+    hash.inp[0] <== 344114695764831179145057610008294480248205750382057360672614582644594850870;
     hash.inp[1] <== starting_slot;
     hash.inp[2] <== secrets_root;
 
@@ -44,7 +46,8 @@ template derive_entropy(){
     signal output out;
 
     component hash = Poseidon2_hash(4);
-    hash.inp[0] <== 78797779839578797867699567797884827366; // 78797779839578797867699567797884827366 = NOMOS_NONCE_CONTRIB
+    // int.from_bytes(hashlib.sha256(b"NOMOS_NONCE_CONTRIB").digest()[:-1], "little") = 193275670388587576544090216996849534520361117581542778964162861667418671481
+    hash.inp[0] <== 193275670388587576544090216996849534520361117581542778964162861667418671481;
     hash.inp[1] <== slot;
     hash.inp[2] <== commitment;
     hash.inp[3] <== secret_key;
@@ -106,9 +109,11 @@ template payment_proof_of_leadership(){
     component cm = commitment();
     cm.state <== state;
     cm.value <== value;
-    cm.unit <== 787779;                 // NMO in ASCII
+    // int.from_bytes(hashlib.sha256(b"NMO").digest()[:-1], "little") = 161796427070100155131822184769584603407573991022311108406630770340454367555
+    cm.unit <== 161796427070100155131822184769584603407573991022311108406630770340454367555;
     cm.nonce <== nonce;
-    cm.zoneID <== 80658977697884;       // PAYMENT in ASCII
+    // int.from_bytes(hashlib.sha256(b"PAYMENT").digest()[:-1], "little") = 281646683567839822174419720505039861445414630574005374635737888376398200354
+    cm.zoneID <== 281646683567839822174419720505039861445414630574005374635737888376398200354;
     cm.public_key <== pk.out;
 
 

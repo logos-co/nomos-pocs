@@ -224,7 +224,7 @@ t1 = F(int(-((R(p) * ln(R(1) - 0.05))**2) / R(total_stake)**2))
 
 
 value = F(50)
-unit = F(787779)
+unit = F(161796427070100155131822184769584603407573991022311108406630770340454367555)
 state = F(randrange(0,p,1))
 note_nonce = F(0)
 threshold = (t0 + t1 * value) * value
@@ -240,15 +240,15 @@ for i in range(25):
         secret_root = poseidon2_hash([secret_root,slot_secret_path[i]])
     else:
         secret_root = poseidon2_hash([slot_secret_path[i],secret_root])
-sk = poseidon2_hash([F(78797779839583696782698495756989),starting_slot,secret_root])
-pk = poseidon2_hash([F(787977798395756870),sk])
+sk = poseidon2_hash([F(344114695764831179145057610008294480248205750382057360672614582644594850870),starting_slot,secret_root])
+pk = poseidon2_hash([F(355994159511987982411097843485998670968942801951585260613801918349630142543),sk])
 
-note_cm = poseidon2_hash([F(78797779839578798469956777),state,value,unit,note_nonce,pk,F(80658977697884)])
-ticket = poseidon2_hash([F(76696568),F(epoch_nonce),F(slot_number),note_cm,sk])
+note_cm = poseidon2_hash([F(181645510297841241569044198526601622686169271532834574969543446901055041748),state,value,unit,note_nonce,pk,F(281646683567839822174419720505039861445414630574005374635737888376398200354)])
+ticket = poseidon2_hash([F(137836078329650723736739065075984465408055658421620421917147974048265460598),F(epoch_nonce),F(slot_number),note_cm,sk])
 while(ticket > threshold):
     note_nonce += 1
-    note_cm = poseidon2_hash([F(78797779839578798469956777),state,value,unit,note_nonce,pk,F(80658977697884)])
-    ticket = poseidon2_hash([F(76696568),F(epoch_nonce),F(slot_number),note_cm,sk])
+    note_cm = poseidon2_hash([F(181645510297841241569044198526601622686169271532834574969543446901055041748),state,value,unit,note_nonce,pk,F(281646683567839822174419720505039861445414630574005374635737888376398200354)])
+    ticket = poseidon2_hash([F(137836078329650723736739065075984465408055658421620421917147974048265460598),F(epoch_nonce),F(slot_number),note_cm,sk])
     
 cm_nodes = [F(randrange(0,p,1)) for i in range(32)]
 cm_selectors = randrange(0,2**32,1)
@@ -260,7 +260,7 @@ for i in range(32):
     else:
         cm_root = poseidon2_hash([cm_nodes[i],cm_root])
 
-note_nf = poseidon2_hash([F(78797779839578798469957870),note_cm,sk])
+note_nf = poseidon2_hash([F(310945536431723660304787929213143698356852257431717126117833288836338828411),note_cm,sk])
 nf_previous = F(randrange(0,note_nf,1))
 nf_next = F(randrange(note_nf+1,p,1))
 nf_nodes = [F(randrange(0,p,1)) for i in range(32)]
