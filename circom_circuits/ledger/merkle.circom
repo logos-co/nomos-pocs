@@ -1,8 +1,8 @@
 //test
 pragma circom 2.1.9;
 
-include "poseidon2_hash.circom";
-include "comparator.circom";
+include "../hash_bn/poseidon2_hash.circom";
+include "../misc/comparator.circom";
 
 // proof of Merkle membership of depth n
 //                  /!\ To call this function, it's important to check that each selector is a bit before!!!
@@ -11,7 +11,6 @@ template proof_of_membership(n) {
     signal input selector[n];   // it's the leaf's indice in big endian bits 
     signal input root;
     signal input leaf;
-
     
 
     component compression_hash[n];
