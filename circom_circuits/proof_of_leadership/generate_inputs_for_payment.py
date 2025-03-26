@@ -280,6 +280,7 @@ with open("input.json", "w") as file:
     file.write('\n\t"t0" :\t\t\t\t\t\t"'+str(t0)+'",')
     file.write('\n\t"t1" :\t\t\t\t\t\t"'+str(t1)+'",')
     file.write('\n\t"slot_secret" :\t\t\t\t\t\t"'+str(slot_secret)+'",')
+    file.write('\n\t"one_time_key" :\t\t\t\t\t\t"'+str(F(516548))+'",')
     file.write('\n\t"slot_secret_path" :\t\t\t\t\t[')
     for i in range(25):
         file.write('"')

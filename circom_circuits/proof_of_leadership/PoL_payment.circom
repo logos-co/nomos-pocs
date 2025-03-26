@@ -82,6 +82,12 @@ template payment_proof_of_leadership(){
     signal input value;
     signal input nonce;
 
+    signal input one_time_key;
+
+    //Avoid the circom optimisation that removes unused public input
+    signal dummy;
+    dummy <== one_time_key * one_time_key;
+
     signal output entropy_contrib;
 
 
@@ -194,4 +200,4 @@ template payment_proof_of_leadership(){
     entropy_contrib <== entropy.out;
 } 
 
-component main = payment_proof_of_leadership();
+component main {public [slot,epoch_nonce,t0,t1,commitments_root,nullifiers_root,one_time_key]}= payment_proof_of_leadership();
