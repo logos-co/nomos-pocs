@@ -208,9 +208,9 @@ if len(sys.argv) != Integer(4):
     print("Usage: <script> <epoch_nonce> <slot_number> <total_stake>")
     exit()
 
-epoch_nonce = 10 #int(sys.argv[Integer(1)])
-slot_number = 1683167 #int(sys.argv[Integer(2)])
-total_stake = 50000 #int(sys.argv[Integer(3)])
+epoch_nonce = int(sys.argv[Integer(1)])
+slot_number = int(sys.argv[Integer(2)])
+total_stake = int(sys.argv[Integer(3)])
 
 if epoch_nonce >= p:
     print("epoch nonce must be less than p")
@@ -240,7 +240,7 @@ for i in range(25):
         secret_root = poseidon2_hash([secret_root,slot_secret_path[i]])
     else:
         secret_root = poseidon2_hash([slot_secret_path[i],secret_root])
-sk = poseidon2_hash([F(344114695764831179145057610008294480248205750382057360672614582644594850870),starting_slot,secret_root])
+sk = poseidon2_hash([F(313763129738690320248895675268201668175331181115752393250540330459318963992),starting_slot,secret_root])
 pk = poseidon2_hash([F(355994159511987982411097843485998670968942801951585260613801918349630142543),sk])
 
 note_cm = poseidon2_hash([F(181645510297841241569044198526601622686169271532834574969543446901055041748),state,value,unit,note_nonce,pk,F(281646683567839822174419720505039861445414630574005374635737888376398200354)])

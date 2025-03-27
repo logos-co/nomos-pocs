@@ -5,6 +5,7 @@ include "../hash_bn/poseidon2_hash.circom";
 include "../ledger/notes.circom";
 include "../misc/comparator.circom";
 include "../circomlib/circuits/bitify.circom";
+include "../misc/constants.circom";
 
 
 template ticket_calculator(){
@@ -15,8 +16,8 @@ template ticket_calculator(){
     signal output out;
 
     component hash = Poseidon2_hash(5);
-    // int.from_bytes(hashlib.sha256(b"LEAD").digest()[:-1], "little") = 137836078329650723736739065075984465408055658421620421917147974048265460598
-    hash.inp[0] <== 137836078329650723736739065075984465408055658421620421917147974048265460598;
+    component dst = LEAD();
+    hash.inp[0] <== dst.out;
     hash.inp[1] <== epoch_nonce;
     hash.inp[2] <== slot;
     hash.inp[3] <== commitment;
@@ -31,8 +32,8 @@ template derive_secret_key(){
     signal output out;
 
     component hash = Poseidon2_hash(3);
-    // int.from_bytes(hashlib.sha256(b"NOMOS_SECRET_KEY").digest()[:-1], "little") = 344114695764831179145057610008294480248205750382057360672614582644594850870
-    hash.inp[0] <== 344114695764831179145057610008294480248205750382057360672614582644594850870;
+    component dst = NOMOS_POL_SK();
+    hash.inp[0] <== dst.out;
     hash.inp[1] <== starting_slot;
     hash.inp[2] <== secrets_root;
 
@@ -46,8 +47,8 @@ template derive_entropy(){
     signal output out;
 
     component hash = Poseidon2_hash(4);
-    // int.from_bytes(hashlib.sha256(b"NOMOS_NONCE_CONTRIB").digest()[:-1], "little") = 193275670388587576544090216996849534520361117581542778964162861667418671481
-    hash.inp[0] <== 193275670388587576544090216996849534520361117581542778964162861667418671481;
+    component dst = NOMOS_NONCE_CONTRIB();
+    hash.inp[0] <== dst.out;
     hash.inp[1] <== slot;
     hash.inp[2] <== commitment;
     hash.inp[3] <== secret_key;
@@ -109,11 +110,11 @@ template payment_proof_of_leadership(){
     component cm = commitment();
     cm.state <== state;
     cm.value <== value;
-    // int.from_bytes(hashlib.sha256(b"NMO").digest()[:-1], "little") = 161796427070100155131822184769584603407573991022311108406630770340454367555
-    cm.unit <== 161796427070100155131822184769584603407573991022311108406630770340454367555;
+    component nmo = NMO();
+    cm.unit <== nmo.out;
     cm.nonce <== nonce;
-    // int.from_bytes(hashlib.sha256(b"PAYMENT").digest()[:-1], "little") = 281646683567839822174419720505039861445414630574005374635737888376398200354
-    cm.zoneID <== 281646683567839822174419720505039861445414630574005374635737888376398200354;
+    component payment = PAYMENT();
+    cm.zoneID <== payment.out;
     cm.public_key <== pk.out;
 
 
