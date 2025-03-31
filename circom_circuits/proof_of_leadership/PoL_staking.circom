@@ -111,8 +111,8 @@ template staking_proof_of_leadership(){
     component nmo = NMO();
     cm.unit <== nmo.out;
     cm.nonce <== nonce;
-    component payment = PAYMENT();
-    cm.zoneID <== payment.out;
+    component staking = STAKING();
+    cm.zoneID <== staking.out;
     cm.public_key <== pk.out;
 
 

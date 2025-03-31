@@ -204,128 +204,166 @@ def PoseidonSponge(data, capacity, output_len):
 
 R = RealField(500) #Real numbers with precision 500 bits
 
-if len(sys.argv) != Integer(4):
-    print("Usage: <script> <epoch_nonce> <slot_number> <total_stake>")
+if len(sys.argv) != Integer(3):
+    print("Usage: <script> <nInputs> <nOutputs> ")
     exit()
 
-epoch_nonce = int(sys.argv[Integer(1)])
-slot_number = int(sys.argv[Integer(2)])
-total_stake = int(sys.argv[Integer(3)])
+nInputs = int(sys.argv[Integer(1)])
+nOutputs = int(sys.argv[Integer(2)])
 
-if epoch_nonce >= p:
-    print("epoch nonce must be less than p")
-    exit()
-if total_stake >= p:
-    print("total stake must be less than p")
-    exit()
-    
-t0 = F(int(-((R(p) * ln(R(1) - 0.05))) / R(total_stake)))
-t1 = F(int(-((R(p) * ln(R(1) - 0.05))**2) / R(total_stake)**2))
-
-
-value = F(50)
+value_in = [F(randrange(0,10000,1) )for i in range(nInputs) ]
 unit = F(161796427070100155131822184769584603407573991022311108406630770340454367555)
-state = F(randrange(0,p,1))
-note_nonce = F(0)
-threshold = (t0 + t1 * value) * value
-starting_slot = randrange(max(0,slot_number-2**25+1),slot_number,1)
+state_in = [F(randrange(0,p,1)) for i in range(nInputs) ]
+zone_in = [F(randrange(0,p,1)) for i in range(nInputs) ]
+note_nonce_in = [F(randrange(0,p,1)) for i in range(nInputs)]
+sk_in = [F(randrange(0,p,1)) for i in range(nInputs)]
+pk_in = [ poseidon2_hash([F(355994159511987982411097843485998670968942801951585260613801918349630142543),sk_in[i]]) for i in range(nInputs) ]
 
-slot_secret = F(randrange(0,p,1))
-slot_secret_indexes = format(slot_number - starting_slot,'025b')
+note_cm_in = [poseidon2_hash([F(181645510297841241569044198526601622686169271532834574969543446901055041748),state_in[i],value_in[i],unit,note_nonce_in[i],pk_in[i],zone_in[i]]) for i in range(nInputs) ]
+cm_nodes = [[F(randrange(0,p,1)) for i in range(32)] for j in range(nInputs) ]
+cm_selectors = [format(randrange(0,2**32,1),'032b') for i in range(nInputs) ]
+cm_root = [ note_cm_in[i] for i in range(nInputs) ]
+for j in range(nInputs):
+    for i in range(32):
+        if int(cm_selectors[j][31-i]) == 0:
+            cm_root[j] = poseidon2_hash([cm_root[j],cm_nodes[j][i]])
+        else:
+            cm_root[j] = poseidon2_hash([cm_nodes[j][i],cm_root[j]])
 
-slot_secret_path = [F(randrange(0,p,1)) for i in range(25)]
-secret_root = slot_secret
-for i in range(25):
-    if int(slot_secret_indexes[24-i]) == 0:
-        secret_root = poseidon2_hash([secret_root,slot_secret_path[i]])
-    else:
-        secret_root = poseidon2_hash([slot_secret_path[i],secret_root])
-sk = poseidon2_hash([F(313763129738690320248895675268201668175331181115752393250540330459318963992),starting_slot,secret_root])
-pk = poseidon2_hash([F(355994159511987982411097843485998670968942801951585260613801918349630142543),sk])
+value_out = [F(randrange(0,10000,1) )for i in range(nOutputs) ]
+state_out = [F(randrange(0,p,1)) for i in range(nOutputs) ]
+note_nonce_out = [F(randrange(0,p,1)) for i in range(nOutputs)]
+pk_out = [ F(randrange(0,p,1)) for i in range(nOutputs)]
+zone_out = [F(randrange(0,p,1)) for i in range(nOutputs) ]
 
-note_cm = poseidon2_hash([F(181645510297841241569044198526601622686169271532834574969543446901055041748),state,value,unit,note_nonce,pk,F(363778563868520716613768381832117227806204156179492995214325445980623358665)])
-ticket = poseidon2_hash([F(137836078329650723736739065075984465408055658421620421917147974048265460598),F(epoch_nonce),F(slot_number),note_cm,sk])
-while(ticket > threshold):
-    note_nonce += 1
-    note_cm = poseidon2_hash([F(181645510297841241569044198526601622686169271532834574969543446901055041748),state,value,unit,note_nonce,pk,F(363778563868520716613768381832117227806204156179492995214325445980623358665)])
-    ticket = poseidon2_hash([F(137836078329650723736739065075984465408055658421620421917147974048265460598),F(epoch_nonce),F(slot_number),note_cm,sk])
-    
-cm_aged_nodes = [F(randrange(0,p,1)) for i in range(32)]
-cm_aged_selectors = randrange(0,2**32,1)
-cm_aged_selectors = format(cm_aged_selectors,'032b')
-cm_aged_root = note_cm
-for i in range(32):
-    if int(cm_aged_selectors[31-i]) == 0:
-        cm_aged_root = poseidon2_hash([cm_aged_root,cm_aged_nodes[i]])
-    else:
-        cm_aged_root = poseidon2_hash([cm_aged_nodes[i],cm_aged_root])
 
-cm_unspent_nodes = [F(randrange(0,p,1)) for i in range(32)]
-cm_unspent_selectors = randrange(0,2**32,1)
-cm_unspent_selectors = format(cm_unspent_selectors,'032b')
-cm_unspent_root = note_cm
-for i in range(32):
-    if int(cm_unspent_selectors[31-i]) == 0:
-        cm_unspent_root = poseidon2_hash([cm_unspent_root,cm_unspent_nodes[i]])
-    else:
-        cm_unspent_root = poseidon2_hash([cm_unspent_nodes[i],cm_unspent_root])
-        
 with open("input.json", "w") as file:
-    file.write('{\n\t"slot":\t\t\t\t\t\t"'+str(slot_number)+'",')
-    file.write('\n\t"epoch_nonce":\t\t\t\t\t\t"'+str(epoch_nonce)+'",')
-    file.write('\n\t"t0" :\t\t\t\t\t\t"'+str(t0)+'",')
-    file.write('\n\t"t1" :\t\t\t\t\t\t"'+str(t1)+'",')
-    file.write('\n\t"slot_secret" :\t\t\t\t\t\t"'+str(slot_secret)+'",')
-    file.write('\n\t"one_time_key" :\t\t\t\t\t\t"'+str(F(516548))+'",')
-    file.write('\n\t"slot_secret_path" :\t\t\t\t\t[')
-    for i in range(25):
+    file.write('{\n\t"state_in" :\t\t\t\t\t[')
+    for i in range(nInputs):
         file.write('"')
-        file.write(str(slot_secret_path[i]))
+        file.write(str(state_in[i]))
         file.write('"')
-        if i == 24:
+        if i == (nInputs-1):
             file.write('],')
         else:
             file.write(',')
-    file.write('\n\t"cm_aged_nodes" :\t\t\t\t\t[')
-    for i in range(32):
+    file.write('\n\t"value_in" :\t\t\t\t\t[')
+    for i in range(nInputs):
         file.write('"')
-        file.write(str(cm_aged_nodes[i]))
+        file.write(str(value_in[i]))
         file.write('"')
-        if i == 31:
+        if i == (nInputs-1):
             file.write('],')
         else:
             file.write(',')
-    file.write('\n\t"cm_aged_selectors" :\t\t\t\t\t[')
-    for i in range(32):
+    file.write('\n\t"nonce_in" :\t\t\t\t\t[')
+    for i in range(nInputs):
         file.write('"')
-        file.write(str(cm_aged_selectors[i]))
+        file.write(str(note_nonce_in[i]))
         file.write('"')
-        if i == 31:
+        if i == (nInputs-1):
             file.write('],')
         else:
             file.write(',')
-    file.write('\n\t"commitments_aged_root" :\t\t\t\t"'+str(cm_aged_root)+'",')
-    file.write('\n\t"cm_unspent_nodes" :\t\t\t\t\t[')
-    for i in range(32):
+    file.write('\n\t"secret_key_in" :\t\t\t\t\t[')
+    for i in range(nInputs):
         file.write('"')
-        file.write(str(cm_unspent_nodes[i]))
+        file.write(str(sk_in[i]))
         file.write('"')
-        if i == 31:
+        if i == (nInputs-1):
             file.write('],')
         else:
             file.write(',')
-    file.write('\n\t"cm_unspent_selectors" :\t\t\t\t\t[')
-    for i in range(32):
+    file.write('\n\t"zoneID_in" :\t\t\t\t\t[')
+    for i in range(nInputs):
         file.write('"')
-        file.write(str(cm_unspent_selectors[i]))
+        file.write(str(zone_in[i]))
         file.write('"')
-        if i == 31:
+        if i == (nInputs-1):
             file.write('],')
         else:
             file.write(',')
-    file.write('\n\t"commitments_unspent_root" :\t\t\t\t"'+str(cm_unspent_root)+'",')
-    file.write('\n\t"starting_slot" :\t\t\t\t"'+str(starting_slot)+'",')
-    file.write('\n\t"secrets_root" :\t\t\t\t"'+str(secret_root)+'",')
-    file.write('\n\t"state" :\t\t\t\t"'+str(state)+'",')
-    file.write('\n\t"value" :\t\t\t\t"'+str(value)+'",')
-    file.write('\n\t"nonce" :\t\t\t\t"'+str(note_nonce)+'"}')
+    file.write('\n\t"cm_nodes" :\t\t\t\t\t[')
+    for i in range(nInputs):
+        file.write('\n\t\t\t\t\t\t[')
+        for j in range(32):
+            file.write('"')
+            file.write(str(cm_nodes[i][j]))
+            file.write('"')
+            if j == (31):
+                file.write(']')
+            else:
+                file.write(',')
+        if i == (nInputs-1):
+            file.write('],')
+        else:
+            file.write(',')
+    file.write('\n\t"cm_selectors" :\t\t\t\t\t[')
+    for i in range(nInputs):
+        file.write('\n\t\t\t\t\t\t[')
+        for j in range(32):
+            file.write('"')
+            file.write(str(cm_selectors[i][j]))
+            file.write('"')
+            if j == (31):
+                file.write(']')
+            else:
+                file.write(',')
+        if i == (nInputs-1):
+            file.write('],')
+        else:
+            file.write(',')
+    file.write('\n\t"commitments_root" :\t\t\t\t\t[')
+    for i in range(nInputs):
+        file.write('"')
+        file.write(str(cm_root[i]))
+        file.write('"')
+        if i == (nInputs-1):
+            file.write('],')
+        else:
+            file.write(',')
+    file.write('\n\t"state_out" :\t\t\t\t\t[')
+    for i in range(nOutputs):
+        file.write('"')
+        file.write(str(state_out[i]))
+        file.write('"')
+        if i == (nOutputs-1):
+            file.write('],')
+        else:
+            file.write(',')
+    file.write('\n\t"value_out" :\t\t\t\t\t[')
+    for i in range(nOutputs):
+        file.write('"')
+        file.write(str(value_out[i]))
+        file.write('"')
+        if i == (nOutputs-1):
+            file.write('],')
+        else:
+            file.write(',')
+    file.write('\n\t"nonce_out" :\t\t\t\t\t[')
+    for i in range(nOutputs):
+        file.write('"')
+        file.write(str(note_nonce_out[i]))
+        file.write('"')
+        if i == (nOutputs-1):
+            file.write('],')
+        else:
+            file.write(',')
+    file.write('\n\t"public_key_out" :\t\t\t\t\t[')
+    for i in range(nOutputs):
+        file.write('"')
+        file.write(str(pk_out[i]))
+        file.write('"')
+        if i == (nOutputs-1):
+            file.write('],')
+        else:
+            file.write(',')
+    file.write('\n\t"zoneID_out" :\t\t\t\t\t[')
+    for i in range(nOutputs):
+        file.write('"')
+        file.write(str(zone_out[i]))
+        file.write('"')
+        if i == (nOutputs-1):
+            file.write(']}')
+        else:
+            file.write(',')
