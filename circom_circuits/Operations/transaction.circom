@@ -27,6 +27,8 @@ template transfer(nInputs, nOutputs){
     signal input zoneID_out[nOutputs];
     signal output commitments[nOutputs];
 
+    signal input attached_data;
+
     signal output balance;
 
 
@@ -101,6 +103,10 @@ template transfer(nInputs, nOutputs){
         b -= value_out[i];
     }
     balance <== b;
+
+    //dummy quadratic contraints to avoid optimisation erasing the public input
+    signal dummy;
+    dummy <== attached_data * attached_data;
 
 }
 

@@ -218,6 +218,7 @@ zone_in = [F(randrange(0,p,1)) for i in range(nInputs) ]
 note_nonce_in = [F(randrange(0,p,1)) for i in range(nInputs)]
 sk_in = [F(randrange(0,p,1)) for i in range(nInputs)]
 pk_in = [ poseidon2_hash([F(355994159511987982411097843485998670968942801951585260613801918349630142543),sk_in[i]]) for i in range(nInputs) ]
+attached_data = F(randrange(0,p,1))
 
 note_cm_in = [poseidon2_hash([F(181645510297841241569044198526601622686169271532834574969543446901055041748),state_in[i],value_in[i],unit,note_nonce_in[i],pk_in[i],zone_in[i]]) for i in range(nInputs) ]
 cm_nodes = [[F(randrange(0,p,1)) for i in range(32)] for j in range(nInputs) ]
@@ -322,6 +323,7 @@ with open("input.json", "w") as file:
             file.write('],')
         else:
             file.write(',')
+    file.write('\n\t"attached_data" :\t\t\t\t\t\t"'+str(attached_data)+'",')
     file.write('\n\t"state_out" :\t\t\t\t\t[')
     for i in range(nOutputs):
         file.write('"')
