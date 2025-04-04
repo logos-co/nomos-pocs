@@ -204,21 +204,170 @@ def PoseidonSponge(data, capacity, output_len):
 
 R = RealField(500) #Real numbers with precision 500 bits
 
-value = F(randrange(500,2**64-1,1))
-unit = F(161796427070100155131822184769584603407573991022311108406630770340454367555)
+if len(sys.argv) != Integer(5):
+    print("Usage: <script> <epoch_nonce> <slot_number> <total_stake> <public or private>")
+    exit()
+
+epoch_nonce = int(sys.argv[Integer(1)])
+slot_number = int(sys.argv[Integer(2)])
+total_stake = int(sys.argv[Integer(3)])
+anonymity = str(sys.argv[Integer(4)])
+
+if epoch_nonce >= p:
+    print("epoch nonce must be less than p")
+    exit()
+if total_stake >= p:
+    print("total stake must be less than p")
+    exit()
+    
+t0 = F(int(-((R(p) * ln(R(1) - 0.05))) / R(total_stake)))
+t1 = F(int(-((R(p) * ln(R(1) - 0.05))**2) / R(total_stake)**2))
+
+
+value = F(50)
+unit = F(19676183153323264216568033390884511718872104179761154996527087027500271872825)
 state = F(randrange(0,p,1))
-zoneID = F(randrange(0,p,1))
-nonce = F(randrange(0,p,1))
-sk = F(randrange(0,p,1))
+note_nonce = F(0)
+threshold = (t0 + t1 * value) * value
+starting_slot = randrange(max(0,slot_number-2**25+1),slot_number,1)
 
-threshold = F(500)
-data_msg = F(randrange(0,p,1))
+slot_secret = F(randrange(0,p,1))
+slot_secret_indexes = format(slot_number - starting_slot,'025b')
 
+slot_secret_path = [F(randrange(0,p,1)) for i in range(25)]
+secret_root = slot_secret
+for i in range(25):
+    if int(slot_secret_indexes[24-i]) == 0:
+        secret_root = poseidon2_hash([secret_root,slot_secret_path[i]])
+    else:
+        secret_root = poseidon2_hash([slot_secret_path[i],secret_root])
+sk = poseidon2_hash([F(313763129738690320248895675268201668175331181115752393250540330459318963992),starting_slot,secret_root])
+pk = poseidon2_hash([F(355994159511987982411097843485998670968942801951585260613801918349630142543),sk])
+
+note_cm = poseidon2_hash([F(181645510297841241569044198526601622686169271532834574969543446901055041748),state,value,unit,note_nonce,pk,F(363778563868520716613768381832117227806204156179492995214325445980623358665)])
+ticket = poseidon2_hash([F(137836078329650723736739065075984465408055658421620421917147974048265460598),F(epoch_nonce),F(slot_number),note_cm,sk])
+while(ticket > threshold):
+    note_nonce += 1
+    note_cm = poseidon2_hash([F(181645510297841241569044198526601622686169271532834574969543446901055041748),state,value,unit,note_nonce,pk,F(363778563868520716613768381832117227806204156179492995214325445980623358665)])
+    ticket = poseidon2_hash([F(137836078329650723736739065075984465408055658421620421917147974048265460598),F(epoch_nonce),F(slot_number),note_cm,sk])
+    
+cm_aged_nodes = [F(randrange(0,p,1)) for i in range(32)]
+cm_aged_selectors = randrange(0,2**32,1)
+cm_aged_selectors = format(cm_aged_selectors,'032b')
+cm_aged_root = note_cm
+for i in range(32):
+    if int(cm_aged_selectors[31-i]) == 0:
+        cm_aged_root = poseidon2_hash([cm_aged_root,cm_aged_nodes[i]])
+    else:
+        cm_aged_root = poseidon2_hash([cm_aged_nodes[i],cm_aged_root])
+
+cm_unspent_nodes = [F(randrange(0,p,1)) for i in range(32)]
+cm_unspent_selectors = randrange(0,2**32,1)
+cm_unspent_selectors = format(cm_unspent_selectors,'032b')
+cm_unspent_root = note_cm
+for i in range(32):
+    if int(cm_unspent_selectors[31-i]) == 0:
+        cm_unspent_root = poseidon2_hash([cm_unspent_root,cm_unspent_nodes[i]])
+    else:
+        cm_unspent_root = poseidon2_hash([cm_unspent_nodes[i],cm_unspent_root])
+
+note_nf = poseidon2_hash([F(310945536431723660304787929213143698356852257431717126117833288836338828411),note_cm,sk])
+nf_previous = F(randrange(0,note_nf,1))
+nf_next = F(randrange(note_nf+1,p,1))
+nf_nodes = [F(randrange(0,p,1)) for i in range(32)]
+nf_selectors = randrange(0,2**32,1)
+nf_selectors = format(nf_selectors,'032b')
+
+nf_root = poseidon2_hash([nf_previous, nf_next])
+for i in range(32):
+    if int(nf_selectors[31-i]) == 0:
+        nf_root = poseidon2_hash([nf_root,nf_nodes[i]])
+    else:
+        nf_root = poseidon2_hash([nf_nodes[i],nf_root])
+        
 with open("input.json", "w") as file:
-    file.write('{\n\t"state":\t\t\t\t\t\t"'+str(state)+'",')
-    file.write('\n\t"value":\t\t\t\t\t\t"'+str(value)+'",')
-    file.write('\n\t"nonce" :\t\t\t\t\t\t"'+str(nonce)+'",')
-    file.write('\n\t"zoneID" :\t\t\t\t\t\t"'+str(zoneID)+'",')
-    file.write('\n\t"secret_key" :\t\t\t\t\t\t"'+str(sk)+'",')
-    file.write('\n\t"threshold" :\t\t\t\t\t\t"'+str(threshold)+'",')
-    file.write('\n\t"attached_data" :\t\t\t\t\t\t"'+str(data_msg)+'"}')
+    file.write('{\n\t"slot":\t\t\t\t\t\t"'+str(slot_number)+'",')
+    if anonymity == "public":
+        file.write('\n\t"selector":\t\t\t\t\t\t"'+str(1)+'",')
+    if anonymity == "private":
+        file.write('\n\t"selector":\t\t\t\t\t\t"'+str(0)+'",')
+    file.write('\n\t"epoch_nonce":\t\t\t\t\t\t"'+str(epoch_nonce)+'",')
+    file.write('\n\t"t0" :\t\t\t\t\t\t"'+str(t0)+'",')
+    file.write('\n\t"t1" :\t\t\t\t\t\t"'+str(t1)+'",')
+    file.write('\n\t"slot_secret" :\t\t\t\t\t\t"'+str(slot_secret)+'",')
+    file.write('\n\t"one_time_key" :\t\t\t\t\t\t"'+str(F(516548))+'",')
+    file.write('\n\t"slot_secret_path" :\t\t\t\t\t[')
+    for i in range(25):
+        file.write('"')
+        file.write(str(slot_secret_path[i]))
+        file.write('"')
+        if i == 24:
+            file.write('],')
+        else:
+            file.write(',')
+    file.write('\n\t"cm_aged_nodes" :\t\t\t\t\t[')
+    for i in range(32):
+        file.write('"')
+        file.write(str(cm_aged_nodes[i]))
+        file.write('"')
+        if i == 31:
+            file.write('],')
+        else:
+            file.write(',')
+    file.write('\n\t"cm_aged_selectors" :\t\t\t\t\t[')
+    for i in range(32):
+        file.write('"')
+        file.write(str(cm_aged_selectors[i]))
+        file.write('"')
+        if i == 31:
+            file.write('],')
+        else:
+            file.write(',')
+    file.write('\n\t"commitments_aged_root" :\t\t\t\t"'+str(cm_aged_root)+'",')
+    file.write('\n\t"nf_previous" :\t\t\t\t"'+str(nf_previous)+'",')
+    file.write('\n\t"nf_next" :\t\t\t\t"'+str(nf_next)+'",')
+    if anonymity == "public":
+        file.write('\n\t"unspent_nodes" :\t\t\t\t\t[')
+        for i in range(32):
+            file.write('"')
+            file.write(str(cm_unspent_nodes[i]))
+            file.write('"')
+            if i == 31:
+                file.write('],')
+            else:
+                file.write(',')
+        file.write('\n\t"unspent_selectors" :\t\t\t\t\t[')
+        for i in range(32):
+            file.write('"')
+            file.write(str(cm_unspent_selectors[i]))
+            file.write('"')
+            if i == 31:
+                file.write('],')
+            else:
+                file.write(',')
+        file.write('\n\t"unspent_root" :\t\t\t\t"'+str(cm_unspent_root)+'",')
+    if anonymity == "private":
+        file.write('\n\t"unspent_nodes" :\t\t\t\t\t[')
+        for i in range(32):
+            file.write('"')
+            file.write(str(nf_nodes[i]))
+            file.write('"')
+            if i == 31:
+                file.write('],')
+            else:
+                file.write(',')
+        file.write('\n\t"unspent_selectors" :\t\t\t\t\t[')
+        for i in range(32):
+            file.write('"')
+            file.write(str(nf_selectors[i]))
+            file.write('"')
+            if i == 31:
+                file.write('],')
+            else:
+                file.write(',')
+        file.write('\n\t"unspent_root" :\t\t\t\t"'+str(nf_root)+'",')
+    file.write('\n\t"starting_slot" :\t\t\t\t"'+str(starting_slot)+'",')
+    file.write('\n\t"secrets_root" :\t\t\t\t"'+str(secret_root)+'",')
+    file.write('\n\t"state" :\t\t\t\t"'+str(state)+'",')
+    file.write('\n\t"value" :\t\t\t\t"'+str(value)+'",')
+    file.write('\n\t"nonce" :\t\t\t\t"'+str(note_nonce)+'"}')

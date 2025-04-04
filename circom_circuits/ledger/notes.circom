@@ -53,3 +53,18 @@ template derive_public_key(){
     out <== hash.out;
 }
 
+template derive_unit(){
+    signal input minting_covenant;
+    signal input transfer_covenant;
+    signal input burning_covenant;
+    signal output out;
+
+    component hash = Poseidon2_hash(4);
+    component dst = NOMOS_UNIT();
+    hash.inp[0] <== dst.out;
+    hash.inp[1] <== minting_covenant;
+    hash.inp[2] <== transfer_covenant;
+    hash.inp[3] <== burning_covenant;
+    out <== hash.out;
+}
+

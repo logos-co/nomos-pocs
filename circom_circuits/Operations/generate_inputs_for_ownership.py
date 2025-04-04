@@ -202,21 +202,123 @@ def PoseidonSponge(data, capacity, output_len):
 
     return output
 
-R = RealField(500) #Real numbers with precision 500 bits
+if len(sys.argv) != Integer(3):
+    print("Usage: <script> <private or public> <number of input>")
+    exit()
 
-value = F(randrange(0,2**64 - 1,1))
-unit = F(161796427070100155131822184769584603407573991022311108406630770340454367555)
-state = F(randrange(0,p,1))
-zoneID = F(randrange(0,p,1))
-nonce = F(randrange(0,p,1))
-sk = F(randrange(0,p,1))
+selector = str(sys.argv[Integer(1)])
+nInput = int(sys.argv[Integer(2)])
+
+value = [F(randrange(0,2**64 - 1,1)) for i in range(nInput)]
+unit = F(19676183153323264216568033390884511718872104179761154996527087027500271872825)
+state = [F(randrange(0,p,1)) for i in range(nInput)]
+zoneID = [F(randrange(0,p,1))  for i in range(nInput)]
+nonce = [F(randrange(0,p,1))  for i in range(nInput)]
+sk = [F(randrange(0,p,1))  for i in range(nInput)]
 
 data_msg = F(randrange(0,p,1))
 
-with open("input.json", "w") as file:
-    file.write('{\n\t"state":\t\t\t\t\t\t"'+str(state)+'",')
-    file.write('\n\t"value":\t\t\t\t\t\t"'+str(value)+'",')
-    file.write('\n\t"nonce" :\t\t\t\t\t\t"'+str(nonce)+'",')
-    file.write('\n\t"zoneID" :\t\t\t\t\t\t"'+str(zoneID)+'",')
-    file.write('\n\t"secret_key" :\t\t\t\t\t\t"'+str(sk)+'",')
-    file.write('\n\t"attached_data" :\t\t\t\t\t\t"'+str(data_msg)+'"}')
+if selector == "private":
+    if nInput == 1:
+        with open("input.json", "w") as file:
+            file.write('{\n\t"state":\t\t\t\t\t\t"'+str(state[0])+'",')
+            file.write('\n\t"value":\t\t\t\t\t\t"'+str(value[0])+'",')
+            file.write('\n\t"nonce" :\t\t\t\t\t\t"'+str(nonce[0])+'",')
+            file.write('\n\t"zoneID" :\t\t\t\t\t\t"'+str(zoneID[0])+'",')
+            file.write('\n\t"secret_key" :\t\t\t\t\t\t"'+str(sk[0])+'",')
+            file.write('\n\t"minting_covenant" :\t\t\t\t\t\t"'+str(0)+'",')
+            file.write('\n\t"transfer_covenant" :\t\t\t\t\t\t"'+str(0)+'",')
+            file.write('\n\t"burning_covenant" :\t\t\t\t\t\t"'+str(0)+'",')
+            file.write('\n\t"attached_data" :\t\t\t\t\t\t"'+str(data_msg)+'"}')
+    else:
+        with open("input.json", "w") as file:
+            file.write('{\n\t"state" :\t\t\t\t\t[')
+            for i in range(nInput):
+                file.write('"')
+                file.write(str(state[i]))
+                file.write('"')
+                if i == nInput - 1:
+                    file.write('],')
+                else:
+                    file.write(',')
+            file.write('\n\t"value" :\t\t\t\t\t[')
+            for i in range(nInput):
+                file.write('"')
+                file.write(str(value[i]))
+                file.write('"')
+                if i == nInput - 1:
+                    file.write('],')
+                else:
+                    file.write(',')
+            file.write('\n\t"nonce" :\t\t\t\t\t[')
+            for i in range(nInput):
+                file.write('"')
+                file.write(str(nonce[i]))
+                file.write('"')
+                if i == nInput - 1:
+                    file.write('],')
+                else:
+                    file.write(',')
+            file.write('\n\t"zoneID" :\t\t\t\t\t[')
+            for i in range(nInput):
+                file.write('"')
+                file.write(str(zoneID[i]))
+                file.write('"')
+                if i == nInput - 1:
+                    file.write('],')
+                else:
+                    file.write(',')
+            file.write('\n\t"secret_key" :\t\t\t\t\t[')
+            for i in range(nInput):
+                file.write('"')
+                file.write(str(sk[i]))
+                file.write('"')
+                if i == nInput - 1:
+                    file.write('],')
+                else:
+                    file.write(',')
+            file.write('\n\t"minting_covenant" :\t\t\t\t\t[')
+            for i in range(nInput):
+                file.write('"')
+                file.write(str(0))
+                file.write('"')
+                if i == nInput - 1:
+                    file.write('],')
+                else:
+                    file.write(',')
+            file.write('\n\t"transfer_covenant" :\t\t\t\t\t[')
+            for i in range(nInput):
+                file.write('"')
+                file.write(str(0))
+                file.write('"')
+                if i == nInput - 1:
+                    file.write('],')
+                else:
+                    file.write(',')
+            file.write('\n\t"burning_covenant" :\t\t\t\t\t[')
+            for i in range(nInput):
+                file.write('"')
+                file.write(str(0))
+                file.write('"')
+                if i == nInput - 1:
+                    file.write('],')
+                else:
+                    file.write(',')
+            file.write('\n\t"attached_data" :\t\t\t\t\t\t"'+str(data_msg)+'"}')
+if selector == "public":
+    if nInput == 1:
+        with open("input.json", "w") as file:
+            file.write('{\n\t"secret_key" :\t\t\t\t\t\t"'+str(sk[0])+'",')
+            file.write('\n\t"attached_data" :\t\t\t\t\t\t"'+str(data_msg)+'"}')
+    else:
+        with open("input.json", "w") as file:
+            file.write('{\n\t"secret_key" :\t\t\t\t\t[')
+            for i in range(nInput):
+                file.write('"')
+                file.write(str(sk[i]))
+                file.write('"')
+                if i == nInput - 1:
+                    file.write('],')
+                else:
+                    file.write(',')
+            file.write('\n\t"attached_data" :\t\t\t\t\t\t"'+str(data_msg)+'"}')

@@ -6,6 +6,9 @@ include "../misc/constants.circom";
 
 template transfer(nInputs, nOutputs){
 
+    signal input minting_covenant;      // Used to derive the unit and make sure the token use a no-op transfer covenant.
+    signal input burning_covenant;
+
     //consummed notes
         // notes themselves
     signal input state_in[nInputs];
@@ -30,6 +33,14 @@ template transfer(nInputs, nOutputs){
     signal input attached_data;
 
     signal output balance;
+    signal output unit;         // Disclose the unit of the transaction
+
+    //Derive the unit
+    component derive_unit = derive_unit();
+    derive_unit.minting_covenant <== minting_covenant;
+    derive_unit.transfer_covenant <== 0;                   // 0 encodes the fact that it's a no-op transfer covenant
+    derive_unit.burning_covenant <== burning_covenant;
+    unit <== derive_unit.out;
 
 
     // Verify the ownership of the consummed notes deriving the public keys from the secret keys
@@ -41,18 +52,16 @@ template transfer(nInputs, nOutputs){
 
 
     // Derive the commitments of the consummed notes
-    component nmo = NMO(); // NMO token constant
     component cm_in[nInputs];
     for(var i =0; i<nInputs; i++){
         cm_in[i] = commitment();
         cm_in[i].state <== state_in[i];
         cm_in[i].value <== value_in[i];
-        cm_in[i].unit <== nmo.out;
+        cm_in[i].unit <== unit;
         cm_in[i].nonce <== nonce_in[i];
         cm_in[i].zoneID <== zoneID_in[i];
         cm_in[i].public_key <== pk[i].out;
     }
-
 
     // Derive the nullifiers of the consummed notes
     component nf[nInputs];
@@ -88,7 +97,7 @@ template transfer(nInputs, nOutputs){
         cm_out[i] = commitment();
         cm_out[i].state <== state_out[i];
         cm_out[i].value <== value_out[i];
-        cm_out[i].unit <== nmo.out;
+        cm_out[i].unit <== unit;
         cm_out[i].nonce <== nonce_out[i];
         cm_out[i].zoneID <== zoneID_out[i];
         cm_out[i].public_key <== public_key_out[i];
@@ -110,4 +119,4 @@ template transfer(nInputs, nOutputs){
 
 }
 
-component main {public [zoneID_in,commitments_root,zoneID_out]}= transfer(1,1);
+component main {public [zoneID_in,commitments_root,zoneID_out]}= transfer(4,4);

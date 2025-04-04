@@ -212,7 +212,7 @@ nInputs = int(sys.argv[Integer(1)])
 nOutputs = int(sys.argv[Integer(2)])
 
 value_in = [F(randrange(0,10000,1) )for i in range(nInputs) ]
-unit = F(161796427070100155131822184769584603407573991022311108406630770340454367555)
+unit = F(19676183153323264216568033390884511718872104179761154996527087027500271872825)
 state_in = [F(randrange(0,p,1)) for i in range(nInputs) ]
 zone_in = [F(randrange(0,p,1)) for i in range(nInputs) ]
 note_nonce_in = [F(randrange(0,p,1)) for i in range(nInputs)]
@@ -239,7 +239,9 @@ zone_out = [F(randrange(0,p,1)) for i in range(nOutputs) ]
 
 
 with open("input.json", "w") as file:
-    file.write('{\n\t"state_in" :\t\t\t\t\t[')
+    file.write('{\n\t"minting_covenant" :\t\t\t\t"'+str(0)+'",')
+    file.write('\n\t"burning_covenant" :\t\t\t\t"'+str(0)+'",')
+    file.write('\n\t"state_in" :\t\t\t\t\t[')
     for i in range(nInputs):
         file.write('"')
         file.write(str(state_in[i]))
