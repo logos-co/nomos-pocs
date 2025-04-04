@@ -345,7 +345,7 @@ with open("input.json", "w") as file:
                 file.write('],')
             else:
                 file.write(',')
-        file.write('\n\t"unspent_root" :\t\t\t\t"'+str(cm_unspent_root)+'",')
+    file.write('\n\t"cm_unspent_root" :\t\t\t\t"'+str(cm_unspent_root)+'",')
     if anonymity == "private":
         file.write('\n\t"unspent_nodes" :\t\t\t\t\t[')
         for i in range(32):
@@ -365,7 +365,7 @@ with open("input.json", "w") as file:
                 file.write('],')
             else:
                 file.write(',')
-        file.write('\n\t"unspent_root" :\t\t\t\t"'+str(nf_root)+'",')
+    file.write('\n\t"nf_unspent_root" :\t\t\t\t"'+str(nf_root)+'",')
     file.write('\n\t"starting_slot" :\t\t\t\t"'+str(starting_slot)+'",')
     file.write('\n\t"secrets_root" :\t\t\t\t"'+str(secret_root)+'",')
     file.write('\n\t"state" :\t\t\t\t"'+str(state)+'",')

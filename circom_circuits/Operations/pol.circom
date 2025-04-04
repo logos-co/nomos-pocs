@@ -81,7 +81,8 @@ template proof_of_leadership(){
     signal input nf_next;
     signal input unspent_nodes[32];
     signal input unspent_selectors[32];         // must be bits
-    signal input unspent_root;                  // It's either the nullifier (if selector = 0) or the commitment root of the last state
+    signal input nf_unspent_root;
+    signal input cm_unspent_root;
 
     //Part of the secret key
     signal input starting_slot;
@@ -178,7 +179,7 @@ template proof_of_leadership(){
         unspent_membership.nodes[i] <== unspent_nodes[i];
         unspent_membership.selector[i] <== unspent_selectors[i];
     }
-    unspent_membership.root <== unspent_root;
+    unspent_membership.root <== (cm_unspent_root - nf_unspent_root) * selector + nf_unspent_root;
             //Compute the leaf if it's a private note representing previous nf pointing to next in the IMT
     component hash = Poseidon2_hash(2);
     hash.inp[0] <== nf_previous; 
@@ -226,4 +227,4 @@ template proof_of_leadership(){
     entropy_contrib <== entropy.out;
 } 
 
-component main {public [slot,epoch_nonce,t0,t1,commitments_aged_root,unspent_root,one_time_key]}= proof_of_leadership();
+component main {public [slot,epoch_nonce,t0,t1,commitments_aged_root,nf_unspent_root,cm_unspent_root,one_time_key]}= proof_of_leadership();
