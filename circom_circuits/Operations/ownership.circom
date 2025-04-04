@@ -11,7 +11,7 @@ template proof_of_private_note_ownership(nInput){
     signal input zoneID[nInput];
     signal input secret_key[nInput];
     signal input minting_covenant[nInput];
-    signal input transfer_covenant[nInput];
+    signal input spending_covenant[nInput];
     signal input burning_covenant[nInput];
 
     signal input attached_data;
@@ -28,7 +28,7 @@ template proof_of_private_note_ownership(nInput){
     for(var i=0; i< nInput; i++){
         unit[i] = derive_unit();
         unit[i].minting_covenant <== minting_covenant[i];
-        unit[i].transfer_covenant <== transfer_covenant[i];
+        unit[i].spending_covenant <== spending_covenant[i];
         unit[i].burning_covenant <== burning_covenant[i];
     }
 

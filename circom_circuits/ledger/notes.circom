@@ -55,7 +55,7 @@ template derive_public_key(){
 
 template derive_unit(){
     signal input minting_covenant;
-    signal input transfer_covenant;
+    signal input spending_covenant;
     signal input burning_covenant;
     signal output out;
 
@@ -63,7 +63,7 @@ template derive_unit(){
     component dst = NOMOS_UNIT();
     hash.inp[0] <== dst.out;
     hash.inp[1] <== minting_covenant;
-    hash.inp[2] <== transfer_covenant;
+    hash.inp[2] <== spending_covenant;
     hash.inp[3] <== burning_covenant;
     out <== hash.out;
 }
