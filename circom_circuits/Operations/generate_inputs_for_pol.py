@@ -220,8 +220,8 @@ if total_stake >= p:
     print("total stake must be less than p")
     exit()
     
-t0 = F(int(-((R(p) * ln(R(1) - 0.05))) / R(total_stake)))
-t1 = F(int(-((R(p) * ln(R(1) - 0.05))**2) / R(total_stake)**2))
+t0 = F(int((((- ln(R(0.95))) * R(p))) / R(total_stake) ))
+t1 = F(int((((- ln(R(0.95))**2) * R(p))) / R(total_stake)**2 ))
 
 
 value = F(50)
