@@ -1,5 +1,5 @@
 [workspace]
-members = ["evm/node", "evm/sequencer-mempool"]
+members = ["evm/sequencer-node", "evm/sequencer-mempool"]
 resolver = "3"
 
 [workspace.package]
@@ -7,7 +7,7 @@ edition = "2024"
 
 [workspace.dependencies]
 # Internal
-evm-node = { path = "evm/node" }
+evm-sequencer-node = { path = "evm/sequencer-node" }
 evm-sequencer-mempool = { path = "evm/sequencer-mempool" }
 
 # External

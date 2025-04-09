@@ -1,5 +1,5 @@
 [package]
-name = "evm-node"
+name = "evm-sequencer-node"
 edition = { workspace = true }
 
 [dependencies]
