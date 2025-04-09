@@ -205,89 +205,94 @@ def PoseidonSponge(data, capacity, output_len):
 R = RealField(500) #Real numbers with precision 500 bits
 
 if len(sys.argv) != Integer(3):
-    print("Usage: <script> <nInputs> <nOutputs> ")
+    print("Usage: <script> <maxInputs> <maxOutputs> ")
     exit()
 
-nInputs = int(sys.argv[Integer(1)])
-nOutputs = int(sys.argv[Integer(2)])
+maxInputs = int(sys.argv[Integer(1)])
+maxOutputs = int(sys.argv[Integer(2)])
 
-value_in = [F(randrange(0,10000,1) )for i in range(nInputs) ]
+value_in = [F(randrange(0,10000,1) )for i in range(maxInputs) ]
 unit = F(19676183153323264216568033390884511718872104179761154996527087027500271872825)
-state_in = [F(randrange(0,p,1)) for i in range(nInputs) ]
-zone_in = [F(randrange(0,p,1)) for i in range(nInputs) ]
-note_nonce_in = [F(randrange(0,p,1)) for i in range(nInputs)]
-sk_in = [F(randrange(0,p,1)) for i in range(nInputs)]
-pk_in = [ poseidon2_hash([F(355994159511987982411097843485998670968942801951585260613801918349630142543),sk_in[i]]) for i in range(nInputs) ]
+state_in = [F(randrange(0,p,1)) for i in range(maxInputs) ]
+zone_in = [F(randrange(0,p,1)) for i in range(maxInputs) ]
+note_nonce_in = [F(randrange(0,p,1)) for i in range(maxInputs)]
+sk_in = [F(randrange(0,p,1)) for i in range(maxInputs)]
+pk_in = [ poseidon2_hash([F(355994159511987982411097843485998670968942801951585260613801918349630142543),sk_in[i]]) for i in range(maxInputs) ]
 attached_data = F(randrange(0,p,1))
 
-note_cm_in = [poseidon2_hash([F(181645510297841241569044198526601622686169271532834574969543446901055041748),state_in[i],value_in[i],unit,note_nonce_in[i],pk_in[i],zone_in[i]]) for i in range(nInputs) ]
-cm_nodes = [[F(randrange(0,p,1)) for i in range(32)] for j in range(nInputs) ]
-cm_selectors = [format(randrange(0,2**32,1),'032b') for i in range(nInputs) ]
-cm_root = [ note_cm_in[i] for i in range(nInputs) ]
-for j in range(nInputs):
+note_cm_in = [poseidon2_hash([F(181645510297841241569044198526601622686169271532834574969543446901055041748),state_in[i],value_in[i],unit,note_nonce_in[i],pk_in[i],zone_in[i]]) for i in range(maxInputs) ]
+cm_nodes = [[F(randrange(0,p,1)) for i in range(32)] for j in range(maxInputs) ]
+cm_selectors = [format(randrange(0,2**32,1),'032b') for i in range(maxInputs) ]
+cm_root = [ note_cm_in[i] for i in range(maxInputs) ]
+for j in range(maxInputs):
     for i in range(32):
         if int(cm_selectors[j][31-i]) == 0:
             cm_root[j] = poseidon2_hash([cm_root[j],cm_nodes[j][i]])
         else:
             cm_root[j] = poseidon2_hash([cm_nodes[j][i],cm_root[j]])
 
-value_out = [F(randrange(0,10000,1) )for i in range(nOutputs) ]
-state_out = [F(randrange(0,p,1)) for i in range(nOutputs) ]
-note_nonce_out = [F(randrange(0,p,1)) for i in range(nOutputs)]
-pk_out = [ F(randrange(0,p,1)) for i in range(nOutputs)]
-zone_out = [F(randrange(0,p,1)) for i in range(nOutputs) ]
+value_out = [F(randrange(0,10000,1) )for i in range(maxOutputs) ]
+state_out = [F(randrange(0,p,1)) for i in range(maxOutputs) ]
+note_nonce_out = [F(randrange(0,p,1)) for i in range(maxOutputs)]
+pk_out = [ F(randrange(0,p,1)) for i in range(maxOutputs)]
+zone_out = [F(randrange(0,p,1)) for i in range(maxOutputs)]
+
+is_a_input_note = [F(randrange(0,1,1)) for i in range(maxInputs)]
+is_a_output_note = [F(randrange(0,1,1)) for i in range(maxOutputs)]
+is_a_input_note[0] = F(1)
+is_a_output_note[0] = F(1)
 
 
 with open("input.json", "w") as file:
     file.write('{\n\t"minting_covenant" :\t\t\t\t"'+str(0)+'",')
     file.write('\n\t"burning_covenant" :\t\t\t\t"'+str(0)+'",')
     file.write('\n\t"state_in" :\t\t\t\t\t[')
-    for i in range(nInputs):
+    for i in range(maxInputs):
         file.write('"')
         file.write(str(state_in[i]))
         file.write('"')
-        if i == (nInputs-1):
+        if i == (maxInputs-1):
             file.write('],')
         else:
             file.write(',')
     file.write('\n\t"value_in" :\t\t\t\t\t[')
-    for i in range(nInputs):
+    for i in range(maxInputs):
         file.write('"')
         file.write(str(value_in[i]))
         file.write('"')
-        if i == (nInputs-1):
+        if i == (maxInputs-1):
             file.write('],')
         else:
             file.write(',')
     file.write('\n\t"nonce_in" :\t\t\t\t\t[')
-    for i in range(nInputs):
+    for i in range(maxInputs):
         file.write('"')
         file.write(str(note_nonce_in[i]))
         file.write('"')
-        if i == (nInputs-1):
+        if i == (maxInputs-1):
             file.write('],')
         else:
             file.write(',')
     file.write('\n\t"secret_key_in" :\t\t\t\t\t[')
-    for i in range(nInputs):
+    for i in range(maxInputs):
         file.write('"')
         file.write(str(sk_in[i]))
         file.write('"')
-        if i == (nInputs-1):
+        if i == (maxInputs-1):
             file.write('],')
         else:
             file.write(',')
     file.write('\n\t"zoneID_in" :\t\t\t\t\t[')
-    for i in range(nInputs):
+    for i in range(maxInputs):
         file.write('"')
         file.write(str(zone_in[i]))
         file.write('"')
-        if i == (nInputs-1):
+        if i == (maxInputs-1):
             file.write('],')
         else:
             file.write(',')
     file.write('\n\t"cm_nodes" :\t\t\t\t\t[')
-    for i in range(nInputs):
+    for i in range(maxInputs):
         file.write('\n\t\t\t\t\t\t[')
         for j in range(32):
             file.write('"')
@@ -297,12 +302,12 @@ with open("input.json", "w") as file:
                 file.write(']')
             else:
                 file.write(',')
-        if i == (nInputs-1):
+        if i == (maxInputs-1):
             file.write('],')
         else:
             file.write(',')
     file.write('\n\t"cm_selectors" :\t\t\t\t\t[')
-    for i in range(nInputs):
+    for i in range(maxInputs):
         file.write('\n\t\t\t\t\t\t[')
         for j in range(32):
             file.write('"')
@@ -312,62 +317,80 @@ with open("input.json", "w") as file:
                 file.write(']')
             else:
                 file.write(',')
-        if i == (nInputs-1):
+        if i == (maxInputs-1):
             file.write('],')
         else:
             file.write(',')
     file.write('\n\t"commitments_root" :\t\t\t\t\t[')
-    for i in range(nInputs):
+    for i in range(maxInputs):
         file.write('"')
         file.write(str(cm_root[i]))
         file.write('"')
-        if i == (nInputs-1):
+        if i == (maxInputs-1):
+            file.write('],')
+        else:
+            file.write(',')
+    file.write('\n\t"is_a_input_note" :\t\t\t\t\t[')
+    for i in range(maxInputs):
+        file.write('"')
+        file.write(str(is_a_input_note[i]))
+        file.write('"')
+        if i == (maxInputs-1):
             file.write('],')
         else:
             file.write(',')
     file.write('\n\t"attached_data" :\t\t\t\t\t\t"'+str(attached_data)+'",')
     file.write('\n\t"state_out" :\t\t\t\t\t[')
-    for i in range(nOutputs):
+    for i in range(maxOutputs):
         file.write('"')
         file.write(str(state_out[i]))
         file.write('"')
-        if i == (nOutputs-1):
+        if i == (maxOutputs-1):
             file.write('],')
         else:
             file.write(',')
     file.write('\n\t"value_out" :\t\t\t\t\t[')
-    for i in range(nOutputs):
+    for i in range(maxOutputs):
         file.write('"')
         file.write(str(value_out[i]))
         file.write('"')
-        if i == (nOutputs-1):
+        if i == (maxOutputs-1):
             file.write('],')
         else:
             file.write(',')
     file.write('\n\t"nonce_out" :\t\t\t\t\t[')
-    for i in range(nOutputs):
+    for i in range(maxOutputs):
         file.write('"')
         file.write(str(note_nonce_out[i]))
         file.write('"')
-        if i == (nOutputs-1):
+        if i == (maxOutputs-1):
             file.write('],')
         else:
             file.write(',')
     file.write('\n\t"public_key_out" :\t\t\t\t\t[')
-    for i in range(nOutputs):
+    for i in range(maxOutputs):
         file.write('"')
         file.write(str(pk_out[i]))
         file.write('"')
-        if i == (nOutputs-1):
+        if i == (maxOutputs-1):
+            file.write('],')
+        else:
+            file.write(',')
+    file.write('\n\t"is_a_output_note" :\t\t\t\t\t[')
+    for i in range(maxOutputs):
+        file.write('"')
+        file.write(str(is_a_output_note[i]))
+        file.write('"')
+        if i == (maxOutputs-1):
             file.write('],')
         else:
             file.write(',')
     file.write('\n\t"zoneID_out" :\t\t\t\t\t[')
-    for i in range(nOutputs):
+    for i in range(maxOutputs):
         file.write('"')
         file.write(str(zone_out[i]))
         file.write('"')
-        if i == (nOutputs-1):
+        if i == (maxOutputs-1):
             file.write(']}')
         else:
             file.write(',')
