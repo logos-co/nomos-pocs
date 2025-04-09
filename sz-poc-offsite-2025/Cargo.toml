@@ -1,5 +1,5 @@
 [workspace]
-members = ["evm/evm-node"]
+members = ["evm/node", "evm/sequencer-mempool"]
 resolver = "3"
 
 [workspace.package]
@@ -7,12 +7,15 @@ edition = "2024"
 
 [workspace.dependencies]
 # Internal
-evm-node = { path = "evm/evm-node" }
+evm-node = { path = "evm/node" }
+evm-sequencer-mempool = { path = "evm/sequencer-mempool" }
 
 # External
 clap = { version = "4.5" }
+eyre = { version = "0.6" }
 futures-util = { version = "0.3" }
 jsonrpsee = { version = "0.24" }
 reth = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.8" }
 reth-cli-commands = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.8" }
 reth-node-ethereum = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.8" }
+tokio = { version = "1.0" }

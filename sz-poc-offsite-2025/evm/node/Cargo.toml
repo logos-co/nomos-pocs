@@ -3,6 +3,8 @@ name = "evm-node"
 edition = { workspace = true }
 
 [dependencies]
+evm-sequencer-mempool = { workspace = true }
+
 clap = { workspace = true }
 futures-util = { workspace = true }
 jsonrpsee = { workspace = true }
