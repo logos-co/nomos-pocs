@@ -13,7 +13,6 @@ template proof_of_private_note_ownership(maxInput){
     signal input minting_covenant[maxInput];
     signal input spending_covenant[maxInput];
     signal input burning_covenant[maxInput];
-    signal input is_an_input[maxInput];
 
     signal input attached_data;
 
