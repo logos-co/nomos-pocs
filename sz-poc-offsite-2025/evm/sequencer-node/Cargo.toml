@@ -1,0 +1,10 @@
+[package]
+name = "evm-sequencer-node"
+edition = { workspace = true }
+
+[dependencies]
+eyre = { workspace = true }
+futures = { workspace = true }
+reth = { workspace = true }
+reth-ethereum = { workspace = true, features = ["full"] }
+reth-tracing = { workspace = true }
