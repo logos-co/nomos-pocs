@@ -1,26 +1,52 @@
+use futures::TryStreamExt as _;
 use reth::cli::Cli;
-use reth_node_ethereum::node::{EthereumAddOns, EthereumNode};
+use reth_ethereum::{
+    exex::{ExExContext, ExExEvent, ExExNotification},
+    node::{EthereumNode, api::FullNodeComponents},
+};
+use reth_tracing::tracing::info;
 
-use evm_sequencer_mempool::EvmSequencerMempoolBuilder;
+async fn push_block_to_da<Node: FullNodeComponents>(
+    mut ctx: ExExContext<Node>,
+) -> eyre::Result<()> {
+    while let Some(notification) = ctx.notifications.try_next().await? {
+        match &notification {
+            ExExNotification::ChainCommitted { new } => {
+                // TODO: Push range of finalized blocks to DA, and interact with prover to generate a proof over the range.
+                info!(committed_chain = ?new.range(), "Received commit");
+            }
+            ExExNotification::ChainReorged { old, new } => {
+                info!(from_chain = ?old.range(), to_chain = ?new.range(), "Received reorg");
+            }
+            ExExNotification::ChainReverted { old } => {
+                info!(reverted_chain = ?old.range(), "Received revert");
+            }
+        };
 
-fn main() {
-    Cli::parse_args()
-        .run(|builder, _| async move {
-            // launch the node
+        if let Some(committed_chain) = notification.committed_chain() {
+            ctx.events
+                .send(ExExEvent::FinishedHeight(committed_chain.tip().num_hash()))
+                .unwrap();
+        }
+    }
+
+    Ok(())
+}
+
+fn main() -> eyre::Result<()> {
+    Cli::parse_args().run(|builder, _| {
+        Box::pin(async move {
             let handle = Box::pin(
                 builder
-                    // use the default ethereum node types
-                    .with_types::<EthereumNode>()
-                    // use default ethereum components but use our custom pool
-                    .with_components(
-                        EthereumNode::components().pool(EvmSequencerMempoolBuilder::default()),
-                    )
-                    .with_add_ons(EthereumAddOns::default())
+                    .node(EthereumNode::default())
+                    .install_exex("push-block-to-da", async move |ctx| {
+                        Ok(push_block_to_da(ctx))
+                    })
                     .launch(),
             )
             .await?;
 
             handle.wait_for_node_exit().await
         })
-        .unwrap();
+    })
 }
