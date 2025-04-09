@@ -1,0 +1,5 @@
+[package]
+name = "evm-sequencer-batcher"
+edition = { workspace = true }
+
+[dependencies]
