@@ -1,5 +1,5 @@
 [workspace]
-members = ["node"]
+members = ["evm/evm-node"]
 resolver = "3"
 
 [workspace.package]
@@ -7,7 +7,12 @@ edition = "2024"
 
 [workspace.dependencies]
 # Internal
-node = { path = "node" }
+evm-node = { path = "evm/evm-node" }
 
 # External
-tokio = { version = "1.0" }
+clap = { version = "4.5" }
+futures-util = { version = "0.3" }
+jsonrpsee = { version = "0.24" }
+reth = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.8" }
+reth-cli-commands = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.8" }
+reth-node-ethereum = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.8" }
