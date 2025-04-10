@@ -41,7 +41,16 @@ async fn aggregate_block_txs<Node: FullNodeComponents>(
 }
 
 fn main() -> eyre::Result<()> {
-    Cli::parse_args().run(|builder, _| {
+    Cli::try_parse_args_from([
+        "reth",
+        "node",
+        "--datadir=/tmp/reth-dev/",
+        "--dev",
+        "--dev.block-time=2s",
+        "--http.addr=0.0.0.0",
+    ])
+    .unwrap()
+    .run(|builder, _| {
         Box::pin(async move {
             let aggregator = Aggregator::default();
             let handle = Box::pin(
