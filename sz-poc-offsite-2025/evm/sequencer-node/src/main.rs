@@ -10,13 +10,14 @@ use reth_ethereum::{
 };
 use reth_tracing::tracing::info;
 
-pub type Block<Node> =
-    <<<Node as FullNodeTypes>::Types as NodeTypes>::Primitives as NodePrimitives>::Block;
-
 async fn aggregate_block_txs<Node: FullNodeComponents>(
     mut ctx: ExExContext<Node>,
-    mut aggregator: Aggregator<Block<Node>>,
-) -> eyre::Result<()> {
+    mut aggregator: Aggregator,
+) -> eyre::Result<()>
+where
+    <<Node as FullNodeTypes>::Types as NodeTypes>::Primitives:
+        NodePrimitives<Block = reth_ethereum::Block>,
+{
     while let Some(notification) = ctx.notifications.try_next().await? {
         let ExExNotification::ChainCommitted { new } = &notification else {
             continue;
