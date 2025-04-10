@@ -1,27 +1,34 @@
+use evm_aggregator::Aggregator;
 use futures::TryStreamExt as _;
-use reth::cli::Cli;
+use reth::{
+    api::{FullNodeTypes, NodePrimitives, NodeTypes},
+    cli::Cli,
+};
 use reth_ethereum::{
     exex::{ExExContext, ExExEvent, ExExNotification},
     node::{EthereumNode, api::FullNodeComponents},
 };
 use reth_tracing::tracing::info;
 
-async fn push_block_to_da<Node: FullNodeComponents>(
+pub type Block<Node> =
+    <<<Node as FullNodeTypes>::Types as NodeTypes>::Primitives as NodePrimitives>::Block;
+
+async fn aggregate_block_txs<Node: FullNodeComponents>(
     mut ctx: ExExContext<Node>,
+    mut aggregator: Aggregator<Block<Node>>,
 ) -> eyre::Result<()> {
     while let Some(notification) = ctx.notifications.try_next().await? {
-        match &notification {
-            ExExNotification::ChainCommitted { new } => {
-                // TODO: Push range of finalized blocks to DA, and interact with prover to generate a proof over the range.
-                info!(committed_chain = ?new.range(), "Received commit");
-            }
-            ExExNotification::ChainReorged { old, new } => {
-                info!(from_chain = ?old.range(), to_chain = ?new.range(), "Received reorg");
-            }
-            ExExNotification::ChainReverted { old } => {
-                info!(reverted_chain = ?old.range(), "Received revert");
-            }
+        let ExExNotification::ChainCommitted { new } = &notification else {
+            continue;
         };
+        info!(committed_chain = ?new.range(), "Received commit");
+        aggregator.process_blocks(
+            new.inner()
+                .0
+                .clone()
+                .into_blocks()
+                .map(reth_ethereum::primitives::RecoveredBlock::into_block),
+        );
 
         if let Some(committed_chain) = notification.committed_chain() {
             ctx.events
@@ -36,11 +43,12 @@ async fn push_block_to_da<Node: FullNodeComponents>(
 fn main() -> eyre::Result<()> {
     Cli::parse_args().run(|builder, _| {
         Box::pin(async move {
+            let aggregator = Aggregator::default();
             let handle = Box::pin(
                 builder
                     .node(EthereumNode::default())
-                    .install_exex("push-block-to-da", async move |ctx| {
-                        Ok(push_block_to_da(ctx))
+                    .install_exex("aggregate-block-txs", async move |ctx| {
+                        Ok(aggregate_block_txs(ctx, aggregator))
                     })
                     .launch(),
             )
