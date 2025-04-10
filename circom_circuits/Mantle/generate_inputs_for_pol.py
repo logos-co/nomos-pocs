@@ -250,40 +250,49 @@ while(ticket > threshold):
     note_nonce += 1
     note_cm = poseidon2_hash([F(181645510297841241569044198526601622686169271532834574969543446901055041748),state,value,unit,note_nonce,pk,F(363778563868520716613768381832117227806204156179492995214325445980623358665)])
     ticket = poseidon2_hash([F(137836078329650723736739065075984465408055658421620421917147974048265460598),F(epoch_nonce),F(slot_number),note_cm,sk])
-    
-cm_aged_nodes = [F(randrange(0,p,1)) for i in range(32)]
-cm_aged_selectors = randrange(0,2**32,1)
-cm_aged_selectors = format(cm_aged_selectors,'032b')
+ 
+tx_hash = F(randrange(0,p,1))
+output_number = F(randrange(0,4,1))
+note_id = poseidon2_hash([F(342101038445105569972307194441697646307927876218883552376182649811837164915),tx_hash,output_number,note_cm])
+
+aged_nodes = [F(randrange(0,p,1)) for i in range(32)]
+aged_selectors = randrange(0,2**32,1)
+aged_selectors = format(aged_selectors,'032b')
 cm_aged_root = note_cm
 for i in range(32):
-    if int(cm_aged_selectors[31-i]) == 0:
-        cm_aged_root = poseidon2_hash([cm_aged_root,cm_aged_nodes[i]])
+    if int(aged_selectors[31-i]) == 0:
+        cm_aged_root = poseidon2_hash([cm_aged_root,aged_nodes[i]])
     else:
-        cm_aged_root = poseidon2_hash([cm_aged_nodes[i],cm_aged_root])
+        cm_aged_root = poseidon2_hash([aged_nodes[i],cm_aged_root])
 
-cm_unspent_nodes = [F(randrange(0,p,1)) for i in range(32)]
-cm_unspent_selectors = randrange(0,2**32,1)
-cm_unspent_selectors = format(cm_unspent_selectors,'032b')
-cm_unspent_root = note_cm
+note_id_aged_root = note_id
 for i in range(32):
-    if int(cm_unspent_selectors[31-i]) == 0:
-        cm_unspent_root = poseidon2_hash([cm_unspent_root,cm_unspent_nodes[i]])
+    if int(aged_selectors[31-i]) == 0:
+        note_id_aged_root = poseidon2_hash([note_id_aged_root,aged_nodes[i]])
     else:
-        cm_unspent_root = poseidon2_hash([cm_unspent_nodes[i],cm_unspent_root])
+        note_id_aged_root = poseidon2_hash([aged_nodes[i],note_id_aged_root])
+
+unspent_nodes = [F(randrange(0,p,1)) for i in range(32)]
+unspent_selectors = randrange(0,2**32,1)
+unspent_selectors = format(unspent_selectors,'032b')
+
+note_id_unspent_root = note_id
+for i in range(32):
+    if int(unspent_selectors[31-i]) == 0:
+        note_id_unspent_root = poseidon2_hash([note_id_unspent_root,unspent_nodes[i]])
+    else:
+        note_id_unspent_root = poseidon2_hash([unspent_nodes[i],note_id_unspent_root])
 
 note_nf = poseidon2_hash([F(310945536431723660304787929213143698356852257431717126117833288836338828411),note_cm,sk])
 nf_previous = F(randrange(0,note_nf,1))
 nf_next = F(randrange(note_nf+1,p,1))
-nf_nodes = [F(randrange(0,p,1)) for i in range(32)]
-nf_selectors = randrange(0,2**32,1)
-nf_selectors = format(nf_selectors,'032b')
 
 nf_root = poseidon2_hash([nf_previous, nf_next])
 for i in range(32):
-    if int(nf_selectors[31-i]) == 0:
-        nf_root = poseidon2_hash([nf_root,nf_nodes[i]])
+    if int(unspent_selectors[31-i]) == 0:
+        nf_root = poseidon2_hash([nf_root,unspent_nodes[i]])
     else:
-        nf_root = poseidon2_hash([nf_nodes[i],nf_root])
+        nf_root = poseidon2_hash([unspent_nodes[i],nf_root])
         
 with open("input.json", "w") as file:
     file.write('{\n\t"slot":\t\t\t\t\t\t"'+str(slot_number)+'",')
@@ -305,66 +314,49 @@ with open("input.json", "w") as file:
             file.write('],')
         else:
             file.write(',')
-    file.write('\n\t"cm_aged_nodes" :\t\t\t\t\t[')
+    file.write('\n\t"aged_nodes" :\t\t\t\t\t[')
     for i in range(32):
         file.write('"')
-        file.write(str(cm_aged_nodes[i]))
+        file.write(str(aged_nodes[i]))
         file.write('"')
         if i == 31:
             file.write('],')
         else:
             file.write(',')
-    file.write('\n\t"cm_aged_selectors" :\t\t\t\t\t[')
+    file.write('\n\t"aged_selectors" :\t\t\t\t\t[')
     for i in range(32):
         file.write('"')
-        file.write(str(cm_aged_selectors[i]))
+        file.write(str(aged_selectors[i]))
         file.write('"')
         if i == 31:
             file.write('],')
         else:
             file.write(',')
     file.write('\n\t"commitments_aged_root" :\t\t\t\t"'+str(cm_aged_root)+'",')
+    file.write('\n\t"note_id_aged_root" :\t\t\t\t"'+str(note_id_aged_root)+'",')
+    file.write('\n\t"transaction_hash" :\t\t\t\t"'+str(tx_hash)+'",')
+    file.write('\n\t"output_number" :\t\t\t\t"'+str(output_number)+'",')
     file.write('\n\t"nf_previous" :\t\t\t\t"'+str(nf_previous)+'",')
     file.write('\n\t"nf_next" :\t\t\t\t"'+str(nf_next)+'",')
-    if anonymity == "public":
-        file.write('\n\t"unspent_nodes" :\t\t\t\t\t[')
-        for i in range(32):
-            file.write('"')
-            file.write(str(cm_unspent_nodes[i]))
-            file.write('"')
-            if i == 31:
-                file.write('],')
-            else:
-                file.write(',')
-        file.write('\n\t"unspent_selectors" :\t\t\t\t\t[')
-        for i in range(32):
-            file.write('"')
-            file.write(str(cm_unspent_selectors[i]))
-            file.write('"')
-            if i == 31:
-                file.write('],')
-            else:
-                file.write(',')
-    file.write('\n\t"cm_unspent_root" :\t\t\t\t"'+str(cm_unspent_root)+'",')
-    if anonymity == "private":
-        file.write('\n\t"unspent_nodes" :\t\t\t\t\t[')
-        for i in range(32):
-            file.write('"')
-            file.write(str(nf_nodes[i]))
-            file.write('"')
-            if i == 31:
-                file.write('],')
-            else:
-                file.write(',')
-        file.write('\n\t"unspent_selectors" :\t\t\t\t\t[')
-        for i in range(32):
-            file.write('"')
-            file.write(str(nf_selectors[i]))
-            file.write('"')
-            if i == 31:
-                file.write('],')
-            else:
-                file.write(',')
+    file.write('\n\t"unspent_nodes" :\t\t\t\t\t[')
+    for i in range(32):
+        file.write('"')
+        file.write(str(unspent_nodes[i]))
+        file.write('"')
+        if i == 31:
+            file.write('],')
+        else:
+            file.write(',')
+    file.write('\n\t"unspent_selectors" :\t\t\t\t\t[')
+    for i in range(32):
+        file.write('"')
+        file.write(str(unspent_selectors[i]))
+        file.write('"')
+        if i == 31:
+            file.write('],')
+        else:
+            file.write(',')
+    file.write('\n\t"note_id_unspent_root" :\t\t\t\t"'+str(note_id_unspent_root)+'",')
     file.write('\n\t"nf_unspent_root" :\t\t\t\t"'+str(nf_root)+'",')
     file.write('\n\t"starting_slot" :\t\t\t\t"'+str(starting_slot)+'",')
     file.write('\n\t"secrets_root" :\t\t\t\t"'+str(secret_root)+'",')

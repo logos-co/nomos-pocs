@@ -58,7 +58,7 @@ template derive_entropy(){
 
 
 template proof_of_leadership(){
-    signal input selector;              // 0 if the note is private and 1 if the note is public
+    signal input selector;              // 0 if the note is shielded and 1 if the note is unshielded
 
     // Check that the selector is indeed a bit
     selector * (1- selector) === 0;
@@ -70,11 +70,17 @@ template proof_of_leadership(){
     signal input slot_secret;
     signal input slot_secret_path[25];
 
-    //Part of the commitment proof of membership to prove aged
-    signal input cm_aged_nodes[32];
-    signal input cm_aged_selectors[32];         // must be bits
+    //Part of the commitment or note id proof of membership to prove aged
+    signal input aged_nodes[32];
+    signal input aged_selectors[32];         // must be bits
     signal input commitments_aged_root;
+    signal input note_id_aged_root;
 
+
+    //Used to derive the note identifier, it can be dumb inputs if it's a shielded note
+    signal input transaction_hash;
+    signal input output_number;
+    
     
     //Part of the nullifer proof of non-membership/commitment proof of membership to prove the note is unspent
     signal input nf_previous;       // Can be mocked and set to any value if selector == 1 as long as previous < nullifier < next
@@ -82,7 +88,7 @@ template proof_of_leadership(){
     signal input unspent_nodes[32];
     signal input unspent_selectors[32];         // must be bits
     signal input nf_unspent_root;
-    signal input cm_unspent_root;
+    signal input note_id_unspent_root;
 
     //Part of the secret key
     signal input starting_slot;
@@ -131,19 +137,27 @@ template proof_of_leadership(){
     nf.secret_key <== sk.out;
 
 
+    // Derive the note id
+    component note_id = Poseidon2_hash(4);
+    component dst_note_id = NOMOS_NOTE_ID();
+    note_id.inp[0] <== dst_note_id.out;
+    note_id.inp[1] <== transaction_hash;
+    note_id.inp[2] <== output_number;
+    note_id.inp[3] <== cm.out;
+
     // Check commitment membership (is aged enough)
             //First check selectors are indeed bits
     for(var i = 0; i < 32; i++){
-        cm_aged_selectors[i] * (1 - cm_aged_selectors[i]) === 0;
+        aged_selectors[i] * (1 - aged_selectors[i]) === 0;
     }
             //Then check the proof of membership
-    component cm_aged_membership = proof_of_membership(32);
+    component aged_membership = proof_of_membership(32);
     for(var i = 0; i < 32; i++){
-        cm_aged_membership.nodes[i] <== cm_aged_nodes[i];
-        cm_aged_membership.selector[i] <== cm_aged_selectors[i];
+        aged_membership.nodes[i] <== aged_nodes[i];
+        aged_membership.selector[i] <== aged_selectors[i];
     }
-    cm_aged_membership.root <== commitments_aged_root;
-    cm_aged_membership.leaf <== cm.out;
+    aged_membership.root <==  (note_id_aged_root - commitments_aged_root) * selector + commitments_aged_root;
+    aged_membership.leaf <== (note_id.out - cm.out) * selector + cm.out;
 
 
     // Compute the lottery ticket
@@ -173,18 +187,18 @@ template proof_of_leadership(){
     for(var i = 0; i < 32; i++){
         unspent_selectors[i] * (1 - unspent_selectors[i]) === 0;
     }
-            //Then check the proof of membership (that the nullifier leaf is in the set or that the commitment is)
+            //Then check the proof of membership (that the nullifier leaf is in the set or that the note identifier is)
     component unspent_membership = proof_of_membership(32);
     for(var i = 0; i < 32; i++){
         unspent_membership.nodes[i] <== unspent_nodes[i];
         unspent_membership.selector[i] <== unspent_selectors[i];
     }
-    unspent_membership.root <== (cm_unspent_root - nf_unspent_root) * selector + nf_unspent_root;
+    unspent_membership.root <== (note_id_unspent_root - nf_unspent_root) * selector + nf_unspent_root;
             //Compute the leaf if it's a private note representing previous nf pointing to next in the IMT
     component hash = Poseidon2_hash(2);
     hash.inp[0] <== nf_previous; 
     hash.inp[1] <== nf_next;
-    unspent_membership.leaf <== (cm.out - hash.out) * selector + hash.out;  // the leaf is then either the commitment or the leaf computed before
+    unspent_membership.leaf <== (note_id.out - hash.out) * selector + hash.out;  // the leaf is then either the note identifier or the leaf computed before
 
             // Check that nullifier stictly falls between previous and next if the note is private.
             // If the note is public previous and next can be any values such that previous < nullifier < next
@@ -227,4 +241,4 @@ template proof_of_leadership(){
     entropy_contrib <== entropy.out;
 } 
 
-component main {public [slot,epoch_nonce,t0,t1,commitments_aged_root,nf_unspent_root,cm_unspent_root,one_time_key]}= proof_of_leadership();
+component main {public [slot,epoch_nonce,t0,t1,commitments_aged_root,note_id_aged_root,nf_unspent_root,note_id_unspent_root,one_time_key]}= proof_of_leadership();
