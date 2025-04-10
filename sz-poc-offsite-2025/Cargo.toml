@@ -1,5 +1,5 @@
 [workspace]
-members = ["evm/sequencer-node"]
+members = ["evm/aggregator", "evm/sequencer-node"]
 resolver = "3"
 
 [workspace.package]
@@ -7,6 +7,7 @@ edition = "2024"
 
 [workspace.dependencies]
 # Internal
+evm-aggregator = { path = "evm/aggregator" }
 evm-sequencer-node = { path = "evm/sequencer-node" }
 
 # External
@@ -14,4 +15,5 @@ eyre = { version = "0.6" }
 futures = { version = "0.3" }
 reth = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.8" }
 reth-ethereum = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.8" }
+reth-ethereum-primitives = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.8" }
 reth-tracing = { git = "https://github.com/paradigmxyz/reth", tag = "v1.3.8" }

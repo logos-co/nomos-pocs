@@ -1,0 +1,6 @@
+[package]
+name = "evm-aggregator"
+edition = { workspace = true }
+
+[dependencies]
+reth-ethereum = { workspace = true }
