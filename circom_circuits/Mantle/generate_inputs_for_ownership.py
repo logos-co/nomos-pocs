@@ -202,7 +202,7 @@ def PoseidonSponge(data, capacity, output_len):
 
     return output
 
-if len(sys.argv) != Integer(3):
+if len(sys.argv) != Integer(2):
     print("Usage: <script> <number of input>")
     exit()
 
