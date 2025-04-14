@@ -31,11 +31,9 @@ where
                 .map(reth_ethereum::primitives::RecoveredBlock::into_block),
         );
 
-        if let Some(committed_chain) = notification.committed_chain() {
-            ctx.events
-                .send(ExExEvent::FinishedHeight(committed_chain.tip().num_hash()))
-                .unwrap();
-        }
+        ctx.events
+            .send(ExExEvent::FinishedHeight(new.tip().num_hash()))
+            .unwrap();
     }
 
     Ok(())
