@@ -1,0 +1,14 @@
+[package]
+name = "evm-sequencer-node"
+edition = { workspace = true }
+
+[dependencies]
+
+evm-aggregator = { workspace = true }
+
+eyre = { workspace = true }
+futures = { workspace = true }
+reth = { workspace = true }
+reth-ethereum = { workspace = true, features = ["full"] }
+reth-ethereum-primitives = { workspace = true }
+reth-tracing = { workspace = true }
