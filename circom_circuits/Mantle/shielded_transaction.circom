@@ -6,8 +6,7 @@ include "../misc/constants.circom";
 
 template shielded_transaction(maxInputs, maxOutputs){
 
-    signal input minting_covenant;      // Used to derive the unit and make sure the token use a no-op spending covenant.
-    signal input burning_covenant;
+    signal input unit_arg_cm;      // Used to derive the unit and make sure the token use a no-op spending covenant.
 
     //consummed notes
         // notes themselves
@@ -40,9 +39,10 @@ template shielded_transaction(maxInputs, maxOutputs){
 
     //Derive the unit
     component derive_unit = derive_unit();
-    derive_unit.minting_covenant <== minting_covenant;
+    derive_unit.minting_covenant <== 0;
     derive_unit.spending_covenant <== 0;                   // 0 encodes the fact that it's a no-op transfer covenant
-    derive_unit.burning_covenant <== burning_covenant;
+    derive_unit.burning_covenant <== 0;
+    derive_unit.unit_arg_cm <== unit_arg_cm;
     unit <== derive_unit.out;
 
 

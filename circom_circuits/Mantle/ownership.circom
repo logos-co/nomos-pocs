@@ -23,4 +23,4 @@ template proof_of_unshielded_note_ownership(maxInput){
     dummy <== attached_data * attached_data;
 }
 
-component main {public [attached_data]}= proof_of_unshielded_note_ownership(1);
+component main {public [attached_data]}= proof_of_unshielded_note_ownership(5);

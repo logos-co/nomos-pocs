@@ -212,7 +212,7 @@ maxInputs = int(sys.argv[Integer(1)])
 maxOutputs = int(sys.argv[Integer(2)])
 
 value_in = [F(randrange(0,10000,1) )for i in range(maxInputs) ]
-unit = F(19676183153323264216568033390884511718872104179761154996527087027500271872825)
+unit = F(10779557959052216631390333682740231728667240537997953966056427002575892499162)
 state_in = [F(randrange(0,p,1)) for i in range(maxInputs) ]
 zone_in = [F(randrange(0,p,1)) for i in range(maxInputs) ]
 note_nonce_in = [F(randrange(0,p,1)) for i in range(maxInputs)]
@@ -244,8 +244,7 @@ is_a_output_note[0] = F(1)
 
 
 with open("input.json", "w") as file:
-    file.write('{\n\t"minting_covenant" :\t\t\t\t"'+str(0)+'",')
-    file.write('\n\t"burning_covenant" :\t\t\t\t"'+str(0)+'",')
+    file.write('{\n\t"unit_arg_cm" :\t\t\t\t"'+str(0)+'",')
     file.write('\n\t"state_in" :\t\t\t\t\t[')
     for i in range(maxInputs):
         file.write('"')

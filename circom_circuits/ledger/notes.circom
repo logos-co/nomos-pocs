@@ -57,14 +57,16 @@ template derive_unit(){
     signal input minting_covenant;
     signal input spending_covenant;
     signal input burning_covenant;
+    signal input unit_arg_cm;
     signal output out;
 
-    component hash = Poseidon2_hash(4);
+    component hash = Poseidon2_hash(5);
     component dst = NOMOS_UNIT();
     hash.inp[0] <== dst.out;
     hash.inp[1] <== minting_covenant;
     hash.inp[2] <== spending_covenant;
     hash.inp[3] <== burning_covenant;
+    hash.inp[4] <== unit_arg_cm;
     out <== hash.out;
 }
 
