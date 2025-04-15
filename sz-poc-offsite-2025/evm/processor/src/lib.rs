@@ -4,6 +4,7 @@ pub use executor_http_client::BasicAuthCredentials;
 use reqwest::Url;
 use reth_tracing::tracing::{info, error};
 use kzgrs_backend::{dispersal::Metadata, encoder::DaEncoderParams};
+
 pub struct Processor {
     da: NomosDa,
 }
