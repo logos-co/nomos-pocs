@@ -48,6 +48,7 @@ fn main() -> eyre::Result<()> {
         "--dev",
         "--dev.block-time=2s",
         "--http.addr=0.0.0.0",
+        "--http.port=8546",
     ])
     .unwrap()
     .run(|builder, _| {
