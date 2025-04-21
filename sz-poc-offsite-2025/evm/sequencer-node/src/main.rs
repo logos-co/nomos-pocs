@@ -45,7 +45,6 @@ fn main() -> eyre::Result<()> {
     Cli::try_parse_args_from([
         "reth",
         "node",
-        "--datadir=/tmp/reth-dev/",
         "--dev",
         "--dev.block-time=2s",
         "--http.addr=0.0.0.0",

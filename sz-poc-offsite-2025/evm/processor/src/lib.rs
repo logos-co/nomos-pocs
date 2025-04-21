@@ -54,8 +54,9 @@ impl NomosDa {
     }   
 
     pub async fn disperse(&self, data: Vec<u8>, metadata: Metadata) -> Result<(), Error> {
-        self.client
-            .publish_blob(self.url.clone(), data, metadata).await
-            
+        // self.client
+        //     .publish_blob(self.url.clone(), data, metadata).await
+
+           Ok(()) 
     }
 }
