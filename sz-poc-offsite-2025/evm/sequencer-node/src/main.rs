@@ -46,6 +46,7 @@ fn main() -> eyre::Result<()> {
         "reth",
         "node",
         "--dev",
+        "--rpc.eth-proof-window=2048",
         "--dev.block-time=2s",
         "--http.addr=0.0.0.0",
         "--http.port=8546",
