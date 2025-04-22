@@ -1,5 +1,5 @@
 use clap::Parser;
-use std::{process::Command, thread, time::Duration};
+use std::{path::PathBuf, process::Command, thread, time::Duration};
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about = "Ethereum Proof Generation Tool")]
@@ -32,22 +32,28 @@ fn run_ethereum_prove(
         block_number + batch_size - 1
     );
 
-    let mut output = Command::new("just");
+    let binary_path = if let Some(dir) = &zeth_binary_dir {
+        let mut path = PathBuf::from(dir);
+        path.push("zeth-ethereum");
+        path
+    } else {
+        return Err("No binary directory provided".to_string());
+    };
 
-    if let Some(ref dir) = zeth_binary_dir {
-        output.current_dir(dir);
+    if !binary_path.exists() {
+        return Err(format!("Binary not found at: {}", binary_path.display()));
     }
 
-    let output = output
+    let output = Command::new(&binary_path)
+        .env("RUST_LOG", "info")
         .args([
-            "ethereum",
             "prove",
             &format!("--rpc={}", rpc),
             &format!("--block-number={}", block_number),
             &format!("--block-count={}", batch_size),
         ])
         .output()
-        .map_err(|e| format!("Failed to execute just ethereum prove: {}", e))?;
+        .map_err(|e| format!("Failed to execute zeth-ethereum prove: {}", e))?;
 
     if !output.status.success() {
         return Err(format!(
