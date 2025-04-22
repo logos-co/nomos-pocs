@@ -1,6 +1,0 @@
-
-
-run bin +ARGS:
-    RUST_LOG=info ./zeth-{{bin}} {{ARGS}}
-
-ethereum +ARGS: (run "ethereum" ARGS)
