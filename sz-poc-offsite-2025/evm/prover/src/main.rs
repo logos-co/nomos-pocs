@@ -15,16 +15,30 @@ struct Args {
 
     #[clap(long, default_value = "5")]
     interval: u64,
+
+    #[clap(long)]
+    zeth_binary_dir: Option<String>,
 }
 
-fn run_ethereum_prove(rpc: &str, block_number: u64, batch_size: u64) -> Result<(), String> {
+fn run_ethereum_prove(
+    rpc: &str,
+    block_number: u64,
+    batch_size: u64,
+    zeth_binary_dir: Option<String>,
+) -> Result<(), String> {
     println!(
         "Running Ethereum prove for blocks {}-{}",
         block_number,
         block_number + batch_size - 1
     );
 
-    let output = Command::new("just")
+    let mut output = Command::new("just");
+
+    if let Some(ref dir) = zeth_binary_dir {
+        output.current_dir(dir);
+    }
+
+    let output = output
         .args([
             "ethereum",
             "prove",
@@ -93,7 +107,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     println!("Starting Ethereum prover...");
-    // todo: read current block from state maybe
+    // todo: implement state if needed
     let mut current_block = args.start_block;
     loop {
         match get_latest_block(&args.rpc) {
@@ -104,7 +118,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         current_block, latest_block
                     );
 
-                    match run_ethereum_prove(&args.rpc, current_block, args.batch_size) {
+                    match run_ethereum_prove(
+                        &args.rpc,
+                        current_block,
+                        args.batch_size,
+                        args.zeth_binary_dir.clone(),
+                    ) {
                         Ok(_) => {
                             current_block += args.batch_size;
                             println!("Updated current block to {}", current_block);
@@ -115,17 +134,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 } else {
                     println!(
-                        "No new blocks to process. Current: {}, Latest: {}",
+                        "No new blocks to process. Current: {}, Latest: {}, sleeeping...",
                         current_block, latest_block
                     );
+                    thread::sleep(Duration::from_secs(args.interval));
                 }
             }
             Err(e) => {
                 eprintln!("Error getting latest block: {}", e);
             }
         }
-
-        println!("Sleeping for {} seconds...", args.interval);
-        thread::sleep(Duration::from_secs(args.interval));
     }
 }
