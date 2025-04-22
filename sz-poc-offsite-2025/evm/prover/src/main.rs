@@ -1,9 +1,9 @@
 use clap::Parser;
 use reqwest::blocking::Client;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::{path::PathBuf, process::Command, thread, time::Duration};
 use tracing::{debug, error, info};
-use tracing_subscriber::{EnvFilter, fmt};
+use tracing_subscriber::{fmt, EnvFilter};
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about = "Ethereum Proof Generation Tool")]
