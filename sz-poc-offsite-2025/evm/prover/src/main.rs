@@ -40,14 +40,13 @@ fn run_ethereum_prove(
         block_number + batch_size - 1
     );
 
-    let mut binary_path = if let Some(dir) = &zeth_binary_dir {
-        PathBuf::from(dir)
+    let binary_path = if let Some(dir) = &zeth_binary_dir {
+        let mut path = PathBuf::from(dir);
+        path.push("zeth-ethereum");
+        path
     } else {
-        debug!("No binary directory provided, trying current directory");
-        std::env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?
+        return Err("No binary directory provided".to_string());
     };
-
-    binary_path.push("zeth-ethereum");
 
     if !binary_path.exists() {
         return Err(format!("Binary not found at: {}", binary_path.display()));
