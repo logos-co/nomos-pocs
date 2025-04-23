@@ -20,10 +20,10 @@ impl Processor {
             let metadata = Metadata::new([0; 32], block.number.into());
             // the node expects blobs to be padded to the next chunk size
             let remainder = blob.len() % DaEncoderParams::MAX_BLS12_381_ENCODING_CHUNK_SIZE;
-            blob.extend(
-                std::iter::repeat(0)
-                    .take(DaEncoderParams::MAX_BLS12_381_ENCODING_CHUNK_SIZE - remainder),
-            );
+            blob.extend(std::iter::repeat_n(
+                0,
+                DaEncoderParams::MAX_BLS12_381_ENCODING_CHUNK_SIZE - remainder,
+            ));
             if let Err(e) = self.da.disperse(blob, metadata).await {
                 error!("Failed to disperse block: {e}");
             } else {
