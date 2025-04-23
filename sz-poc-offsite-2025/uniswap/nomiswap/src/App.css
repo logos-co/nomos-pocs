@@ -1,71 +1,146 @@
+/* ===== Color Variables ===== */
+:root {
+  --bg-color: #f8f9fa;
+  /* Light neutral background */
+  --text-primary: #1a202c;
+  /* Dark slate for primary text */
+  --text-secondary: #4a5568;
+  /* Slightly lighter text */
+  --border-color: #e2e8f0;
+  /* Soft border color */
+  --accent-color: #dc2626;
+  /* Refined red for accents */
+  --hover-bg: #b91c1c;
+  /* Darker red for hover states */
+  --text-hover: #ffffff;
+  /* White text on colored bg */
+  --container-border: #cbd5e0;
+  /* Container border */
+  --input-bg: #ffffff;
+  /* White input backgrounds */
+  --border-radius: 6px;
+  /* Slightly rounded corners */
+}
+
+
+/* ===== Base Styles ===== */
 body {
-  background-color: #f4f4f4;
-  color: #555555;
-
-  font-family: Arial, Helvetica, sans-serif;
-
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  font-family: 'Space Grotesk', sans-serif;
   font-size: 15px;
-  font-weight: normal;
-
-  line-height: 1em;
+  line-height: 1.6em;
   margin: 0;
 }
 
+/* ===== Layout Containers ===== */
 .outer {
-  padding: 10px;
+  padding: 0.75rem;
 }
 
 .container {
   width: 80%;
-  margin: auto;
-  border: 5px #333333 solid;
-  padding: 10px;
-  border-radius: 25px;
+  margin: 2rem auto;
+  border: 2px solid var(--container-border);
+  padding: 1.25rem;
+  border-radius: 12px;
+  background: var(--input-bg);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.input {
-  width: 1;
-  color: #777;
-  padding: 8;
-  margin: 10;
-  width: 200;
-}
-
+/* ===== Form Elements ===== */
 .myform {
-  padding: 20px;
+  padding: 1.25rem;
 }
 
 .myform input[type="text"],
-.myform textarea {
-  padding: 8px;
+.myform textarea,
+.input {
   width: 100%;
+  padding: 0.625rem 0.75rem;
+  margin: 0.5rem 0;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1rem;
+  color: var(--text-primary);
+  background: var(--input-bg);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
 }
 
+.myform input[type="text"]:focus,
+.myform textarea:focus {
+  border-color: var(--accent-color);
+  background-color: #fff8f8;
+  box-shadow: 0 0 0 2px rgba(229, 62, 62, 0.2);
+  outline: none;
+}
+
+/* ===== Column Layouts ===== */
 .column {
-  padding: 20px;
+  padding: 1.25rem;
   float: left;
   width: 50%;
+  box-sizing: border-box;
 }
 
 .column_aut {
-  padding: 20px;
+  padding: 1.25rem;
   float: left;
-  width: 33%;
+  width: 33.33%;
+  box-sizing: border-box;
 }
 
+/* ===== Components ===== */
 .Token_message {
   display: inline;
+  color: #2d3748;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .swap {
-  padding: 10px;
+  padding: 0.75rem 0;
 }
 
 .swap_button {
   float: right;
+  background-color: var(--accent-color);
+  color: white;
+  padding: 0.625rem 1.25rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.swap_button:hover {
+  background-color: #c53030;
+  transform: scale(1.03);
+}
+
+.swap_button:active {
+  transform: scale(0.98);
 }
 
 .markdown {
   width: 80%;
-  margin: auto;
+  margin: 2rem auto;
+  line-height: 1.6em;
+}
+
+@media (max-width: 768px) {
+
+  .column,
+  .column_aut {
+    width: 100%;
+    float: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
 }
