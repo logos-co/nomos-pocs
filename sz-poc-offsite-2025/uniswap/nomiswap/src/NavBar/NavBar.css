@@ -1,13 +1,40 @@
+/* ===== Color Variables ===== */
+:root {
+  --bg-color: #f8f9fa;
+  --text-primary: #1a202c;
+  --text-secondary: #4a5568;
+  /* Slightly lighter text */
+  --border-color: #e2e8f0;
+  /* Soft border color */
+  --accent-color: #dc2626;
+  /* Refined red for accents */
+  --hover-bg: #d32222;
+  /* Darker red for hover states */
+  --text-hover: #ffffff;
+  /* White text on colored bg */
+  --container-border: #cbd5e0;
+  /* Container border */
+  --input-bg: #ffffff;
+  /* White input backgrounds */
+  --border-radius: 6px;
+  /* Slightly rounded corners */
+}
+
+
+/* ===== Title Bar ===== */
 .Title {
-  background: #f4f4f4;
+  background: var(--bg-color);
   height: 50px;
   text-align: left;
   margin-left: 25%;
   font-size: 1rem;
+  font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+  color: var(--text-primary);
 }
 
+/* ===== Main Nav Container ===== */
 .NavbarItems {
-  background: #f4f4f4;
+  background: var(--bg-color);
   height: 80px;
   display: flex;
   justify-content: left;
@@ -16,19 +43,28 @@
   width: 75%;
   text-align: left;
   margin-left: 25%;
+  font-family: 'Inter', -apple-system, sans-serif;
 }
 
+/* ===== Logo Styles ===== */
 .navbar-logo {
-  color: rgb(226, 23, 23);
+  color: var(--accent-color);
   justify-self: start;
   margin-left: 0px;
   cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.navbar-logo:hover {
+  opacity: 0.9;
 }
 
 .logo {
   width: 230px;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.1));
 }
 
+/* ===== Navigation Menu ===== */
 .nav-menu {
   display: grid;
   grid-template-columns: repeat(5, auto);
@@ -38,25 +74,65 @@
   justify-content: end;
   padding-top: 1rem;
   padding-left: 0rem;
-  font-size: 25px;
+  font-size: 1.1rem;
+  font-weight: 500;
 }
 
+/* ===== Link Styles ===== */
 .nav-links {
-  color: rgb(73, 73, 73);
+  color: var(--text-primary);
   text-decoration: none;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--border-radius);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nav-links:hover,
+.nav-links:focus-visible {
+  color: var(--text-hover);
+  background-color: var(--hover-bg);
+  text-decoration: none;
+  border-radius: var(--border-radius);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.nav-links:focus-visible {
+  outline: 2px dashed var(--accent-color);
+  outline-offset: 2px;
 }
 
 .nav-links-clicked {
-  color: white;
-  background-color: red;
+  color: var(--text-hover);
+  background-color: var(--accent-color);
   text-decoration: none;
-  border-radius: 4px;
+  border-radius: var(--border-radius);
+  box-shadow: 0 2px 4px rgba(229, 62, 62, 0.2);
 }
 
-.nav-links:hover {
-  color: white;
-  background-color: red;
-  text-decoration: none;
-  border-radius: 4px;
-  transition: all 0.2s ease-out;
+/* ===== Responsive Nav ===== */
+@media (max-width: 768px) {
+
+  .NavbarItems,
+  .Title {
+    margin-left: 0;
+    width: 100%;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+
+  .nav-menu {
+    grid-template-columns: repeat(2, 1fr);
+    grid-gap: 20px;
+    justify-content: center;
+  }
+}
+
+/* ===== Motion Reduction ===== */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
 }
