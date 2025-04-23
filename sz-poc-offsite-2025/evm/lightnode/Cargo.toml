@@ -11,4 +11,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 executor-http-client = { git = "https://github.com/logos-co/nomos", branch = "master" }
 tokio = { version = "1", features = ["full"] }
-kzgrs-backend = { git = "https://github.com/logos-co/nomos.git", branch = "master", package = "kzgrs-backend" }
+crypto-bigint = { version = "0.5.5", features = ["serde"] }
+risc0-zkvm = { version = "2" }
+indexmap = { version = "1.9.3" }
+url = { version = "2" }
