@@ -1,4 +1,5 @@
 import * as chains from './chains';
+import config from './env.js';
 
 // If you add coins for a new network, make sure Weth address (for the router you are using) is the first entry
 
@@ -74,7 +75,7 @@ const PARASTATECoins = [
     abbr: "TB",
     address: "0x4489D87C8440B19f11d63FA2246f943F492F3F5F",
   },
-  
+
   {
     name: "Token C",
     abbr: "TC",
@@ -94,25 +95,14 @@ const GANACHECoins = [
     address: "", // Weth address is fetched from the router
   },
   {
-    name: "Token A",
-    abbr: "TA",
-    address: "0xE8C4BE1Bd495c984dD83B683966B7B538d3Ea82C",
+    name: "Mehmet",
+    abbr: "MEM",
+    address: config.tokenMemAddress,
   },
   {
-    name: "Token B",
-    abbr: "TB",
-    address: "0x30988e63329713c3f3FeA1ca1B94D4Abb02F78C5",
-  },
-  
-  {
-    name: "Token C",
-    abbr: "TC",
-    address: "0x23b4ce07ef4e2378319E40CbC0cc95EAbCf8E419",
-  },
-  {
-    name: "Token D",
-    abbr: "TD",
-    address: "0x49Ec3915F4daB907f7C6F74Cf5110366FCCc81A5",
+    name: "New Ether",
+    abbr: "NET",
+    address: config.tokenNetAddress,
   }
 ]
 
