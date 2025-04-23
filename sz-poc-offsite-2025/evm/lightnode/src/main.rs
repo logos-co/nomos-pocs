@@ -1,5 +1,5 @@
 use clap::Parser;
-use evm_proof_checker::NomosDa;
+use evm_lightnode::NomosDa;
 use executor_http_client::BasicAuthCredentials;
 use reqwest::Url;
 use std::error;
