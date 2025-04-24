@@ -117,6 +117,12 @@ fn get_latest_block(client: &Client, rpc: &str) -> Result<u64, String> {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
+    std::thread::spawn(move || {
+        if let Err(e) = run_server() {
+            error!("Error running server: {}", e);
+        }
+    });
+
     let filter =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&args.log_level));
 
@@ -165,4 +171,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
+}
+
+
+
+#[tokio::main]
+async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
+    // Initialize tracing
+    tracing_subscriber::fmt::init();
+
+    // Build our application with a route
+    let app = Router::new()
+        .route("/", get(http::serve_proof));
+
+    let addr = SocketAddr::from(([127, 0, 0, 1], 8070));
+    // Run it on localhost:8070
+    tracing::info!("Serving files on http://{}", addr);
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+
+    Ok(())
 }
