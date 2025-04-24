@@ -16,3 +16,5 @@ risc0-zkvm = { version = "2" }
 indexmap = { version = "1.9.3" }
 url = { version = "2" }
 hex = { version = "0.4" }
+futures = { version = "0.3" }
+kzgrs-backend = { git = "https://github.com/logos-co/nomos", branch = "master" }
