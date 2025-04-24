@@ -37,5 +37,8 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     let info = consensus.get_cryptarchia_info().await?;
     println!("Cryptarchia Info: {:?}", info);
 
+    let block = consensus.get_block(info.tip).await?;
+    println!("Block: {:?}", block);
+
     Ok(())
 }
