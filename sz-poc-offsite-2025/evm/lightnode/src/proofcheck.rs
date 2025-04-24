@@ -16,10 +16,11 @@ pub async fn verify_proof(
         block_number + block_count - 1
     );
 
-    let proof = reqwest::get(format!(
-        "{}/?block_start={}&block_count={}",
-        prover_url, block_number, block_count
-    )).await
+    let url = prover_url.join(&format!(
+        "/?block_start={}&block_count={}",
+        block_number, block_count
+    )).map_err(|e| format!("Failed to construct URL: {}", e))?;
+    let proof = reqwest::get(url).await
         .map_err(|e| format!("Failed to fetch proof: {}", e))?
         .bytes()
         .await
@@ -49,6 +50,8 @@ pub async fn verify_proof(
             output.status, stderr
         ));
     }
+
+    info!("Proof verification successful");
 
     Ok(())
 }
