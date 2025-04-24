@@ -1,5 +1,6 @@
 use clap::Parser;
 use evm_lightnode::{Credentials, NomosClient, nomos::HeaderId};
+use tracing::info;
 use url::Url;
 
 use std::error;
@@ -36,13 +37,13 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     let mut current_tip = HeaderId::default();
     loop {
         let info = consensus.get_cryptarchia_info().await?;
-        println!("Cryptarchia Info: {:?}", info);
+        info!("Cryptarchia Info: {:?}", info);
 
         if info.tip != current_tip {
             current_tip = info.tip;
-            println!("New tip: {:?}", current_tip);
+            info!("New tip: {:?}", current_tip);
             let block = consensus.get_block(info.tip).await?;
-            println!("Block: {:?}", block);
+            info!("Block: {:?}", block);
         }
 
         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
