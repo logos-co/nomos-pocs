@@ -1,5 +1,6 @@
 use tokio::process::Command;
 use std::path::Path;
+use std::io::Write;
 use reqwest::Url;
 use tracing::{error, info};
 
@@ -25,9 +26,10 @@ pub async fn verify_proof(
         .bytes()
         .await
         .map_err(|e| format!("Failed to read proof response: {}", e))?;
-    let filename = format!("{}-{}.zkp", block_number, block_count + block_number);
-    tokio::fs::write(&filename, &proof)
-        .await
+
+    let mut tempfile = tempfile::NamedTempFile::new()
+        .map_err(|e| format!("Failed to create temporary file: {}", e))?;
+    tempfile.write_all(&proof)
         .map_err(|e| format!("Failed to write proof to file: {}", e))?;
   
 
@@ -37,7 +39,7 @@ pub async fn verify_proof(
             &format!("--rpc={}", rpc),
             &format!("--block-number={}", block_number),
             &format!("--block-count={}", block_count),
-            &format!("--file={}", filename),
+            &format!("--file={}", tempfile.path().display()),
         ])
         .output().await
         .map_err(|e| format!("Failed to execute zeth-ethereum verify: {}", e))?;
