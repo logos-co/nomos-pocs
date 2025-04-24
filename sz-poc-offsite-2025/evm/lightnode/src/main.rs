@@ -1,12 +1,9 @@
 use clap::Parser;
-use evm_lightnode::{Credentials, NomosClient, nomos::HeaderId, proofcheck};
-use tracing::info;
+use evm_lightnode::proofcheck;
 use url::Url;
 use std::path::PathBuf;
 use std::error;
 use tracing_subscriber::{EnvFilter, fmt};
-
-const TESTNET_EXECUTOR: &str = "https://testnet.nomos.tech/node/3/";
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about = "Light Node validator")]
@@ -46,4 +43,6 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         &args.prover_url,
         &args.zeth_binary_dir.unwrap_or_else(|| std::env::current_dir().unwrap()).join("zeth-ethereum"),
     ).await?;
+
+    Ok(())
 }

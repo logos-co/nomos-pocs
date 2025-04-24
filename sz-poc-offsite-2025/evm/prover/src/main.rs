@@ -1,9 +1,15 @@
 use clap::Parser;
 use reqwest::blocking::Client;
 use serde_json::{json, Value};
-use std::{path::PathBuf, process::Command, thread, time::Duration};
+use std::{path::PathBuf, process::Command, thread, time::Duration, net::SocketAddr};
 use tracing::{debug, error, info};
 use tracing_subscriber::{fmt, EnvFilter};
+use axum::{
+    routing::get,
+    Router,
+};
+
+mod http;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about = "Ethereum Proof Generation Tool")]
