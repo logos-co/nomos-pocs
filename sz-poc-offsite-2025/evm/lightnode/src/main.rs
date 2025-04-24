@@ -42,6 +42,11 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         password: Some(password),
     };
 
+    let filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&args.log_level));
+
+    fmt::fmt().with_env_filter(filter).with_target(false).init();
+
     proofcheck::verify_proof(
         args.start_block,
         args.batch_size,
@@ -49,11 +54,6 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         &args.prover_url,
         &args.zeth_binary_dir.unwrap_or_else(|| std::env::current_dir().unwrap()).join("zeth-ethereum"),
     ).await?;
-
-    let filter =
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&args.log_level));
-
-    fmt::fmt().with_env_filter(filter).with_target(false).init();
 
     let consensus = NomosClient::new(Url::parse(&url).unwrap(), basic_auth);
 
