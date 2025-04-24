@@ -6,6 +6,7 @@ pub const CRYPTARCHIA_INFO: &str = "cryptarchia/info";
 pub const STORAGE_BLOCK: &str = "storage/block";
 
 pub mod nomos;
+pub mod proofcheck;
 
 #[derive(Clone, Debug)]
 pub struct Credentials {
