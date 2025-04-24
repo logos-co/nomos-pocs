@@ -1,6 +1,5 @@
 use clap::Parser;
-use evm_lightnode::{Credentials, NomosClient};
-use executor_http_client::BasicAuthCredentials;
+use evm_lightnode::{Credentials, NomosClient, nomos::HeaderId};
 use url::Url;
 
 use std::error;
@@ -34,11 +33,18 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let consensus = NomosClient::new(Url::parse(&url).unwrap(), basic_auth);
 
-    let info = consensus.get_cryptarchia_info().await?;
-    println!("Cryptarchia Info: {:?}", info);
+    let mut current_tip = HeaderId::default();
+    loop {
+        let info = consensus.get_cryptarchia_info().await?;
+        println!("Cryptarchia Info: {:?}", info);
 
-    let block = consensus.get_block(info.tip).await?;
-    println!("Block: {:?}", block);
+        if info.tip != current_tip {
+            current_tip = info.tip;
+            println!("New tip: {:?}", current_tip);
+            let block = consensus.get_block(info.tip).await?;
+            println!("Block: {:?}", block);
+        }
 
-    Ok(())
+        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    }
 }
