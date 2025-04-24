@@ -1,15 +1,13 @@
 use std::ops::Range;
 
-use executor_http_client::{BasicAuthCredentials, ExecutorHttpClient};
 use nomos::{CryptarchiaInfo, HeaderId};
-use reqwest::{RequestBuilder, Url};
-use serde::{Deserialize, Serialize};
+use reqwest::Url;
 use tracing::{error, info};
 
 pub const CRYPTARCHIA_INFO: &str = "cryptarchia/info";
 pub const STORAGE_BLOCK: &str = "storage/block";
 
-mod nomos;
+pub mod nomos;
 
 #[derive(Clone, Debug)]
 pub struct Credentials {
@@ -36,13 +34,10 @@ impl NomosClient {
         let url = self.base_url.join(CRYPTARCHIA_INFO).expect("Invalid URL");
 
         info!("Requesting cryptarchia info from {}", url);
-
         let request = self.reqwest_client.get(url).basic_auth(
             &self.basic_auth.username,
             self.basic_auth.password.as_deref(),
         );
-
-        info!("Sending request with creds {:?}", self.basic_auth);
 
         let response = request.send().await.map_err(|e| {
             error!("Failed to send request: {}", e);
@@ -65,7 +60,6 @@ impl NomosClient {
         let url = self.base_url.join(STORAGE_BLOCK).expect("Invalid URL");
 
         info!("Requesting block with HeaderId {}", id);
-
         let request = self
             .reqwest_client
             .post(url)

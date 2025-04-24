@@ -13,7 +13,7 @@ pub struct CryptarchiaInfo {
     pub height: u64,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Copy, Hash, PartialOrd, Ord)]
+#[derive(Clone, Debug, Eq, PartialEq, Copy, Hash, PartialOrd, Ord, Default)]
 pub struct HeaderId([u8; 32]);
 
 impl<'de> Deserialize<'de> for HeaderId {
