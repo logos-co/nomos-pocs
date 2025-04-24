@@ -183,9 +183,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 #[tokio::main]
 async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize tracing
-    tracing_subscriber::fmt::init();
-
     // Build our application with a route
     let app = Router::new()
         .route("/", get(http::serve_proof));
