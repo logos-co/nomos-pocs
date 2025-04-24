@@ -18,7 +18,8 @@ echo -e "${BLUE}[Step]${NC} ${YELLOW}Deploying contracts to http://localhost:854
 node deploy-contracts.js
 
 if [ $? -eq 0 ]; then
-    echo -e "\n${GREEN}✓ Uniswap Deployment Successful${NC}"
+    echo -e "\n${GREEN}✓ Uniswap Deployment Successful.${NC}"
+    echo -e "\n${YELLOW}⚠️  Please update the Uniswap-related addresses as needed.${NC}"
 else
     echo -e "\n${RED}✗ Uniswap Deployment Failed${NC}"
 fi
