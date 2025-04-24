@@ -1,4 +1,4 @@
-use evm_processor::{Processor, NomosDa, BasicAuthCredentials};
+use evm_processor::{BasicAuthCredentials, NomosDa, Processor};
 use futures::TryStreamExt as _;
 use reth::{
     api::{FullNodeTypes, NodePrimitives, NodeTypes},
@@ -25,13 +25,15 @@ where
             continue;
         };
         info!(committed_chain = ?new.range(), "Received commit");
-        processor.process_blocks(
-            new.inner()
-                .0
-                .clone()
-                .into_blocks()
-                .map(reth_ethereum::primitives::RecoveredBlock::into_block),
-        ).await;
+        processor
+            .process_blocks(
+                new.inner()
+                    .0
+                    .clone()
+                    .into_blocks()
+                    .map(reth_ethereum::primitives::RecoveredBlock::into_block),
+            )
+            .await;
 
         ctx.events
             .send(ExExEvent::FinishedHeight(new.tip().num_hash()))
@@ -57,7 +59,10 @@ fn main() -> eyre::Result<()> {
             let url = std::env::var("NOMOS_EXECUTOR").unwrap_or(TESTNET_EXECUTOR.to_string());
             let user = std::env::var("NOMOS_USER").unwrap_or_default();
             let password = std::env::var("NOMOS_PASSWORD").unwrap_or_default();
-            let da = NomosDa::new( BasicAuthCredentials::new(user, Some(password)), url::Url::parse(&url).unwrap());
+            let da = NomosDa::new(
+                BasicAuthCredentials::new(user, Some(password)),
+                url::Url::parse(&url).unwrap(),
+            );
             let processor = Processor::new(da);
             let handle = Box::pin(
                 builder
