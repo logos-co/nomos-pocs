@@ -1,5 +1,3 @@
-use std::ops::Range;
-
 use nomos::{CryptarchiaInfo, HeaderId};
 use reqwest::Url;
 use tracing::{error, info};
