@@ -100,9 +100,9 @@ const GANACHECoins = [
     address: config.tokenMemAddress,
   },
   {
-    name: "New Ether",
-    abbr: "NET",
-    address: config.tokenNetAddress,
+    name: "Nomos",
+    abbr: "NMO",
+    address: config.tokenNmoAddress,
   }
 ]
 

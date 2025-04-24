@@ -2,8 +2,8 @@ import 'dotenv/config.js';
 
 const REQUIRED_ENV = [
     "REACT_APP_NOMISWAP_ROUTER_ADDRESS",
-    "REACT_APP_NOMISWAP_TOKEN_MEM",
-    "REACT_APP_NOMISWAP_TOKEN_NET"
+    "REACT_APP_NOMISWAP_TOKEN_MEM_ADDRESS",
+    "REACT_APP_NOMISWAP_TOKEN_NMO_ADDRESS"
 ];
 
 const missingVars = REQUIRED_ENV.filter(key => !process.env[key]);
@@ -14,8 +14,8 @@ if (missingVars.length > 0) {
 
 const config = {
     routerAddress: process.env.REACT_APP_NOMISWAP_ROUTER_ADDRESS,
-    tokenMemAddress: process.env.REACT_APP_NOMISWAP_TOKEN_MEM,
-    tokenNetAddress: process.env.REACT_APP_NOMISWAP_TOKEN_NET
+    tokenMemAddress: process.env.REACT_APP_NOMISWAP_TOKEN_MEM_ADDRESS,
+    tokenNmoAddress: process.env.REACT_APP_NOMISWAP_TOKEN_NMO_ADDRESS
 };
 
 export default config;
