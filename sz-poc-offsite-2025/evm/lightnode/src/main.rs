@@ -1,9 +1,9 @@
 use clap::Parser;
 use evm_lightnode::proofcheck;
-use url::Url;
-use std::path::PathBuf;
 use std::error;
+use std::path::PathBuf;
 use tracing_subscriber::{EnvFilter, fmt};
+use url::Url;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about = "Light Node validator")]
@@ -41,8 +41,12 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         args.batch_size,
         &args.rpc,
         &args.prover_url,
-        &args.zeth_binary_dir.unwrap_or_else(|| std::env::current_dir().unwrap()).join("zeth-ethereum"),
-    ).await?;
+        &args
+            .zeth_binary_dir
+            .unwrap_or_else(|| std::env::current_dir().unwrap())
+            .join("zeth-ethereum"),
+    )
+    .await?;
 
     Ok(())
 }
