@@ -52,6 +52,9 @@ fn main() -> eyre::Result<()> {
         "--dev.block-time=2s",
         "--http.addr=0.0.0.0",
         "--http.port=8546",
+        "--http.api eth,net,web3,debug,trace,txpool", // Some might be unnecessary, but I guess
+                                                      // they don't hurt
+        "--http.corsdomain \"*\"" // Needed locally, probably needed here as well.
     ])
     .unwrap()
     .run(|builder, _| {
