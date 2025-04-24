@@ -32,7 +32,7 @@ async function deployWeth(web3, sender) {
 async function deployTokens(web3, sender) {
   try {
     let tokenMem = new web3.eth.Contract(ERC20.abi);
-    let tokenNet = new web3.eth.Contract(ERC20.abi);
+    let tokenNmo = new web3.eth.Contract(ERC20.abi);
 
     tokenMem = await tokenMem
       .deploy({
@@ -49,12 +49,12 @@ async function deployTokens(web3, sender) {
 
     console.log("MEM Token address:", tokenMem.options.address);
 
-    tokenNet = await tokenNet
+    tokenNmo = await tokenNmo
       .deploy({
         data: ERC20.bytecode,
         arguments: [
-          "New Ether",
-          "NET",
+          "Nomos",
+          "NMO",
           // 18,
           web3.utils.toWei("9999999999999999999", "ether"),
           sender,
@@ -62,9 +62,9 @@ async function deployTokens(web3, sender) {
       })
       .send({ from: sender, gas: GasLimit, gasprice: GasPrice });
 
-    console.log("NET Token address:", tokenNet.options.address);
+    console.log("NMO Token address:", tokenNmo.options.address);
 
-    return [tokenMem.options.address, tokenNet.options.address];
+    return [tokenMem.options.address, tokenNmo.options.address];
   } catch (error) {
     console.log('ERC20 deployment went wrong! Lets see what happened...')
     console.log(error)
@@ -133,20 +133,20 @@ async function checkPair(
   web3,
   factoryContract,
   tokenMemAddress,
-  tokenNetAddress,
+  tokenNmoAddress,
   sender,
   routerAddress
 ) {
   try {
     console.log("tokenMemAddress: ", tokenMemAddress);
-    console.log("tokenNetAddress: ", tokenNetAddress);
+    console.log("tokenNmoAddress: ", tokenNmoAddress);
 
     const pairAddress = await factoryContract.methods
-      .getPair(tokenMemAddress, tokenNetAddress)
+      .getPair(tokenMemAddress, tokenNmoAddress)
       .call();
 
     console.log("tokenMem Address", tokenMemAddress);
-    console.log("tokenNet Address", tokenNetAddress);
+    console.log("tokenNmo Address", tokenNmoAddress);
     console.log("pairAddress", pairAddress);
     console.log("router address", routerAddress);
 
@@ -155,7 +155,7 @@ async function checkPair(
     const reserves = await pair.methods.getReserves().call();
 
     console.log("reserves for tokenMem", web3.utils.fromWei(reserves._reserve0));
-    console.log("reserves for tokenNet", web3.utils.fromWei(reserves._reserve1));
+    console.log("reserves for tokenNmo", web3.utils.fromWei(reserves._reserve1));
   } catch (err) {
     console.log("the check pair reverted! Lets see why...");
     console.log(err);
@@ -183,12 +183,17 @@ async function deployUniswap() {
 
   // const multicallAddress = await deployMulticall(web3, myAddress);
   // const multicall = new web3.eth.Contract(Multicall.abi, multicallAddress);
-  const [tokenMemAddress, tokenNetAddress] = await deployTokens(web3, myAddress);
+  const [tokenMemAddress, tokenNmoAddress] = await deployTokens(web3, myAddress);
 
   const tokenMem = new web3.eth.Contract(ERC20.abi, tokenMemAddress);
-  const tokenNet = new web3.eth.Contract(ERC20.abi, tokenNetAddress);
+  const tokenNmo = new web3.eth.Contract(ERC20.abi, tokenNmoAddress);
 
-  return (tokenMem, tokenMemAddress, tokenNet, tokenNetAddress, myAddress, web3, router, routerAddress, factory, weth, wethAddress)
+  console.log("# You may also copy this to Nomiswap's .env file:");
+  console.log(`REACT_APP_NOMISWAP_ROUTER_ADDRESS=${routerAddress}`);
+  console.log(`REACT_APP_NOMISWAP_TOKEN_MEM_ADDRESS=${tokenMemAddress}`);
+  console.log(`REACT_APP_NOMISWAP_TOKEN_NMO_ADDRESS=${tokenNmoAddress}`);
+
+  return (tokenMem, tokenMemAddress, tokenNmo, tokenNmoAddress, myAddress, web3, router, routerAddress, factory, weth, wethAddress)
 }
 
 async function addLiquidity(tokenA, tokenAAddress, tokenB, tokenBAddress, myAddress, web3, router, routerAddress, factory, weth, wethAddress) {
