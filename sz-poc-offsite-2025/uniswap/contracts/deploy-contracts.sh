@@ -14,7 +14,7 @@ echo -e "${BLUE}[Step]${NC} ${YELLOW}Installing dependencies${NC}"
 npm install
 
 echo ""
-echo -e "${BLUE}[Step]${NC} ${YELLOW}Deploying contracts to http://localhost:8545${NC}"
+echo -e "${BLUE}[Step]${NC} ${YELLOW}Deploying contracts to http://127.0.0.1:3050${NC}"
 node deploy-contracts.js
 
 if [ $? -eq 0 ]; then
