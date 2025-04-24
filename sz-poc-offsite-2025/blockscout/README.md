@@ -1,5 +1,12 @@
 Source: https://github.com/blockscout/blockscout\
 Commit: c127c64f6cc0599df4a7aec4fa32e74dfb08206b
+
+### Steps to Run
+1. Install project deps
+2. docker run --name postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -p 5432:5432 -d postgres
+3. PGPASSWORD=postgres PGUSER=postgres ETHEREUM_JSONRPC_HTTP_URL=http://localhost:8545 MIX_ENV=dev mix do ecto.create, ecto.migrate
+4. PGPASSWORD=postgres PGUSER=postgres ETHEREUM_JSONRPC_HTTP_URL=http://localhost:8545 MIX_ENV=dev mix phx.server
+
 ---
 
 <h1 align="center">Blockscout</h1>
