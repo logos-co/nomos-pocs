@@ -1,5 +1,5 @@
 [workspace]
-members = ["evm/processor", "evm/sequencer-node", "evm/prover", "evm/lightnode"]
+members = ["processor", "sequencer-node", "prover", "lightnode"]
 resolver = "3"
 
 [workspace.package]
@@ -7,10 +7,10 @@ edition = "2024"
 
 [workspace.dependencies]
 # Internal
-evm-processor = { path = "evm/processor" }
-evm-sequencer-node = { path = "evm/sequencer-node" }
-evm-prover = { path = "evm/prover" }
-evm-lightnode = { path = "evm/lightnode" }
+evm-processor = { path = "processor" }
+evm-sequencer-node = { path = "sequencer-node" }
+evm-prover = { path = "prover" }
+evm-lightnode = { path = "lightnode" }
 
 # External
 eyre = { version = "0.6" }
