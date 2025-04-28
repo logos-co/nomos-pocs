@@ -2,10 +2,6 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use hex::FromHex;
 
-// tip	"4f573735fb987453f7467688ea4e034b9161e3ca200526faf5c8ce6db09da180"
-// slot	5085
-// height	1245
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CryptarchiaInfo {
     pub tip: HeaderId,
