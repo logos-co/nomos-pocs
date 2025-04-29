@@ -28,6 +28,7 @@ template commitment(){
     out <== hash.out;
 }
 
+// We don't use it anymore
 template nullifier(){
     signal input commitment;
     signal input secret_key;

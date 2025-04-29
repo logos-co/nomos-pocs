@@ -204,14 +204,13 @@ def PoseidonSponge(data, capacity, output_len):
 
 R = RealField(500) #Real numbers with precision 500 bits
 
-if len(sys.argv) != Integer(5):
-    print("Usage: <script> <epoch_nonce> <slot_number> <total_stake> <public or private>")
+if len(sys.argv) != Integer(4):
+    print("Usage: <script> <epoch_nonce> <slot_number> <total_stake>")
     exit()
 
 epoch_nonce = int(sys.argv[Integer(1)])
 slot_number = int(sys.argv[Integer(2)])
 total_stake = int(sys.argv[Integer(3)])
-anonymity = str(sys.argv[Integer(4)])
 
 if epoch_nonce >= p:
     print("epoch nonce must be less than p")
@@ -258,48 +257,26 @@ note_id = poseidon2_hash([F(3421010384451055699723071944416976463079278762188835
 aged_nodes = [F(randrange(0,p,1)) for i in range(32)]
 aged_selectors = randrange(0,2**32,1)
 aged_selectors = format(aged_selectors,'032b')
-cm_aged_root = note_cm
+aged_root = note_id
 for i in range(32):
     if int(aged_selectors[31-i]) == 0:
-        cm_aged_root = poseidon2_hash([cm_aged_root,aged_nodes[i]])
+        aged_root = poseidon2_hash([aged_root,aged_nodes[i]])
     else:
-        cm_aged_root = poseidon2_hash([aged_nodes[i],cm_aged_root])
-
-note_id_aged_root = note_id
-for i in range(32):
-    if int(aged_selectors[31-i]) == 0:
-        note_id_aged_root = poseidon2_hash([note_id_aged_root,aged_nodes[i]])
-    else:
-        note_id_aged_root = poseidon2_hash([aged_nodes[i],note_id_aged_root])
+        aged_root = poseidon2_hash([aged_nodes[i],aged_root])
 
 unspent_nodes = [F(randrange(0,p,1)) for i in range(32)]
 unspent_selectors = randrange(0,2**32,1)
 unspent_selectors = format(unspent_selectors,'032b')
 
-note_id_unspent_root = note_id
+latest_root = note_id
 for i in range(32):
     if int(unspent_selectors[31-i]) == 0:
-        note_id_unspent_root = poseidon2_hash([note_id_unspent_root,unspent_nodes[i]])
+        latest_root = poseidon2_hash([latest_root,unspent_nodes[i]])
     else:
-        note_id_unspent_root = poseidon2_hash([unspent_nodes[i],note_id_unspent_root])
-
-note_nf = poseidon2_hash([F(310945536431723660304787929213143698356852257431717126117833288836338828411),note_cm,sk])
-nf_previous = F(randrange(0,note_nf,1))
-nf_next = F(randrange(note_nf+1,p,1))
-
-nf_root = poseidon2_hash([nf_previous, nf_next])
-for i in range(32):
-    if int(unspent_selectors[31-i]) == 0:
-        nf_root = poseidon2_hash([nf_root,unspent_nodes[i]])
-    else:
-        nf_root = poseidon2_hash([unspent_nodes[i],nf_root])
-        
+        latest_root = poseidon2_hash([unspent_nodes[i],latest_root])
+   
 with open("input.json", "w") as file:
     file.write('{\n\t"slot":\t\t\t\t\t\t"'+str(slot_number)+'",')
-    if anonymity == "public":
-        file.write('\n\t"selector":\t\t\t\t\t\t"'+str(1)+'",')
-    if anonymity == "private":
-        file.write('\n\t"selector":\t\t\t\t\t\t"'+str(0)+'",')
     file.write('\n\t"epoch_nonce":\t\t\t\t\t\t"'+str(epoch_nonce)+'",')
     file.write('\n\t"t0" :\t\t\t\t\t\t"'+str(t0)+'",')
     file.write('\n\t"t1" :\t\t\t\t\t\t"'+str(t1)+'",')
@@ -332,13 +309,10 @@ with open("input.json", "w") as file:
             file.write('],')
         else:
             file.write(',')
-    file.write('\n\t"commitments_aged_root" :\t\t\t\t"'+str(cm_aged_root)+'",')
-    file.write('\n\t"note_id_aged_root" :\t\t\t\t"'+str(note_id_aged_root)+'",')
+    file.write('\n\t"aged_root" :\t\t\t\t"'+str(aged_root)+'",')
     file.write('\n\t"transaction_hash" :\t\t\t\t"'+str(tx_hash)+'",')
     file.write('\n\t"output_number" :\t\t\t\t"'+str(output_number)+'",')
-    file.write('\n\t"nf_previous" :\t\t\t\t"'+str(nf_previous)+'",')
-    file.write('\n\t"nf_next" :\t\t\t\t"'+str(nf_next)+'",')
-    file.write('\n\t"unspent_nodes" :\t\t\t\t\t[')
+    file.write('\n\t"latest_nodes" :\t\t\t\t\t[')
     for i in range(32):
         file.write('"')
         file.write(str(unspent_nodes[i]))
@@ -347,7 +321,7 @@ with open("input.json", "w") as file:
             file.write('],')
         else:
             file.write(',')
-    file.write('\n\t"unspent_selectors" :\t\t\t\t\t[')
+    file.write('\n\t"latest_selectors" :\t\t\t\t\t[')
     for i in range(32):
         file.write('"')
         file.write(str(unspent_selectors[i]))
@@ -356,8 +330,7 @@ with open("input.json", "w") as file:
             file.write('],')
         else:
             file.write(',')
-    file.write('\n\t"note_id_unspent_root" :\t\t\t\t"'+str(note_id_unspent_root)+'",')
-    file.write('\n\t"nf_unspent_root" :\t\t\t\t"'+str(nf_root)+'",')
+    file.write('\n\t"latest_root" :\t\t\t\t"'+str(latest_root)+'",')
     file.write('\n\t"starting_slot" :\t\t\t\t"'+str(starting_slot)+'",')
     file.write('\n\t"secrets_root" :\t\t\t\t"'+str(secret_root)+'",')
     file.write('\n\t"state" :\t\t\t\t"'+str(state)+'",')

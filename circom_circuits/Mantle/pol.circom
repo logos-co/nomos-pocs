@@ -58,11 +58,6 @@ template derive_entropy(){
 
 
 template proof_of_leadership(){
-    signal input selector;              // 0 if the note is shielded and 1 if the note is unshielded
-
-    // Check that the selector is indeed a bit
-    selector * (1- selector) === 0;
-
     signal input slot;
     signal input epoch_nonce;
     signal input t0;
@@ -70,35 +65,30 @@ template proof_of_leadership(){
     signal input slot_secret;
     signal input slot_secret_path[25];
 
-    //Part of the commitment or note id proof of membership to prove aged
+    //Part of the note id proof of membership to prove aged
     signal input aged_nodes[32];
     signal input aged_selectors[32];         // must be bits
-    signal input commitments_aged_root;
-    signal input note_id_aged_root;
+    signal input aged_root;
 
-
-    //Used to derive the note identifier, it can be dumb inputs if it's a shielded note
+    //Used to derive the note identifier
     signal input transaction_hash;
     signal input output_number;
     
-    
-    //Part of the nullifer proof of non-membership/commitment proof of membership to prove the note is unspent
-    signal input nf_previous;       // Can be mocked and set to any value if selector == 1 as long as previous < nullifier < next
-    signal input nf_next;
-    signal input unspent_nodes[32];
-    signal input unspent_selectors[32];         // must be bits
-    signal input nf_unspent_root;
-    signal input note_id_unspent_root;
+    //Part of the note id proof of membership to prove it's unspent
+    signal input latest_nodes[32];
+    signal input latest_selectors[32];         // must be bits
+    signal input latest_root;
 
     //Part of the secret key
     signal input starting_slot;
     signal input secrets_root;
 
-    // The winning note. The unit is supposed to be NMO and the ZoneID is PAYMENT
+    // The winning note. The unit is supposed to be NMO and the ZoneID is MANTLE
     signal input state;
     signal input value;
     signal input nonce;
 
+    // One time signing key used to sign the block proposal and the block
     signal input one_time_key;
 
     //Avoid the circom optimisation that removes unused public input
@@ -119,6 +109,7 @@ template proof_of_leadership(){
     pk.secret_key <== sk.out;
 
 
+
     // Derive the commitment from the note and the public key
     component cm = commitment();
     cm.state <== state;
@@ -130,13 +121,6 @@ template proof_of_leadership(){
     cm.zoneID <== staking.out;
     cm.public_key <== pk.out;
 
-
-    // Derive the nullifier from the commitment and the secret key
-    component nf = nullifier();
-    nf.commitment <== cm.out;
-    nf.secret_key <== sk.out;
-
-
     // Derive the note id
     component note_id = Poseidon2_hash(4);
     component dst_note_id = NOMOS_NOTE_ID();
@@ -145,7 +129,8 @@ template proof_of_leadership(){
     note_id.inp[2] <== output_number;
     note_id.inp[3] <== cm.out;
 
-    // Check commitment membership (is aged enough)
+
+    // Check the note is aged enough
             //First check selectors are indeed bits
     for(var i = 0; i < 32; i++){
         aged_selectors[i] * (1 - aged_selectors[i]) === 0;
@@ -156,8 +141,8 @@ template proof_of_leadership(){
         aged_membership.nodes[i] <== aged_nodes[i];
         aged_membership.selector[i] <== aged_selectors[i];
     }
-    aged_membership.root <==  (note_id_aged_root - commitments_aged_root) * selector + commitments_aged_root;
-    aged_membership.leaf <== (note_id.out - cm.out) * selector + cm.out;
+    aged_membership.root <==  aged_root;
+    aged_membership.leaf <== note_id.out;
 
 
     // Compute the lottery ticket
@@ -185,32 +170,16 @@ template proof_of_leadership(){
     // Check that the note is unspent
             //First check selectors are indeed bits
     for(var i = 0; i < 32; i++){
-        unspent_selectors[i] * (1 - unspent_selectors[i]) === 0;
+        latest_selectors[i] * (1 - latest_selectors[i]) === 0;
     }
-            //Then check the proof of membership (that the nullifier leaf is in the set or that the note identifier is)
+            //Then check the note id is in the latest ledger state
     component unspent_membership = proof_of_membership(32);
     for(var i = 0; i < 32; i++){
-        unspent_membership.nodes[i] <== unspent_nodes[i];
-        unspent_membership.selector[i] <== unspent_selectors[i];
+        unspent_membership.nodes[i] <== latest_nodes[i];
+        unspent_membership.selector[i] <== latest_selectors[i];
     }
-    unspent_membership.root <== (note_id_unspent_root - nf_unspent_root) * selector + nf_unspent_root;
-            //Compute the leaf if it's a private note representing previous nf pointing to next in the IMT
-    component hash = Poseidon2_hash(2);
-    hash.inp[0] <== nf_previous; 
-    hash.inp[1] <== nf_next;
-    unspent_membership.leaf <== (note_id.out - hash.out) * selector + hash.out;  // the leaf is then either the note identifier or the leaf computed before
-
-            // Check that nullifier stictly falls between previous and next if the note is private.
-            // If the note is public previous and next can be any values such that previous < nullifier < next
-    component comparator[2];
-    comparator[0] = SafeFullLessThan();
-    comparator[0].a <== nf_previous;
-    comparator[0].b <== nf.out;
-    comparator[0].out === 1;
-    comparator[1] = SafeFullLessThan();
-    comparator[1].a <== nf.out;
-    comparator[1].b <== nf_next;
-    comparator[1].out === 1;
+    unspent_membership.root <== latest_root;
+    unspent_membership.leaf <== note_id.out;
 
 
     // Check the knowledge of the secret at position slot - starting_slot
@@ -241,4 +210,4 @@ template proof_of_leadership(){
     entropy_contrib <== entropy.out;
 } 
 
-component main {public [slot,epoch_nonce,t0,t1,commitments_aged_root,note_id_aged_root,nf_unspent_root,note_id_unspent_root,one_time_key]}= proof_of_leadership();
+component main {public [slot,epoch_nonce,t0,t1,aged_root,latest_root,one_time_key]}= proof_of_leadership();

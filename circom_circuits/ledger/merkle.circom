@@ -29,6 +29,7 @@ template proof_of_membership(n) {
 }
 
 
+//                  /!\ DEPRECATED  /!\
 // proof of Merkle non-membership using an IMT of depth n
 //                  /!\ To call this function, it's important to check that each selector is a bit before!!!
 template proof_of_non_membership(n) {
