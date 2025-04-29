@@ -4,12 +4,15 @@ use executor_http_client::{BasicAuthCredentials, Error, ExecutorHttpClient};
 use kzgrs_backend::common::share::{DaLightShare, DaShare};
 use nomos::{CryptarchiaInfo, HeaderId};
 use reqwest::Url;
-use tracing::{debug, error, info};
+use serde::{Deserialize, Serialize};
+use anyhow::Result;
+use tracing::{debug, info};
 
 pub const CRYPTARCHIA_INFO: &str = "cryptarchia/info";
 pub const STORAGE_BLOCK: &str = "storage/block";
 use futures::Stream;
 
+pub mod da;
 pub mod nomos;
 pub mod proofcheck;
 
@@ -39,7 +42,7 @@ impl NomosClient {
         }
     }
 
-    pub async fn get_cryptarchia_info(&self) -> Result<CryptarchiaInfo, String> {
+    pub async fn get_cryptarchia_info(&self) -> Result<CryptarchiaInfo> {
         let url = self.base_url.join(CRYPTARCHIA_INFO).expect("Invalid URL");
 
         debug!("Requesting cryptarchia info from {}", url);
@@ -48,24 +51,17 @@ impl NomosClient {
             self.basic_auth.password.as_deref(),
         );
 
-        let response = request.send().await.map_err(|e| {
-            error!("Failed to send request: {}", e);
-            "Failed to send request".to_string()
-        })?;
+        let response = request.send().await?;
 
         if !response.status().is_success() {
-            error!("Failed to get cryptarchia info: {}", response.status());
-            return Err("Failed to get cryptarchia info".to_string());
+            anyhow::bail!("Failed to get cryptarchia info: {}", response.status());
         }
 
-        let info = response.json::<CryptarchiaInfo>().await.map_err(|e| {
-            error!("Failed to parse response: {}", e);
-            "Failed to parse response".to_string()
-        })?;
+        let info = response.json::<CryptarchiaInfo>().await?;
         Ok(info)
     }
 
-    pub async fn get_block(&self, id: HeaderId) -> Result<serde_json::Value, String> {
+    pub async fn get_block(&self, id: HeaderId) -> Result<Block> {
         let url = self.base_url.join(STORAGE_BLOCK).expect("Invalid URL");
 
         info!("Requesting block with HeaderId {}", id);
@@ -79,22 +75,15 @@ impl NomosClient {
             )
             .body(serde_json::to_string(&id).unwrap());
 
-        let response = request.send().await.map_err(|e| {
-            error!("Failed to send request: {}", e);
-            "Failed to send request".to_string()
-        })?;
+        let response = request.send().await?;
 
         if !response.status().is_success() {
-            error!("Failed to get block: {}", response.status());
-            return Err("Failed to get block".to_string());
+            anyhow::bail!("Failed to get block: {}", response.status());
         }
 
-        let json: serde_json::Value = response.json().await.map_err(|e| {
-            error!("Failed to parse JSON: {}", e);
-            "Failed to parse JSON".to_string()
-        })?;
+        let block: Block = response.json().await?;
 
-        Ok(json)
+        Ok(block)
     }
 
     pub async fn get_shares(
@@ -111,4 +100,9 @@ impl NomosClient {
             )
             .await
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Block {
+    pub blobs: Vec<[u8; 32]>,
 }

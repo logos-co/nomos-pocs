@@ -1,20 +1,17 @@
+use axum::{Router, routing::get};
 use clap::Parser;
 use reqwest::blocking::Client;
-use serde_json::{json, Value};
-use std::{path::PathBuf, process::Command, thread, time::Duration, net::SocketAddr};
+use serde_json::{Value, json};
+use std::{net::SocketAddr, path::PathBuf, process::Command, thread, time::Duration};
 use tracing::{debug, error, info};
-use tracing_subscriber::{fmt, EnvFilter};
-use axum::{
-    routing::get,
-    Router,
-};
+use tracing_subscriber::{EnvFilter, fmt};
 
 mod http;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about = "Ethereum Proof Generation Tool")]
 struct Args {
-    #[clap(long, default_value = "http://localhost:8546")]
+    #[clap(long, default_value = "http://localhost:8545")]
     rpc: String,
 
     #[clap(long, default_value = "5")]
@@ -179,13 +176,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
-
-
 #[tokio::main]
 async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
     // Build our application with a route
-    let app = Router::new()
-        .route("/", get(http::serve_proof));
+    let app = Router::new().route("/", get(http::serve_proof));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 8070));
     // Run it on localhost:8070
