@@ -21,7 +21,7 @@ async fn main() -> Result<(), Error> {
 
     let setup_duration = start_setup.elapsed();
     println!(
-        "[BENCHMARK SETUP] {} BLOCKS (INCLUDING EDGES) TOOK {:?}",
+        "[BENCHMARK SETUP] {} BLOCKS (WITHOUT EDGES) TOOK {:?}",
         args.blocks_count, setup_duration
     );
 
