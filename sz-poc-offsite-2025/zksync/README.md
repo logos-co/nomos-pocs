@@ -1,41 +1,72 @@
-# Offsite demo deployment checklist
+# ZKSync Era-based Validium deployment
 
-## Deploy a local testnet
+The ZKSync Era-based Validium PoC showcased by Nomos during the IFT All-Hands 2025 in Split was deployed using a forked version of the ZKSync Era framework.
+The forked repository can be found at the [following link][zksync-era-fork-repo].
 
-1. Build the nomos binaries with `cargo build -p nomos-node -p nomos-executor --release`
-2. Run the testnet with `RISC0_DEV_MODE=1 cargo test   local_testnet  --all --lib --bins --tests --examples --all-features -- --nocapture`
-3. Take note of the executor address
+## What is ZKSync Era
 
-## Create the ecosystem and deploy the chain
+For all documentation related to ZKSync Era, including the architecture of L2 chains powered by the framework, please refer to the official [ZKSync Era documentation][zksync-era-docs].
 
-1. Delete existing ecosystem by deleting root `Zkstack.yaml` and `chains` folder.
-2. If needed, install the local hacked `zkstack` binary with `cargo install --path ./zkstack_cli/crates/zkstack --locked zkstack --force`
-3. Create a new ecosystem with `zkstack ecosystem create --ecosystem-name  offsite-split-25 --l1-network localhost --link-to-code /home/antonio/Developer/zksync-era-fork --chain-name sz-poc --chain-id 55555 --prover-mode gpu --wallet-creation localhost --l1-batch-commit-data-generator-mode validium --evm-emulator true --start-containers true --update-submodules true --verbose` and select `Eth` as base token
-4. Cd into the ecosystem folder with `cd offsite_split_25`
-5. Initialize the ecosystem with `zkstack ecosystem init --deploy-erc20 false --deploy-ecosystem true --l1-rpc-url http://127.0.0.1:8545 --deploy-paymaster true --server-db-url postgres://postgres:notsecurepassword@localhost:5432 --server-db-name sz-poc-server --observability false --update-submodules true --verbose` with Nomos DA URL set to `https://testnet.nomos.tech/node/3/`, App ID to `01ea21912cdcbdd9189d49d07b61543ffdf7064355640eb6cc6fc6d902056d1b`, username and password as needed
-6. Start the server with `zkstack server --components=api,tree,eth,state_keeper,housekeeper,commitment_generator,da_dispatcher,proof_data_handler,vm_runner_protective_reads,vm_runner_bwip --verbose`
-7. Start the prover with `zkstack prover init --bellman-cuda true --bellman-cuda-dir /home/antonio/Developer/era-bellman-cuda --setup-compressor-key false --setup-keys false --setup-database true --prover-db-url postgres://postgres:notsecurepassword@localhost:5432 --prover-db-name sz-poc-prover --dont-drop false --use-default false --verbose`
-8. Start the gateway with `zkstack prover run --component=gateway --docker false --verbose`
-9.  Start the witness generator with `zkstack prover run --component=witness-generator --round=all-rounds --docker false --verbose`
-10. Start the circuit prover with `zkstack prover run --component=circuit-prover -l 15 -h 1 --docker false --verbose`
-11. After the circuit prover proves a batch (see from the logs), start the compressor with `zkstack prover run --component=compressor --docker false --verbose`
-12. Check the server logs for DA posting
+## Deploy a ZKSync Era Validium that uses Nomos DA capabilities
 
-## Fund the account
+This section will guide you through setting up a GPU-proved, ZKSync Era-based L2 that uses Nomos DA capabilities.
+If you need to change any of the parameters used here, please follow the relevant ZKSync Era docs for how to do that and their implications with the rest of the options used in this guide.
 
-1. Deploy the portal with `zkstack portal --verbose`
-2. Fund account with 10000000 ETH from the portal using a Chrome instance that does not enforce CORS `open -na /Applications/Google\ Chrome.app --args --user-data-dir="/var/tmp/chrome-dev-disabled-security" --disable-web-security`
+### Machine setup
 
-## Deploy Uniswap
+Before anything, make sure all the required dependencies are installed by following the [official ZKSync Era guide][zksync-era-dev-setup].
 
-1. Run the script in the sz-poc repo using `60000000` as gas limit.
-2. Copy the router address
+Let's start by cloning the [forked repo][zksync-era-fork-repo] from the `logos-co` organization with `git clone https://github.com/logos-co/zksync-era`.
 
-## Run the Alternative uniswap app
+Then, from the root of the cloned repo, install the forked `zkstack` binary: `cargo install --path ./zkstack_cli/crates/zkstack --locked zkstack --force`.
+This will install an updated version of the binary that allows deployers to select Nomos from the available DA options.
 
-1. Modify the uniswap interface to point to the new router
-2. Run with `NODE_OPTIONS=--openssl-legacy-provider npm start`
+### Ecosystem creation and initialization
 
-## Perform the swap
+Next step is to initialize a new ecosystem.
+You can create a new ecosystem with the following command from within this folder: `zkstack ecosystem create --ecosystem-name  <ecosystem_name> --l1-network localhost --link-to-code <path_to_forked_repo> --chain-name <chain_name> --chain-id <l2_chain_id> --prover-mode gpu --wallet-creation localhost --l1-batch-commit-data-generator-mode validium --evm-emulator true --start-containers true --update-submodules true --verbose`, and choose `Eth` as the base currency.
 
-[MAYBE] Always estimate 2x gas. E.g. 500000.
+Replace the following templates with the actual values you choose: `<ecosystem_name>`, `<path_to_forked_repo>`, `<chain_name>`, `<l2_chain_id>` and refer to the official docs for their meaning.
+
+> **INFO**: In case a real prover is not needed, replace the value of the `--prover-mode gpu` with `--prover-mode local`, according to the official ZKSync Era docs.
+
+Move into the `<ecosystem_name>` folder, then initialize the ecosystem with `zkstack ecosystem init --deploy-erc20 false --deploy-ecosystem true --l1-rpc-url http://127.0.0.1:8545 --deploy-paymaster true --server-db-url postgres://postgres:notsecurepassword@localhost:5432 --server-db-name <db_name> --observability false --update-submodules true --verbose`.
+
+Replace the following templates with the actual values you choose: `<db_name>` and refer to the official docs for their meaning.
+
+When prompted for which DA to use, select `"Nomos"`, and provide the required information, including the URL of a Nomos node, username/password for the HTTP authentication, and a 64-long HEX value (without the leading `0x`) as app ID. e.g., `01ea21912cdcbdd9189d49d07b61543ffdf7064355640eb6cc6fc6d902056d1b`.
+
+### Running the sequencer
+
+Everything is now ready to run the L2 sequencer with `zkstack server --verbose`.
+Leave the sequencer running in the background.
+
+You can now connect to the sequencer's RPC interface with any EVM compatible wallet, such as Metamask or Rabby.
+The address of the sequencer will by default be `http://localhost:3050`, and the chain ID the one specified with the `<chain_id>` value above.
+
+You can also add the local L1 Ethereum network to the same wallet, which exposes an RPC node at `http://localhost:8545`, if the respective value for it has not been changed in the command listed above.
+
+### Running the prover
+
+In cases where the prover components are required, you need to start the different binaries.
+First, set up the prover component with `zkstack prover init --bellman-cuda true --bellman-cuda-dir <bellman_cuda_dir> --setup-compressor-key true --setup-keys true --setup-database true --prover-db-url postgres://postgres:notsecurepassword@localhost:5432 --prover-db-name <prover_db_name> --dont-drop false --use-default false --verbose`.
+
+Replace the following templates with the actual values you choose: `<bellman_cuda_dir>`, `<prover_db_name>`.
+This process will take a while since it downloads the required keys for the prover and the compressor.
+
+Start the different prover binaries according to the [ZKSync Era prover docs][zksync-era-prover-docs].
+
+## Example applications
+
+With the L2 running, you can deploy any EVM application.
+For instance, we can run the ZKSync Era portal to bridge ETHs from the local L1 to the local L2.
+
+To do this, run the portal with `zkstack portal --verbose`.
+Then, via the portal UI, fund the L2 account that has ETHs on the L1: for a local L1 setup, you can use the account `0x36615Cf349d7F6344891B1e7CA7C72883F5dc049` with private key `0x7726827caac94a7f9e1b160f7ea819f172f7b6f9d2a97f992c38edeab82d4110`.
+More accounts are available in the [official ZKSYnc Era documentation][zksync-era-l1-accounts].
+
+[zksync-era-fork-repo]: https://github.com/logos-co/zksync-era
+[zksync-era-docs]: https://docs.zksync.io/zk-stack
+[zksync-era-dev-setup]: https://github.com/matter-labs/zksync-era/blob/main/docs/src/guides/setup-dev.md
+[zksync-era-prover-docs]: https://matter-labs.github.io/zksync-era/prover/latest/03_launch.html
+[zksync-era-l1-accounts]: https://docs.zksync.io/zk-stack/running/using-a-local-zk-chain#base-layer-is-the-local-reth-node
