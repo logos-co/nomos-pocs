@@ -68,7 +68,7 @@ zkstack ecosystem create \
 - Choose `Eth` as the base currency when prompted.
 - Replace placeholders with your chosen values.
 
-> ℹ️ For testing without a real GPU prover, use `--prover-mode local`.
+> ℹ️ For testing without a real GPU prover, use `--prover-mode no-proofs`.
 
 ---
 
@@ -96,8 +96,8 @@ zkstack ecosystem create \
    ```
 
 3. When prompted, choose `"Nomos"` as the DA provider and enter:
-   - Nomos node URL
-   - Username/password for HTTP basic auth
+   - Nomos DA disperal endpoint URL
+   - Username/password for HTTP basic auth according to the node configuration
    - A 64-character hex App ID (without the `0x`), e.g.:
 
      ```
