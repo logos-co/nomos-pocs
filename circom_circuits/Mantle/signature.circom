@@ -4,7 +4,7 @@ pragma circom 2.1.9;
 include "../ledger/notes.circom";
 include "../misc/constants.circom";
 
-template proof_of_unshielded_note_ownership(maxInput){
+template zkSignature(maxInput){
     signal input secret_key[maxInput];
 
     signal input attached_data;
@@ -23,4 +23,4 @@ template proof_of_unshielded_note_ownership(maxInput){
     dummy <== attached_data * attached_data;
 }
 
-component main {public [attached_data]}= proof_of_unshielded_note_ownership(5);
+component main {public [attached_data]}= zkSignature(5);
