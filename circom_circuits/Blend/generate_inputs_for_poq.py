@@ -1,5 +1,4 @@
-#!/usr/bin/sage
-# -*- mode: python ; -*-
+
 
 
 from sage.all import *
@@ -202,23 +201,43 @@ def PoseidonSponge(data, capacity, output_len):
 
     return output
 
-R = RealField(500) #Real numbers with precision 500 bits
+# ———————————————————————
+# Main
+# ———————————————————————
+if len(sys.argv) != 5:
+    print("Usage: python3 generate_inputs_for_poq.py <session> <Qc> <Ql> <core (0) or leader (1)>")
+    sys.exit(1)
 
-if len(sys.argv) != Integer(4):
-    print("Usage: <script> <epoch_nonce> <slot_number> <total_stake>")
-    exit()
+session   = int(sys.argv[1])
+Qc        = int(sys.argv[2])
+Ql        = int(sys.argv[3])
+core_or_leader = int(sys.argv[4])
+if not core_or_leader in [0,1]:
+    print("core or leader must be 0 or 1")
+    sys.exit(1)
 
-epoch_nonce = int(sys.argv[Integer(1)])
-slot_number = int(sys.argv[Integer(2)])
-total_stake = int(sys.argv[Integer(3)])
+# 1) Core‐node registry Merkle‐proof
+# pick a random core_sk and derive its public key
+core_sk   = F(randrange(0,p,1))
+pk_core   = poseidon2_hash([ F(71828171600713765359243601848789410494517675262904677980449468236927732106), core_sk ])
+core_selectors = randrange(0,2**20,1)
+core_selectors = format(int(core_selectors),'020b')
+core_nodes = [F(randrange(0,p,1)) for i in range(20)]
+core_root = pk_core
+for i in range(20):
+    if int(core_selectors[19-i]) == 0:
+        core_root = poseidon2_hash([core_root,core_nodes[i]])
+    else:
+        core_root = poseidon2_hash([core_nodes[i],core_root])
 
-if epoch_nonce >= p:
-    print("epoch nonce must be less than p")
-    exit()
-if total_stake >= p:
-    print("total stake must be less than p")
-    exit()
-    
+#pk_root, core_path, core_selectors = merkle_root_and_path(pk_core, 20)
+
+# 2) PoL inputs (broadened from your pol script)
+epoch_nonce   = F(randrange(0, p,1))
+slot_number   = F(randrange(0, 2**32,1))
+total_stake   = F(5000)
+# compute t0,t1 via Taylor approx as before
+R = RealField(500)
 t0 = F(int((((- ln(R(0.95))) * R(p))) / R(total_stake) ))
 t1 = F(int((((- ln(R(0.95))**2) * R(p))) / R(total_stake)**2 ))
 
@@ -271,63 +290,52 @@ for i in range(32):
         latest_root = poseidon2_hash([latest_root,unspent_nodes[i]])
     else:
         latest_root = poseidon2_hash([unspent_nodes[i],latest_root])
-   
-with open("input.json", "w") as file:
-    file.write('{\n\t"slot":\t\t\t\t\t\t"'+str(slot_number)+'",')
-    file.write('\n\t"epoch_nonce":\t\t\t\t\t\t"'+str(epoch_nonce)+'",')
-    file.write('\n\t"t0" :\t\t\t\t\t\t"'+str(t0)+'",')
-    file.write('\n\t"t1" :\t\t\t\t\t\t"'+str(t1)+'",')
-    file.write('\n\t"slot_secret" :\t\t\t\t\t\t"'+str(slot_secret)+'",')
-    file.write('\n\t"one_time_key" :\t\t\t\t\t\t"'+str(F(516548))+'",')
-    file.write('\n\t"slot_secret_path" :\t\t\t\t\t[')
-    for i in range(25):
-        file.write('"')
-        file.write(str(slot_secret_path[i]))
-        file.write('"')
-        if i == 24:
-            file.write('],')
-        else:
-            file.write(',')
-    file.write('\n\t"aged_nodes" :\t\t\t\t\t[')
-    for i in range(32):
-        file.write('"')
-        file.write(str(aged_nodes[i]))
-        file.write('"')
-        if i == 31:
-            file.write('],')
-        else:
-            file.write(',')
-    file.write('\n\t"aged_selectors" :\t\t\t\t\t[')
-    for i in range(32):
-        file.write('"')
-        file.write(str(aged_selectors[i]))
-        file.write('"')
-        if i == 31:
-            file.write('],')
-        else:
-            file.write(',')
-    file.write('\n\t"aged_root" :\t\t\t\t"'+str(aged_root)+'",')
-    file.write('\n\t"transaction_hash" :\t\t\t\t"'+str(tx_hash)+'",')
-    file.write('\n\t"output_number" :\t\t\t\t"'+str(output_number)+'",')
-    file.write('\n\t"latest_nodes" :\t\t\t\t\t[')
-    for i in range(32):
-        file.write('"')
-        file.write(str(unspent_nodes[i]))
-        file.write('"')
-        if i == 31:
-            file.write('],')
-        else:
-            file.write(',')
-    file.write('\n\t"latest_selectors" :\t\t\t\t\t[')
-    for i in range(32):
-        file.write('"')
-        file.write(str(unspent_selectors[i]))
-        file.write('"')
-        if i == 31:
-            file.write('],')
-        else:
-            file.write(',')
-    file.write('\n\t"latest_root" :\t\t\t\t"'+str(latest_root)+'",')
-    file.write('\n\t"starting_slot" :\t\t\t\t"'+str(starting_slot)+'",')
-    file.write('\n\t"secrets_root" :\t\t\t\t"'+str(secret_root)+'",')
-    file.write('\n\t"value" :\t\t\t\t"'+str(value)+'"}')
+
+# 3) Choose branch & index
+index    = randrange(0, Ql if core_or_leader else Qc,1)
+
+# 4) One‐time key
+K = F(randrange(0,p,1))
+
+# 5) Assemble JSON
+inp = {
+  "session":          str(session),
+  "Qc":               str(Qc),
+  "Ql":               str(Ql),
+  "pk_root":          str(core_root),
+  "aged_root":        str(aged_root),
+  "latest_root":      str(latest_root),
+  "K":                str(K),
+  "selector":         str(core_or_leader),
+  "index":            str(index),
+  "core_sk":          str(core_sk),
+  "core_path":        [str(x) for x in core_nodes],
+  "core_selectors":   [str(x) for x in core_selectors],
+  "slot":             str(slot_number),
+  "epoch_nonce":      str(epoch_nonce),
+  "t0":               str(t0),
+  "t1":               str(t1),
+  "slot_secret":      str(slot_secret),
+  "slot_secret_path": [str(x) for x in slot_secret_path],
+  "aged_nodes":       [str(x) for x in aged_nodes],
+  "aged_selectors":   [str(x) for x in aged_selectors],
+  "transaction_hash": str(tx_hash),
+  "output_number":    str(output_number),
+  "latest_nodes":     [str(x) for x in unspent_nodes],
+  "latest_selectors": [str(x) for x in unspent_selectors],
+  "starting_slot":    str(starting_slot),
+  "secrets_root":     str(secret_root),
+  "value":            str(value)
+}
+
+if core_or_leader == 0:
+    inp["latest_root"] = randrange(0,p,1)
+else:
+    inp["pk_root"] = randrange(0,p,1)
+
+import json
+
+with open("input.json","w") as f:
+    json.dump(inp, f, indent=2)
+
+print("Wrote input_poq.json")

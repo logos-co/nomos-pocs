@@ -5,7 +5,6 @@ include "../hash_bn/poseidon2_hash.circom";
 include "../misc/constants.circom";         // defines NOMOS_KDF, SELECTION_RANDOMNESS, PROOF_NULLIFIER
 include "../misc/comparator.circom";        
 include "../circomlib/circuits/bitify.circom";
-include "../ledger/notes.circom";           // defines proof_of_membership
 include "../Mantle/pol.circom";      // defines proof_of_leadership
 
 /**
@@ -24,6 +23,9 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
     signal input aged_root;     // PoL: aged notes root
     signal input latest_root;   // PoL: latest notes root
     signal input K;  // Blend: one-time signature public key
+
+    signal dummy;
+    dummy <== K * K;
 
     signal output nullifier;    //key_nullifier
 
@@ -51,6 +53,10 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
     signal input latest_nodes[32];
     signal input latest_selectors[32];
 
+    signal input starting_slot;
+    signal input secrets_root;
+    signal input value;
+
 
 
     // Constraints
@@ -58,7 +64,7 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
 
     // derive pk_core = Poseidon(NOMOS_KDF || core_sk)
     component kdf = Poseidon2_hash(2);
-    component dstKdf = NOMOS_KDF();
+    component dstKdf = NOMOS_KDF_V1();
     kdf.inp[0] <== dstKdf.out;
     kdf.inp[1] <== core_sk;
     signal pk_core;
@@ -100,36 +106,35 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
     win.secrets_root   <== secrets_root;
     win.value          <== value;
 
-    signal is_leader = win.out;  // 1 if PoL passed
-
     // Enforce the selected role is correct
-    selector * (is_leader - coreReg.out) + coreReg.out === 1;
+    selector * (win.out - coreReg.out) + coreReg.out === 1;
+
 
 
 
     // Quota check: index < Qc if core, index < Ql if leader
     component cmp = SafeLessThan(bitsQuota);
-    cmp.a <== index;
-    cmp.b <== selector * (Ql - Qc) + Qc;
+    cmp.in[0] <== index;
+    cmp.in[1] <== selector * (Ql - Qc) + Qc;
     cmp.out === 1;
 
     // Derive selection_randomness
     component randomness = Poseidon2_hash(4);
-    component dstSel = SELECTION_RANDOMNESS();
+    component dstSel = SELECTION_RANDOMNESS_V1();
     randomness.inp[0] <== dstSel.out;
     // choose core_sk or pol.secret_key:
-    randomness.inp[1] <== selector * (pol.secret_key - core_sk ) + core_sk;
+    randomness.inp[1] <== selector * (win.secret_key - core_sk ) + core_sk;
     randomness.inp[2] <== index;
     randomness.inp[3] <== session;
 
     // Derive proof_nullifier
     component nf = Poseidon2_hash(2);
-    component dstNF = PROOF_NULLIFIER();
+    component dstNF = PROOF_NULLIFIER_V1();
     nf.inp[0] <== dstNF.out;
     nf.inp[1] <== randomness.out;
     nullifier <== nf.out;
 }
 
-// Instantiate with chosen depths: 32 for core PK tree, 25 for PoL slot tree
+// Instantiate with chosen depths: 20 for core PK tree, 25 for PoL slot tree
 component main { public [ session, Qc, Ql, pk_root, aged_root, latest_root, K ] }
-    = ProofOfQuota(32, 25, 6);
+    = ProofOfQuota(20, 25, 6);
