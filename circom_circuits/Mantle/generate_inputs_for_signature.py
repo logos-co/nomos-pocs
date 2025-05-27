@@ -207,12 +207,6 @@ if len(sys.argv) != Integer(2):
     exit()
 
 nInput = int(sys.argv[Integer(1)])
-
-value = [F(randrange(0,2**64 - 1,1)) for i in range(nInput)]
-unit = F(19676183153323264216568033390884511718872104179761154996527087027500271872825)
-state = [F(randrange(0,p,1)) for i in range(nInput)]
-zoneID = [F(randrange(0,p,1))  for i in range(nInput)]
-nonce = [F(randrange(0,p,1))  for i in range(nInput)]
 sk = [F(randrange(0,p,1))  for i in range(nInput)]
 
 data_msg = F(randrange(0,p,1))
