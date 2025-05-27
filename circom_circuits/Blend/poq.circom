@@ -13,6 +13,7 @@ include "../Mantle/pol.circom";      // defines proof_of_leadership
  *
  * - nLevelsPK   : depth of the core-node public-key registry Merkle tree
  * - nLevelsPol  : depth of the slot-secret tree used in PoL (25)
+ * - bitsQuota   : bit-width for the index comparator
  */
 template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
     // Public Inputs
@@ -24,7 +25,7 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
     signal input latest_root;   // PoL: latest notes root
     signal input K;  // Blend: one-time signature public key
 
-    signal output nullifier;
+    signal output nullifier;    //key_nullifier
 
     // Private Inputs
     signal input selector;      // 0 = core, 1 = leader
@@ -35,8 +36,21 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
     signal input core_path[nLevelsPK];          // Merkle path for core PK
     signal input core_selectors[nLevelsPK];     // path selectors (bits)
 
-    // Leaders inputs (all PoL inputs)
-    component pol = proof_of_leadership();
+    // PoL branch inputs (all the PoL private data)
+    signal input slot;
+    signal input epoch_nonce;
+    signal input t0;
+    signal input t1;
+    signal input slot_secret;
+    signal input slot_secret_path[nLevelsPol];
+
+    signal input aged_nodes[32];
+    signal input aged_selectors[32];
+    signal input transaction_hash;
+    signal input output_number;
+    signal input latest_nodes[32];
+    signal input latest_selectors[32];
+
 
 
     // Constraints
@@ -63,10 +77,33 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
     // enforce PoL
     // (All constraints inside pol ensure LeadershipVerify)
     // /!\ copy the PoL constraints here /!\
-    is_winning <== //0 or 1 for PoL
+    component win = is_winning_leadership(nLevelsPol);
+    win.slot                <== slot;
+    win.epoch_nonce         <== epoch_nonce;
+    win.t0                  <== t0;
+    win.t1                  <== t1;
+    win.slot_secret         <== slot_secret;
+    for (var i = 0; i < nLevelsPol; i++) {
+        win.slot_secret_path[i] <== slot_secret_path[i];
+    }
+    for (var i = 0; i < 32; i++) {
+        win.aged_nodes[i]      <== aged_nodes[i];
+        win.aged_selectors[i]  <== aged_selectors[i];
+        win.latest_nodes[i]    <== latest_nodes[i];
+        win.latest_selectors[i]<== latest_selectors[i];
+    }
+    win.aged_root      <== aged_root;
+    win.transaction_hash <== transaction_hash;
+    win.output_number    <== output_number;
+    win.latest_root      <== latest_root;
+    win.starting_slot  <== starting_slot;
+    win.secrets_root   <== secrets_root;
+    win.value          <== value;
+
+    signal is_leader = win.out;  // 1 if PoL passed
 
     // Enforce the selected role is correct
-    selector * (is_winning - coreReg.out) + coreReg.out === 1;
+    selector * (is_leader - coreReg.out) + coreReg.out === 1;
 
 
 
