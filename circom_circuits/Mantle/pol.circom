@@ -3,6 +3,7 @@ pragma circom 2.1.9;
 
 include "../hash_bn/poseidon2_hash.circom";
 include "../ledger/notes.circom";
+include "../ledger/merkle.circom";
 include "../misc/comparator.circom";
 include "../circomlib/circuits/bitify.circom";
 include "../misc/constants.circom";
@@ -16,7 +17,7 @@ template ticket_calculator(){
     signal output out;
 
     component hash = Poseidon2_hash(5);
-    component dst = LEAD();
+    component dst = LEAD_V1();
     hash.inp[0] <== dst.out;
     hash.inp[1] <== epoch_nonce;
     hash.inp[2] <== slot;
@@ -32,7 +33,7 @@ template derive_secret_key(){
     signal output out;
 
     component hash = Poseidon2_hash(3);
-    component dst = NOMOS_POL_SK();
+    component dst = NOMOS_POL_SK_V1();
     hash.inp[0] <== dst.out;
     hash.inp[1] <== starting_slot;
     hash.inp[2] <== secrets_root;
@@ -86,6 +87,8 @@ template is_winning_leadership(secret_depth){
     signal input value;
 
     signal output out;
+    signal output note_identifier;
+    signal output secret_key;
 
 
     // Derive the secret key
@@ -183,6 +186,9 @@ template is_winning_leadership(secret_depth){
     intermediate_out[1] <== unspent_membership.out * secret_membership.out;
     intermediate_out[2] <== intermediate_out[0] * intermediate_out[1];
     out <==  intermediate_out[2] * checker.out;
+
+    note_identifier <== note_id.out;
+    secret_key <== sk.out;
 } 
 
 
@@ -222,10 +228,10 @@ template proof_of_leadership(secret_depth){
     lottery_checker.t0 <== t0;
     lottery_checker.t1 <== t1;
     lottery_checker.slot_secret <== slot_secret;
-    for(i = 0; i < secret_depth; i++){
+    for(var i = 0; i < secret_depth; i++){
         lottery_checker.slot_secret_path[i] <== slot_secret_path[i];
     }
-    for(i = 0; i < 32; i++){
+    for(var i = 0; i < 32; i++){
         lottery_checker.aged_nodes[i] <== aged_nodes[i];
         lottery_checker.aged_selectors[i] <== aged_selectors[i];
         lottery_checker.latest_nodes[i] <== latest_nodes[i];
@@ -255,11 +261,11 @@ template proof_of_leadership(secret_depth){
     // Compute the entropy contribution
     component entropy = derive_entropy();
     entropy.slot <== slot;
-    entropy.note_id <== note_id.out;
-    entropy.secret_key <== sk.out;
+    entropy.note_id <== lottery_checker.note_identifier;
+    entropy.secret_key <== lottery_checker.secret_key;
 
     entropy_contrib <== entropy.out;
 }
 
 
-component main {public [slot,epoch_nonce,t0,t1,aged_root,latest_root,one_time_key]}= proof_of_leadership();
+component main {public [slot,epoch_nonce,t0,t1,aged_root,latest_root,one_time_key]}= proof_of_leadership(25);
