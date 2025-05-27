@@ -224,14 +224,15 @@ t1 = F(int((((- ln(R(0.95))**2) * R(p))) / R(total_stake)**2 ))
 
 
 value = F(50)
-unit = F(19676183153323264216568033390884511718872104179761154996527087027500271872825)
-state = F(randrange(0,p,1))
-note_nonce = F(0)
 threshold = (t0 + t1 * value) * value
 starting_slot = randrange(max(0,slot_number-2**25+1),slot_number,1)
 
 slot_secret = F(randrange(0,p,1))
 slot_secret_indexes = format(slot_number - starting_slot,'025b')
+
+tx_hash = F(randrange(0,p,1))
+output_number = F(randrange(0,50,1))
+
 
 slot_secret_path = [F(randrange(0,p,1)) for i in range(25)]
 secret_root = slot_secret
@@ -240,20 +241,16 @@ for i in range(25):
         secret_root = poseidon2_hash([secret_root,slot_secret_path[i]])
     else:
         secret_root = poseidon2_hash([slot_secret_path[i],secret_root])
-sk = poseidon2_hash([F(313763129738690320248895675268201668175331181115752393250540330459318963992),starting_slot,secret_root])
-pk = poseidon2_hash([F(355994159511987982411097843485998670968942801951585260613801918349630142543),sk])
+sk = poseidon2_hash([F(276343751363038477542478482371189478971716773803854432417240653890758913502),starting_slot,secret_root])
+pk = poseidon2_hash([F(143901698298659326513095781108609933285310777469806395711179835432556098250),sk])
 
-note_cm = poseidon2_hash([F(181645510297841241569044198526601622686169271532834574969543446901055041748),state,value,unit,note_nonce,pk,F(363778563868520716613768381832117227806204156179492995214325445980623358665)])
-ticket = poseidon2_hash([F(137836078329650723736739065075984465408055658421620421917147974048265460598),F(epoch_nonce),F(slot_number),note_cm,sk])
+note_id = poseidon2_hash([F(208937745713764417368342977773177181211005049473820876609645291603759251867),tx_hash,output_number,value,pk])
+ticket = poseidon2_hash([F(118639355095155533251654648435778961140410152423070311685636296540777655717),F(epoch_nonce),F(slot_number),note_id,sk])
 while(ticket > threshold):
-    note_nonce += 1
-    note_cm = poseidon2_hash([F(181645510297841241569044198526601622686169271532834574969543446901055041748),state,value,unit,note_nonce,pk,F(363778563868520716613768381832117227806204156179492995214325445980623358665)])
-    ticket = poseidon2_hash([F(137836078329650723736739065075984465408055658421620421917147974048265460598),F(epoch_nonce),F(slot_number),note_cm,sk])
+    output_number += 1
+    note_id = poseidon2_hash([F(208937745713764417368342977773177181211005049473820876609645291603759251867),tx_hash,output_number,value,pk])
+    ticket = poseidon2_hash([F(118639355095155533251654648435778961140410152423070311685636296540777655717),F(epoch_nonce),F(slot_number),note_id,sk])
  
-tx_hash = F(randrange(0,p,1))
-output_number = F(randrange(0,4,1))
-note_id = poseidon2_hash([F(342101038445105569972307194441697646307927876218883552376182649811837164915),tx_hash,output_number,note_cm])
-
 aged_nodes = [F(randrange(0,p,1)) for i in range(32)]
 aged_selectors = randrange(0,2**32,1)
 aged_selectors = format(aged_selectors,'032b')
@@ -333,6 +330,4 @@ with open("input.json", "w") as file:
     file.write('\n\t"latest_root" :\t\t\t\t"'+str(latest_root)+'",')
     file.write('\n\t"starting_slot" :\t\t\t\t"'+str(starting_slot)+'",')
     file.write('\n\t"secrets_root" :\t\t\t\t"'+str(secret_root)+'",')
-    file.write('\n\t"state" :\t\t\t\t"'+str(state)+'",')
-    file.write('\n\t"value" :\t\t\t\t"'+str(value)+'",')
-    file.write('\n\t"nonce" :\t\t\t\t"'+str(note_nonce)+'"}')
+    file.write('\n\t"value" :\t\t\t\t"'+str(value)+'"}')
