@@ -21,7 +21,6 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
     signal input Ql;            // leadership quota Q_L
     signal input pk_root;       // Merkle root of registered core-node public keys
     signal input aged_root;     // PoL: aged notes root
-    signal input latest_root;   // PoL: latest notes root
     signal input K;  // Blend: one-time signature public key
 
     signal dummy;
@@ -50,8 +49,6 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
     signal input aged_selectors[32];
     signal input transaction_hash;
     signal input output_number;
-    signal input latest_nodes[32];
-    signal input latest_selectors[32];
 
     signal input starting_slot;
     signal input secrets_root;
@@ -80,34 +77,30 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
     coreReg.root <== pk_root;
     coreReg.leaf <== pk_core;
 
-    // enforce PoL
+    // enforce potential PoL (without verification that the note is unspent)
     // (All constraints inside pol ensure LeadershipVerify)
-    // /!\ copy the PoL constraints here /!\
-    component win = is_winning_leadership(nLevelsPol);
-    win.slot                <== slot;
-    win.epoch_nonce         <== epoch_nonce;
-    win.t0                  <== t0;
-    win.t1                  <== t1;
-    win.slot_secret         <== slot_secret;
+    component would_win = would_win_leadership(nLevelsPol);
+    would_win.slot                <== slot;
+    would_win.epoch_nonce         <== epoch_nonce;
+    would_win.t0                  <== t0;
+    would_win.t1                  <== t1;
+    would_win.slot_secret         <== slot_secret;
     for (var i = 0; i < nLevelsPol; i++) {
-        win.slot_secret_path[i] <== slot_secret_path[i];
+        would_win.slot_secret_path[i] <== slot_secret_path[i];
     }
     for (var i = 0; i < 32; i++) {
-        win.aged_nodes[i]      <== aged_nodes[i];
-        win.aged_selectors[i]  <== aged_selectors[i];
-        win.latest_nodes[i]    <== latest_nodes[i];
-        win.latest_selectors[i]<== latest_selectors[i];
+        would_win.aged_nodes[i]      <== aged_nodes[i];
+        would_win.aged_selectors[i]  <== aged_selectors[i];
     }
-    win.aged_root      <== aged_root;
-    win.transaction_hash <== transaction_hash;
-    win.output_number    <== output_number;
-    win.latest_root      <== latest_root;
-    win.starting_slot  <== starting_slot;
-    win.secrets_root   <== secrets_root;
-    win.value          <== value;
+    would_win.aged_root      <== aged_root;
+    would_win.transaction_hash <== transaction_hash;
+    would_win.output_number    <== output_number;
+    would_win.starting_slot  <== starting_slot;
+    would_win.secrets_root   <== secrets_root;
+    would_win.value          <== value;
 
     // Enforce the selected role is correct
-    selector * (win.out - coreReg.out) + coreReg.out === 1;
+    selector * (would_win.out - coreReg.out) + coreReg.out === 1;
 
 
 
@@ -123,7 +116,7 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
     component dstSel = SELECTION_RANDOMNESS_V1();
     randomness.inp[0] <== dstSel.out;
     // choose core_sk or pol.secret_key:
-    randomness.inp[1] <== selector * (win.secret_key - core_sk ) + core_sk;
+    randomness.inp[1] <== selector * (would_win.secret_key - core_sk ) + core_sk;
     randomness.inp[2] <== index;
     randomness.inp[3] <== session;
 
@@ -136,5 +129,5 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
 }
 
 // Instantiate with chosen depths: 20 for core PK tree, 25 for PoL slot tree
-component main { public [ session, Qc, Ql, pk_root, aged_root, latest_root, K ] }
-    = ProofOfQuota(20, 25, 6);
+component main { public [ session, Qc, Ql, pk_root, aged_root, K ] }
+    = ProofOfQuota(20, 25, 20);

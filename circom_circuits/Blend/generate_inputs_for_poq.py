@@ -280,17 +280,6 @@ for i in range(32):
     else:
         aged_root = poseidon2_hash([aged_nodes[i],aged_root])
 
-unspent_nodes = [F(randrange(0,p,1)) for i in range(32)]
-unspent_selectors = randrange(0,2**32,1)
-unspent_selectors = format(unspent_selectors,'032b')
-
-latest_root = note_id
-for i in range(32):
-    if int(unspent_selectors[31-i]) == 0:
-        latest_root = poseidon2_hash([latest_root,unspent_nodes[i]])
-    else:
-        latest_root = poseidon2_hash([unspent_nodes[i],latest_root])
-
 # 3) Choose branch & index
 index    = randrange(0, Ql if core_or_leader else Qc,1)
 
@@ -304,7 +293,6 @@ inp = {
   "Ql":               str(Ql),
   "pk_root":          str(core_root),
   "aged_root":        str(aged_root),
-  "latest_root":      str(latest_root),
   "K":                str(K),
   "selector":         str(core_or_leader),
   "index":            str(index),
@@ -321,15 +309,13 @@ inp = {
   "aged_selectors":   [str(x) for x in aged_selectors],
   "transaction_hash": str(tx_hash),
   "output_number":    str(output_number),
-  "latest_nodes":     [str(x) for x in unspent_nodes],
-  "latest_selectors": [str(x) for x in unspent_selectors],
   "starting_slot":    str(starting_slot),
   "secrets_root":     str(secret_root),
   "value":            str(value)
 }
 
 if core_or_leader == 0:
-    inp["latest_root"] = randrange(0,p,1)
+    inp["aged_root"] = randrange(0,p,1)
 else:
     inp["pk_root"] = randrange(0,p,1)
 
