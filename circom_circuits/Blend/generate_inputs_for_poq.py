@@ -239,7 +239,7 @@ total_stake   = F(5000)
 # compute t0,t1 via Taylor approx as before
 R = RealField(500)
 t0 = F(int((((- ln(R(0.95))) * R(p))) / R(total_stake) ))
-t1 = F(int((((- ln(R(0.95))**2) * R(p))) / R(total_stake)**2 ))
+t1 = F(int((((- ln(R(0.95))**2) * R(p))) / ( R(2) * R(total_stake)**2 )))
 
 
 value = F(50)
