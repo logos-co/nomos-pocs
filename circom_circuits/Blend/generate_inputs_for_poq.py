@@ -269,13 +269,14 @@ while(ticket > threshold):
     output_number += 1
     note_id = poseidon2_hash([F(103012852986292465873069134523609422197952925946768565674230228608985708879),tx_hash,output_number,value,pk])
     ticket = poseidon2_hash([F(328840406439552832830196247813274442341678919395186087927998764150429312516),F(epoch_nonce),F(slot_number),note_id,sk])
- 
-aged_nodes = [F(randrange(0,p,1)) for i in range(32)]
-aged_selectors = randrange(0,2**32,1)
+
+zoneTreeDepth = 32 
+aged_nodes = [F(randrange(0,p,1)) for i in range(zoneTreeDepth)]
+aged_selectors = randrange(0,2**zoneTreeDepth,1)
 aged_selectors = format(aged_selectors,'032b')
 aged_root = note_id
-for i in range(32):
-    if int(aged_selectors[31-i]) == 0:
+for i in range(zoneTreeDepth):
+    if int(aged_selectors[zoneTreeDepth-1-i]) == 0:
         aged_root = poseidon2_hash([aged_root,aged_nodes[i]])
     else:
         aged_root = poseidon2_hash([aged_nodes[i],aged_root])
