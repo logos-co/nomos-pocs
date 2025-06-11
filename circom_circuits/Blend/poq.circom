@@ -15,7 +15,7 @@ include "../Mantle/pol.circom";      // defines proof_of_leadership
  * - bitsQuota   : bit-width for the index comparator
  * - zoneTreeDepth  : depth of the zone’s aged notes Merkle tree (32)
  */
-template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
+template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota, zoneTreeDepth) {
     // Public Inputs
     signal input session;       // session s
     signal input Qc;            // core quota Q_C
