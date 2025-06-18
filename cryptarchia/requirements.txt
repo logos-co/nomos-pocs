@@ -1,3 +1,4 @@
 jupyter == 1.1.1
 numpy == 2.0.2
 matplotlib == 3.9.4
+pyvis == 0.3.2
