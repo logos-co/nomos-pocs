@@ -78,7 +78,12 @@ jobs:
         with:
           path: repo
 
-      - name: Compile Circuit
+      - name: Initialise Submodules
+        working-directory: repo
+        run: |
+          git submodule update --init --recursive
+
+      - name: Generate C++ Circuit
         working-directory: repo/circom_circuits/Mantle
         run: |
           circom --c --r1cs --no_asm pol.circom
