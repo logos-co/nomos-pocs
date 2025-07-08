@@ -87,3 +87,56 @@ jobs:
         working-directory: repo/circom_circuits/Mantle
         run: |
           circom --c --r1cs --no_asm pol.circom
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          install: >-
+            base-devel
+            mingw-w64-x86_64-toolchain
+            make
+            git
+
+      - name: Dependencies - Setup
+        shell: msys2 {0}
+        run: mkdir /include
+
+      - name: Dependencies - Install [mman-win32]
+        shell: msys2 {0}
+        run: |
+          git clone https://github.com/alitrack/mman-win32.git
+          cd mman-win32
+          ./configure --prefix= # Path: /
+          make
+          make install
+
+      - name: Dependencies - Install [nlohmann/json]
+        shell: msys2 {0}
+        run: |
+          mkdir -p /include/nlohmann/
+          wget -O /include/nlohmann/json.hpp https://github.com/nlohmann/json/releases/download/v3.12.0/json.hpp
+
+      #- name: Install Circuit Dependencies
+      #  run: |
+      #    git clone https://github.com/alitrack/mman-win32.git
+      #    cd mman-win32
+      #    ./configure  
+      #    make
+
+      - name: Replace pol Makefile # TODO: Make a fork generate the appropriate Windows Makefile
+        working-directory: repo
+        shell: msys2 {0}
+        run: cp .github/resources/Makefile.windows circom_circuits/Mantle/pol_cpp/Makefile
+
+      - name: Compile Circuit
+        shell: msys2 {0}
+        working-directory: repo/circom_circuits/Mantle/pol_cpp
+        run: |
+          make pol.exe
+
+  #    - name: Upload Binary
+  #      uses: actions/upload-artifact@v4
+  #      with:
+  #        name: pol.exe
+  #        path: repo/circom_circuits/Mantle/pol_cpp/pol.exe
