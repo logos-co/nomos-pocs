@@ -116,5 +116,5 @@ clean:
         ```
     3. Bundle
         ```bash
-        tar -czf pol-windows-bundle.tar.gz pol.exe pol.exe.dat *.dll
+        tar -czf pol-x86_64.tar.gz pol.exe pol.exe.dat *.dll
         ```
