@@ -6,8 +6,8 @@ on:
   pull_request: # For testing purposes
 
 jobs:
-  build-linux:
-    name: Build Linux Binary
+  build-linux-native:
+    name: Build Linux Binary (Native)
     runs-on: ubuntu-latest
     steps:
       - name: Install Rust Toolchain
@@ -31,35 +31,47 @@ jobs:
 
       - name: Initialise Submodules
         working-directory: repo
-        run: |
-          git submodule update --init --recursive
+        run: git submodule update --init --recursive
 
       - name: Generate C++ Circuit
         working-directory: repo/circom_circuits/Mantle
-        run: |
-          circom --c --r1cs --no_asm pol.circom
+        run: circom --c --r1cs --no_asm pol.circom
 
-      - name: Install Circuit Dependencies
+      - name: Dependencies - Setup
         run: |
           sudo apt update
-          sudo apt install nlohmann-json3-dev
+
+      - name: Dependencies - Install [nlohmann/json]
+        run: sudo apt install nlohmann-json3-dev
 
       - name: Compile Circuit
         working-directory: repo/circom_circuits/Mantle/pol_cpp
-        run: |
-          make pol
+        run: make pol
+
+      - name: Bundle
+        working-directory: repo/circom_circuits/Mantle/pol_cpp
+        run: tar -czf pol-linux-x86_64.tar.gz pol pol.dat
 
       - name: Upload Binary
         uses: actions/upload-artifact@v4
-       working-directory: repo/circom_circuits/Mantle/pol_cpp
         with:
-          name: pol
-          path: pol
+          name: pol-linux-x86_64.tar.gz
+          path: repo/circom_circuits/Mantle/pol_cpp/pol-linux-x86_64.tar.gz
 
   build-windows-native:
     name: Build Windows Binary (Native)
     runs-on: windows-latest
     steps:
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          install: >-
+            base-devel
+            mingw-w64-x86_64-toolchain
+            make
+            git
+
       - name: Install Rust Toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
@@ -81,23 +93,11 @@ jobs:
 
       - name: Initialise Submodules
         working-directory: repo
-        run: |
-          git submodule update --init --recursive
+        run: git submodule update --init --recursive
 
       - name: Generate C++ Circuit
         working-directory: repo/circom_circuits/Mantle
-        run: |
-          circom --c --r1cs --no_asm pol.circom
-
-      - name: Setup MSYS2
-        uses: msys2/setup-msys2@v2
-        with:
-          update: true
-          install: >-
-            base-devel
-            mingw-w64-x86_64-toolchain
-            make
-            git
+        run: circom --c --r1cs --no_asm pol.circom
 
       - name: Dependencies - Setup
         shell: msys2 {0}
@@ -127,12 +127,79 @@ jobs:
       - name: Compile Circuit
         shell: msys2 {0}
         working-directory: repo/circom_circuits/Mantle/pol_cpp
+        run: make pol.exe
+
+      - name: Bundle
+        shell: msys2 {0}
+        working-directory: repo/circom_circuits/Mantle/pol_cpp
         run: |
-          make pol.exe
+          MINGW_BASE_DIR="/${MSYSTEM,,}"   # converts to lowercase, e.g., MINGW64 -> mingw64
+          MINGW_DLL_DIR="$MINGW_BASE_DIR/bin"
+          cp "$MINGW_DLL_DIR"/{libgcc_s_seh-1.dll,libgmp-10.dll,libwinpthread-1.dll,libstdc++-6.dll} .
+          mv pol.dat pol.exe.dat
+          tar -czf pol-windows-x86_64.tar.gz pol.exe pol.exe.dat *.dll
 
       - name: Upload Binary
         uses: actions/upload-artifact@v4
-        working-directory: repo/circom_circuits/Mantle/pol_cpp
         with:
-          name: pol.exe
-          path: pol.exe
+          name: pol-windows-x86_64.tar.gz
+          path: repo/circom_circuits/Mantle/pol_cpp/pol-windows-x86_64.tar.gz
+
+  build-osx-native:
+    name: Build OSX Binary (Native)
+    runs-on: macos-latest
+    steps:
+      - name: Install Rust Toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          cache: false
+
+      - name: Install Circom
+        run: |
+          git clone https://github.com/iden3/circom.git
+          cd circom
+          RUSTFLAGS="-A dead_code" cargo build --release
+          RUSTFLAGS="-A dead_code" cargo install --path circom
+          circom --version
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: repo
+
+      - name: Initialise Submodules
+        working-directory: repo
+        run: git submodule update --init --recursive
+
+      - name: Generate C++ Circuit
+        working-directory: repo/circom_circuits/Mantle
+        run: circom --c --r1cs --no_asm pol.circom
+
+      - name: Dependencies - Setup
+        run: mkdir include
+
+      - name: Dependencies - Install [nlohmann/json]
+        run: brew install nlohmann-json
+
+      - name: Replace pol Makefile # TODO: Make a fork generate the appropriate OSX Makefile
+        working-directory: repo
+        run: cp .github/resources/Makefile.osx circom_circuits/Mantle/pol_cpp/Makefile
+
+      - name: Patch OSX GMP
+        working-directory: repo
+        run: cp .github/resources/gmp_patch.osx.hpp circom_circuits/Mantle/pol_cpp/gmp_patch.osx.hpp
+
+      - name: Compile Circuit
+        working-directory: repo/circom_circuits/Mantle/pol_cpp
+        run: make pol
+
+      - name: Bundle
+        working-directory: repo/circom_circuits/Mantle/pol_cpp
+        run: tar -czf pol-macos-arm64.tar.gz pol pol.dat
+
+      - name: Upload Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: pol-macos-arm64.tar.gz
+          path: repo/circom_circuits/Mantle/pol_cpp/pol-macos-arm64.tar.gz
