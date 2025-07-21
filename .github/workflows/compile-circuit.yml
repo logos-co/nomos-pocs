@@ -1,14 +1,50 @@
-name: Build
+name: Build Witness Generator
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release. Must follow the format of 'vX.Y.Z'."
+        required: true
   pull_request: # For testing purposes
 
 jobs:
+  setup:
+    name: Define variables and configure environment
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.define-version.outputs.version }}
+    steps:
+      - name: Define version
+        id: define-version
+        env:
+          # Use the tag name if it is available, otherwise use the input version.
+          # If neither is available, default to the commit hash.
+          VERSION: ${{ github.event.release.tag_name || inputs.version }}
+        run: |
+          if [ -z "$VERSION" ]; then
+            echo "No version tag found. Defaulting to commit hash."
+            VERSION=$GITHUB_SHA
+          elif [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "VERSION must follow the format of 'vX.Y.Z'. Value: '$VERSION'."
+            exit 1
+          fi
+          
+          # Export the version to be used in the following jobs.
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
   build-linux-native:
     name: Build Linux Binary (Native)
     runs-on: ubuntu-latest
+    needs:
+      - setup
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
     steps:
       - name: Install Rust Toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -61,6 +97,10 @@ jobs:
   build-windows-native:
     name: Build Windows Binary (Native)
     runs-on: windows-latest
+    needs:
+      - setup
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
     steps:
       - name: Setup MSYS2
         uses: msys2/setup-msys2@v2
@@ -148,6 +188,10 @@ jobs:
   build-osx-native:
     name: Build OSX Binary (Native)
     runs-on: macos-latest
+    needs:
+      - setup
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
     steps:
       - name: Install Rust Toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -203,3 +247,76 @@ jobs:
         with:
           name: pol-macos-arm64.tar.gz
           path: repo/circom_circuits/Mantle/pol_cpp/pol-macos-arm64.tar.gz
+
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs:
+      - setup
+      - build-linux-native
+      - build-windows-native
+      - build-osx-native
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Create Release
+        uses: actions/create-release@4c11c9fe1dcd9636620a16455165783b20fc7ea0  # Version 1.1.4
+        id: create_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.VERSION }}
+          release_name: PoL Witness Generator ${{ env.VERSION }}
+          body: |
+            This is a release of PoL Witness Generator ${{ env.VERSION }}.
+            ## Changelog
+            - feature(X): new feature
+            - fix(Y): bug description
+            - feature: performance improvement on Z
+            ## Checklist
+            Before publishing please ensure:
+            - [ ] Description is complete
+            - [ ] Changelog is correct
+            - [ ] Assets for all platforms exist
+            - [ ] Pre-release is checked if necessary
+            - [ ] Remove this checklist before publishing the release.
+          draft: true
+          prerelease: true
+
+  upload-artifacts:
+    name: Upload Artifacts to Release
+    runs-on: ubuntu-latest
+    needs: 
+      - setup
+      - create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - os: linux
+            arch: x86_64
+          - os: macos
+            arch: arm64
+          - os: windows
+            arch: x86_64
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+      UPLOAD_URL: ${{ needs.create-release.outputs.upload_url }}
+      ARTIFACT_NAME: pol-${{ matrix.platform.os }}-${{ matrix.platform.arch }}.tar.gz
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # Version 4.2.1
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+
+      - name: Upload Artifacts to Release
+        uses: actions/upload-release-asset@ef2adfe8cb8ebfa540930c452c576b3819990faa  # Version 1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: ${{ env.ARTIFACT_NAME }}
+          asset_name: ${{ env.ARTIFACT_NAME }}
+          asset_content_type: application/octet-stream
