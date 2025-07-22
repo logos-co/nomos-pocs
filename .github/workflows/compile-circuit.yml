@@ -34,7 +34,7 @@ jobs:
             echo "VERSION must follow the format of 'vX.Y.Z'. Value: '$VERSION'."
             exit 1
           fi
-          
+
           # Export the version to be used in the following jobs.
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
@@ -45,6 +45,8 @@ jobs:
       - setup
     env:
       VERSION: ${{ needs.setup.outputs.version }}
+      OS: linux
+      ARCH: x86_64
     steps:
       - name: Install Rust Toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -86,13 +88,13 @@ jobs:
 
       - name: Bundle
         working-directory: repo/circom_circuits/Mantle/pol_cpp
-        run: tar -czf pol-linux-x86_64.tar.gz pol pol.dat
+        run: tar -czf pol-linux-${{ env.ARCH }}.tar.gz pol pol.dat
 
       - name: Upload Binary
         uses: actions/upload-artifact@v4
         with:
-          name: pol-linux-x86_64.tar.gz
-          path: repo/circom_circuits/Mantle/pol_cpp/pol-linux-x86_64.tar.gz
+          name: pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          path: repo/circom_circuits/Mantle/pol_cpp/pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
   build-windows-native:
     name: Build Windows Binary (Native)
@@ -101,6 +103,8 @@ jobs:
       - setup
     env:
       VERSION: ${{ needs.setup.outputs.version }}
+      OS: windows
+      ARCH: x86_64
     steps:
       - name: Setup MSYS2
         uses: msys2/setup-msys2@v2
@@ -162,7 +166,7 @@ jobs:
       - name: Replace pol Makefile # TODO: Make a fork generate the appropriate Windows Makefile
         working-directory: repo
         shell: msys2 {0}
-        run: cp .github/resources/Makefile.windows circom_circuits/Mantle/pol_cpp/Makefile
+        run: cp .github/resources/Makefile.${{ env.OS }} circom_circuits/Mantle/pol_cpp/Makefile
 
       - name: Compile Circuit
         shell: msys2 {0}
@@ -177,13 +181,13 @@ jobs:
           MINGW_DLL_DIR="$MINGW_BASE_DIR/bin"
           cp "$MINGW_DLL_DIR"/{libgcc_s_seh-1.dll,libgmp-10.dll,libwinpthread-1.dll,libstdc++-6.dll} .
           mv pol.dat pol.exe.dat
-          tar -czf pol-windows-x86_64.tar.gz pol.exe pol.exe.dat *.dll
+          tar -czf pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz pol.exe pol.exe.dat *.dll
 
       - name: Upload Binary
         uses: actions/upload-artifact@v4
         with:
-          name: pol-windows-x86_64.tar.gz
-          path: repo/circom_circuits/Mantle/pol_cpp/pol-windows-x86_64.tar.gz
+          name: pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          path: repo/circom_circuits/Mantle/pol_cpp/pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
   build-macos-native:
     name: Build MacOS Binary (Native)
@@ -192,6 +196,8 @@ jobs:
       - setup
     env:
       VERSION: ${{ needs.setup.outputs.version }}
+      ARCH: arm64
+      OS: macos
     steps:
       - name: Install Rust Toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -228,11 +234,11 @@ jobs:
 
       - name: Replace pol Makefile # TODO: Make a fork generate the appropriate MacOS Makefile
         working-directory: repo
-        run: cp .github/resources/Makefile.macos circom_circuits/Mantle/pol_cpp/Makefile
+        run: cp .github/resources/Makefile.${{ env.OS }} circom_circuits/Mantle/pol_cpp/Makefile
 
       - name: Patch MacOS GMP
         working-directory: repo
-        run: cp .github/resources/gmp_patch.macos.hpp circom_circuits/Mantle/pol_cpp/gmp_patch.macos.hpp
+        run: cp .github/resources/gmp_patch.${{ env.OS }}.hpp circom_circuits/Mantle/pol_cpp/gmp_patch.${{ env.OS }}.hpp
 
       - name: Compile Circuit
         working-directory: repo/circom_circuits/Mantle/pol_cpp
@@ -240,15 +246,15 @@ jobs:
 
       - name: Bundle
         working-directory: repo/circom_circuits/Mantle/pol_cpp
-        run: tar -czf pol-macos-arm64.tar.gz pol pol.dat
+        run: tar -czf pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz pol pol.dat
 
       - name: Upload Binary
         uses: actions/upload-artifact@v4
         with:
-          name: pol-macos-arm64.tar.gz
-          path: repo/circom_circuits/Mantle/pol_cpp/pol-macos-arm64.tar.gz
+          name: pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          path: repo/circom_circuits/Mantle/pol_cpp/pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
-  create-release:
+  publish-release:
     name: Create Release
     runs-on: ubuntu-latest
     needs:
@@ -262,7 +268,7 @@ jobs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
       - name: Create Release
-        uses: actions/create-release@4c11c9fe1dcd9636620a16455165783b20fc7ea0  # Version 1.1.4
+        uses: actions/create-release@v1
         id: create_release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -290,7 +296,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: 
       - setup
-      - create-release
+      - publish-release
     strategy:
       fail-fast: false
       matrix:
@@ -303,16 +309,16 @@ jobs:
             arch: x86_64
     env:
       VERSION: ${{ needs.setup.outputs.version }}
-      UPLOAD_URL: ${{ needs.create-release.outputs.upload_url }}
+      UPLOAD_URL: ${{ needs.publish-release.outputs.upload_url }}
       ARTIFACT_NAME: pol-${{ matrix.platform.os }}-${{ matrix.platform.arch }}.tar.gz
     steps:
       - name: Download Artifacts
-        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # Version 4.2.1
+        uses: actions/download-artifact@v4
         with:
           name: ${{ env.ARTIFACT_NAME }}
 
       - name: Upload Artifacts to Release
-        uses: actions/upload-release-asset@ef2adfe8cb8ebfa540930c452c576b3819990faa  # Version 1.0.2
+        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
