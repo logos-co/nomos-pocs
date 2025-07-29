@@ -98,7 +98,7 @@ jobs:
       - name: Bundle
         working-directory: repo
         env:
-          BUNDLE_NAME: pol-${{ env.OS }}-${{ env.ARCH }}
+          BUNDLE_NAME: circom_circuits-${{ env.OS }}-${{ env.ARCH }}
           WITNESS_GENERATOR_DIR: circom_circuits/Mantle/pol_cpp
           RAPIDSNARK_DIR: circom_circuits/rapidsnark/package
         run: |
@@ -117,8 +117,8 @@ jobs:
       - name: Upload Bundle
         uses: actions/upload-artifact@v4 
         with:
-          name: pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz
-          path: repo/pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          name: circom_circuits-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          path: repo/circom_circuits-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
   build-windows:
     name: Build Windows Binaries (Native)
@@ -236,7 +236,7 @@ jobs:
         working-directory: repo
         shell: msys2 {0}
         env:
-          BUNDLE_NAME: pol-${{ env.OS }}-${{ env.ARCH }}
+          BUNDLE_NAME: circom_circuits-${{ env.OS }}-${{ env.ARCH }}
           WITNESS_GENERATOR_DIR: circom_circuits/Mantle/pol_cpp
           RAPIDSNARK_DIR: circom_circuits/rapidsnark/package
         run: |
@@ -259,8 +259,8 @@ jobs:
       - name: Upload Bundle
         uses: actions/upload-artifact@v4
         with:
-          name: pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz
-          path: repo/pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          name: circom_circuits-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          path: repo/circom_circuits-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
   build-macos:
     name: Build MacOS Binaries (Native)
@@ -329,7 +329,7 @@ jobs:
       - name: Bundle
         working-directory: repo
         env:
-          BUNDLE_NAME: pol-${{ env.OS }}-${{ env.ARCH }}
+          BUNDLE_NAME: circom_circuits-${{ env.OS }}-${{ env.ARCH }}
           WITNESS_GENERATOR_DIR: circom_circuits/Mantle/pol_cpp
           RAPIDSNARK_DIR: circom_circuits/rapidsnark/package_macos_arm64
         run: |
@@ -348,8 +348,8 @@ jobs:
       - name: Upload Bundle
         uses: actions/upload-artifact@v4
         with:
-          name: pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz
-          path: repo/pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          name: circom_circuits-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          path: repo/circom_circuits-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
   publish-release:
     name: Create Release
@@ -407,7 +407,7 @@ jobs:
     env:
       VERSION: ${{ needs.setup.outputs.version }}
       UPLOAD_URL: ${{ needs.publish-release.outputs.upload_url }}
-      ARTIFACT_NAME: pol-${{ matrix.platform.os }}-${{ matrix.platform.arch }}.tar.gz
+      ARTIFACT_NAME: circom_circuits-${{ matrix.platform.os }}-${{ matrix.platform.arch }}.tar.gz
     steps:
       - name: Download Artifacts
         uses: actions/download-artifact@v4
