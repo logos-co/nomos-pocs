@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -std=c++11 -O3 -I. -I/opt/homebrew/include -include gmp_patch.macos.hpp
+CFLAGS = -std=c++11 -O3 -I. -I/opt/homebrew/include -include gmp_patch.hpp
 LDFLAGS = -L/opt/homebrew/lib -lgmp
 
 DEPS_HPP = circom.hpp calcwit.hpp fr.hpp pol.cpp
