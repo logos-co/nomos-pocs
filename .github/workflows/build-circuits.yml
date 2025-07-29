@@ -38,8 +38,8 @@ jobs:
           # Export the version to be used in the following jobs.
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-  build-linux-native:
-    name: Build Linux Binary (Native)
+  build-linux:
+    name: Build Linux Binaries (Native)
     runs-on: ubuntu-latest
     needs:
       - setup
@@ -120,8 +120,8 @@ jobs:
           name: pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz
           path: repo/pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
-  build-windows-native:
-    name: Build Windows Binary (Native)
+  build-windows:
+    name: Build Windows Binaries (Native)
     runs-on: windows-latest
     needs:
       - setup
@@ -262,8 +262,8 @@ jobs:
           name: pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz
           path: repo/pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
-  build-macos-native:
-    name: Build MacOS Binary (Native)
+  build-macos:
+    name: Build MacOS Binaries (Native)
     runs-on: macos-latest
     needs:
       - setup
@@ -356,9 +356,9 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - setup
-      - build-linux-native
-      - build-windows-native
-      - build-macos-native
+      - build-linux
+      - build-windows
+      - build-macos
     env:
       VERSION: ${{ needs.setup.outputs.version }}
     outputs:
@@ -371,9 +371,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ env.VERSION }}
-          release_name: PoL Witness Generator ${{ env.VERSION }}
+          release_name: Circom Circuits ${{ env.VERSION }}
           body: |
-            This is a release of PoL Witness Generator ${{ env.VERSION }}.
+            This is a release of Circom Circuits ${{ env.VERSION }}.
             ## Changelog
             - feature(X): new feature
             - fix(Y): bug description
