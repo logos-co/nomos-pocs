@@ -1,4 +1,4 @@
-name: Build Witness Generator
+name: Build Circuits
 
 on:
   push:
