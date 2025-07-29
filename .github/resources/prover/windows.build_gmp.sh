@@ -82,6 +82,8 @@ build_host()
     mkdir "$BUILD_DIR"
     cd "$BUILD_DIR"
 
+    # The following line is a workaround for the Windows build due to an existing incompatibility with current compiler
+    # when building GMP.
     CFLAGS="-O2 -std=gnu17" CXXFLAGS="-O2 -std=gnu++17" \
     ../configure --prefix="$PACKAGE_DIR" --with-pic --disable-fft &&
     make -j${NPROC} &&

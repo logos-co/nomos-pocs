@@ -1,12 +1,12 @@
+// Workaround for a known macOS issue where certain GMP functions fail to compile
+// due to strict type checking, despite uint64_t and mp_limb_t being the same size.
+// These wrappers explicitly cast uint64_t parameters to mp_limb_t to resolve the mismatch.
+
 #ifndef GMP_PATCH_CAST_HPP
 #define GMP_PATCH_CAST_HPP
 
 #include <gmp.h>
 #include <cstdint>
-
-// Workaround for a known macOS issue where certain GMP functions fail to compile
-// due to strict type checking, despite uint64_t and mp_limb_t being the same size.
-// These wrappers explicitly cast uint64_t parameters to mp_limb_t to resolve the mismatch.
 
 // Arithmetic Wrappers
 inline mp_limb_t gmp_add_n_cast(uint64_t* rp, const uint64_t* up, const uint64_t* vp, mp_size_t n) {

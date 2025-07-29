@@ -1,5 +1,7 @@
-link_directories(/lib)
-set(COMMON_LIBS /lib/libmman.a)
+# Workaround for CMake on Windows to
+# Added explicit linking (e.g., mman), which are otherwise resolved transitively on Linux and macOS.
+
+find_library(MMAN_LIB mman PATHS /lib NO_DEFAULT_PATH REQUIRED)
 
 link_libraries(${GMP_LIB})
 
@@ -124,13 +126,19 @@ set_target_properties(rapidsnarkStaticFrFq PROPERTIES POSITION_INDEPENDENT_CODE 
 set_target_properties(rapidsnarkStaticFrFq PROPERTIES OUTPUT_NAME rapidsnark-fr-fq)
 
 add_executable(prover main_prover.cpp)
-target_link_libraries(prover rapidsnarkStatic fr fq ${COMMON_LIBS})
+target_link_libraries(
+    prover rapidsnarkStatic
+    fr fq ${MMAN_LIB} # Explicit linking
+)
 
 add_executable(verifier main_verifier.cpp)
-target_link_libraries(verifier rapidsnarkStatic fr fq ${COMMON_LIBS})
+target_link_libraries(
+    verifier rapidsnarkStatic
+    fr fq ${MMAN_LIB} # Explicit linking
+)
 
 add_library(rapidsnark SHARED ${LIB_SOURCES})
-target_link_libraries(rapidsnark ${COMMON_LIBS})
+target_link_libraries(rapidsnark ${MMAN_LIB}) # Explicit linking
 
 if((USE_LOGGER OR NOT USE_OPENMP) AND NOT TARGET_PLATFORM MATCHES "android")
     target_link_libraries(prover pthread)
@@ -146,7 +154,10 @@ option(BUILD_TESTS "Build the tests" ON)
 if(BUILD_TESTS)
     enable_testing()
     add_executable(test_public_size test_public_size.c)
-    target_link_libraries(test_public_size rapidsnarkStaticFrFq pthread ${COMMON_LIBS})
+    target_link_libraries(
+        test_public_size rapidsnarkStaticFrFq pthread
+        ${MMAN_LIB} # Explicit linking
+    )
     add_test(NAME test_public_size COMMAND test_public_size circuit_final.zkey 86
             WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/testdata)
 endif()

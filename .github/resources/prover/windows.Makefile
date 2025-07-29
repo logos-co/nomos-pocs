@@ -3,9 +3,13 @@
 #Build targets
 host:
 	rm -rf build_prover && mkdir build_prover && cd build_prover && \
-	cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../package && \
+	cmake .. \
+	    -DCMAKE_BUILD_TYPE=Release
+	    -DCMAKE_INSTALL_PREFIX=../package && \
 	make -j$(nproc) -vvv && make install
 
+# Copy of the original host target, with specific flags for Windows x86_64 to add patches, missing libraries and
+# include paths
 host_windows_x86_64:
 	rm -rf build_prover && mkdir build_prover && cd build_prover && \
 	cmake .. \
