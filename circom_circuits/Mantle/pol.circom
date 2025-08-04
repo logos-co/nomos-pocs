@@ -262,4 +262,4 @@ template proof_of_leadership(secret_depth){
 }
 
 
-component main {public [slot,epoch_nonce,t0,t1,aged_root,latest_root,one_time_key]}= proof_of_leadership(25);
+component main {public [slot,epoch_nonce,t0,t1,aged_root,latest_root,one_time_key_part_one,one_time_key_part_two]}= proof_of_leadership(25);
