@@ -73,7 +73,7 @@ jobs:
 
       - name: Generate C++ Circuit
         working-directory: repo/circom_circuits/Mantle
-        run: circom --c --r1cs --no_asm pol.circom
+        run: circom --c --r1cs --no_asm --O2 pol.circom
 
       - name: Dependencies - Setup
         run: |
@@ -141,7 +141,7 @@ jobs:
 
       - name: Generate C++ Circuit
         working-directory: repo/circom_circuits/Mantle
-        run: circom --c --r1cs --no_asm pol.circom
+        run: circom --c --r1cs --no_asm --O2 pol.circom
 
       - name: Dependencies - Setup
         shell: msys2 {0}
@@ -224,7 +224,7 @@ jobs:
 
       - name: Generate C++ Circuit
         working-directory: repo/circom_circuits/Mantle
-        run: circom --c --r1cs --no_asm pol.circom
+        run: circom --c --r1cs --no_asm --O2 pol.circom
 
       - name: Dependencies - Setup
         run: mkdir include
