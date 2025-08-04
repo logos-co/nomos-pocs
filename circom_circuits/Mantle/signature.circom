@@ -23,4 +23,4 @@ template zkSignature(maxInput){
     dummy <== attached_data * attached_data;
 }
 
-component main {public [attached_data]}= zkSignature(5);
+component main {public [attached_data]}= zkSignature(32);

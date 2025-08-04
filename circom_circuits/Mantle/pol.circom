@@ -223,11 +223,14 @@ template proof_of_leadership(secret_depth){
 
 
     // One time signing key used to sign the block proposal and the block
-    signal input one_time_key;
+    signal input one_time_key_part_one;
+    signal input one_time_key_part_two;
 
     //Avoid the circom optimisation that removes unused public input
-    signal dummy;
-    dummy <== one_time_key * one_time_key;
+    signal dummy_one;
+    signal dummy_two;
+    dummy_one <== one_time_key_part_one * one_time_key_part_one;
+    dummy_two <== one_time_key_part_two * one_time_key_part_two;
 
     signal output entropy_contrib;
 
