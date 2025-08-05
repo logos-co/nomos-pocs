@@ -1,0 +1,421 @@
+name: Build Circuits
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release. Must follow the format of 'vX.Y.Z'."
+        required: true
+  pull_request: # For testing purposes
+
+jobs:
+  setup:
+    name: Configure Environment 
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.define-version.outputs.version }}
+    steps:
+      - name: Define version
+        id: define-version
+        env:
+          # Use the tag name if it is available, otherwise use the input version.
+          # If neither is available, default to the commit hash.
+          VERSION: ${{ github.event.release.tag_name || inputs.version }}
+        run: |
+          if [ -z "$VERSION" ]; then
+            echo "No version tag found. Defaulting to commit hash."
+            VERSION=$GITHUB_SHA
+          elif [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "VERSION must follow the format of 'vX.Y.Z'. Value: '$VERSION'."
+            exit 1
+          fi
+
+          # Export the version to be used in the following jobs.
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+  build-linux:
+    name: Build Linux Binaries (Native)
+    runs-on: ubuntu-latest
+    needs:
+      - setup
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+      OS: linux
+      ARCH: x86_64
+    steps:
+      - name: Install Rust Toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48
+        with:
+          toolchain: stable
+          cache: false
+
+      - name: Install Circom
+        run: |
+          git clone https://github.com/iden3/circom.git
+          cd circom
+          RUSTFLAGS="-A dead_code" cargo build --release
+          RUSTFLAGS="-A dead_code" cargo install --path circom
+          circom --version
+
+      - name: Checkout
+        uses: actions/checkout@8edcb1bdb4e267140fa742c62e395cd74f332709
+        with:
+          path: repo
+
+      - name: Initialise Submodules
+        working-directory: repo
+        run: git submodule update --init --recursive
+
+      - name: Setup Dependencies
+        working-directory: repo/circom_circuits/rapidsnark
+        run: sudo apt update -y
+
+      - name: Install Dependencies [Prover]
+        run: sudo apt install -y build-essential cmake libgmp-dev libsodium-dev nasm curl m4
+
+      - name: Install Dependencies [Witness Generator]
+        run: sudo apt install nlohmann-json3-dev
+
+      - name: Compile Prover
+        working-directory: repo/circom_circuits/rapidsnark
+        run: |
+          ./build_gmp.sh host
+          make host
+
+      - name: Generate Witness Generator's C++ Circuit
+        working-directory: repo/circom_circuits/Mantle
+        run: circom --c --r1cs --no_asm --O2 pol.circom
+
+      - name: Compile Witness Generator
+        working-directory: repo/circom_circuits/Mantle/pol_cpp
+        run: make pol
+
+      - name: Bundle
+        working-directory: repo
+        env:
+          BUNDLE_NAME: circom_circuits-${{ env.OS }}-${{ env.ARCH }}
+          WITNESS_GENERATOR_DIR: circom_circuits/Mantle/pol_cpp
+          RAPIDSNARK_DIR: circom_circuits/rapidsnark/package
+        run: |
+          BUNDLE_DIR_WITNESS_GENERATOR="${BUNDLE_NAME}/witness-generator"
+          BUNDLE_DIR_RAPIDSNARK="${BUNDLE_NAME}/rapidsnark"
+      
+          mkdir -p "$BUNDLE_DIR_WITNESS_GENERATOR" "$BUNDLE_DIR_RAPIDSNARK"
+      
+          mv "${WITNESS_GENERATOR_DIR}/pol" "$BUNDLE_DIR_WITNESS_GENERATOR/"
+          mv "${WITNESS_GENERATOR_DIR}/pol.dat" "$BUNDLE_DIR_WITNESS_GENERATOR/"
+      
+          mv "${RAPIDSNARK_DIR}"/bin/{prover,verifier} "$BUNDLE_DIR_RAPIDSNARK/"
+      
+          tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
+
+      - name: Upload Bundle
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8 
+        with:
+          name: circom_circuits-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          path: repo/circom_circuits-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+
+  build-windows:
+    name: Build Windows Binaries (Native)
+    runs-on: windows-latest
+    needs:
+      - setup
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+      OS: windows
+      ARCH: x86_64
+    steps:
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2.28.0 # FIXME: Ideally use the hash to avoid supply chain attacks. Currently unable to.
+        with:
+          update: true
+          install: >-
+            base-devel
+            mingw-w64-x86_64-toolchain
+            make
+            git
+
+      - name: Install Rust Toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48
+        with:
+          toolchain: stable
+          cache: false
+
+      - name: Install Circom
+        run: |
+          git clone https://github.com/iden3/circom.git
+          cd circom
+          $env:RUSTFLAGS="-A dead_code"; cargo build --release
+          $env:RUSTFLAGS="-A dead_code"; cargo install --path circom
+          circom --version
+
+      - name: Checkout
+        uses: actions/checkout@8edcb1bdb4e267140fa742c62e395cd74f332709
+        with:
+          path: repo
+
+      - name: Initialise Submodules
+        working-directory: repo
+        run: git submodule update --init --recursive
+
+      - name: Install Dependencies [Witness Generator]
+        shell: msys2 {0}
+        run: |
+          # nlohmann/json
+          mkdir -p /include/nlohmann/
+          wget -O /include/nlohmann/json.hpp https://github.com/nlohmann/json/releases/download/v3.12.0/json.hpp
+
+          # mman-win32
+          git clone https://github.com/alitrack/mman-win32.git
+          pushd mman-win32
+          ./configure --prefix= # Path: /
+          make
+          make install
+          popd
+
+      - name: Install Dependencies [Prover]
+        shell: msys2 {0}
+        run: pacman --noconfirm -Sy --needed cmake nasm mingw-w64-ucrt-x86_64-libsodium
+
+      - name: Replace Prover Makefile # TODO: Make a fork generate the appropriate Windows Makefile
+        shell: msys2 {0}
+        working-directory: repo
+        run: cp .github/resources/prover/${{ env.OS }}.Makefile circom_circuits/rapidsnark/Makefile
+
+      - name: Replace Prover CMakeLists
+        shell: msys2 {0}
+        working-directory: repo
+        run: cp .github/resources/prover/${{ env.OS }}.src-CMakeLists.txt circom_circuits/rapidsnark/src/CMakeLists.txt
+ 
+      - name: Patch Windows mman
+        shell: msys2 {0}
+        working-directory: repo
+        run: cp .github/resources/prover/${{ env.OS }}.mman_patch.hpp /include/mman_patch.hpp
+
+      - name: Add uio.h headers
+        shell: msys2 {0}
+        working-directory: repo
+        run: cp .github/resources/prover/${{ env.OS }}.uio.h /include/sys/uio.h
+
+      - name: Replace build_gmp
+        shell: msys2 {0}
+        working-directory: repo
+        run: cp .github/resources/prover/${{ env.OS }}.build_gmp.sh circom_circuits/rapidsnark/build_gmp.sh
+
+      - name: Compile Prover
+        shell: msys2 {0}
+        working-directory: repo/circom_circuits/rapidsnark
+        run: |
+          ./build_gmp.sh host
+          make host_windows_x86_64
+
+      - name: Generate Witness Generator's C++ Circuit
+        working-directory: repo/circom_circuits/Mantle
+        run: circom --c --r1cs --no_asm pol.circom
+
+      - name: Replace Witness Generator Makefile # TODO: Make a fork generate the appropriate Windows Makefile
+        working-directory: repo
+        shell: msys2 {0}
+        run: cp .github/resources/witness-generator/${{ env.OS }}.Makefile circom_circuits/Mantle/pol_cpp/Makefile
+
+      - name: Compile Witness Generator
+        shell: msys2 {0}
+        working-directory: repo/circom_circuits/Mantle/pol_cpp
+        run: make pol.exe
+
+      - name: Bundle
+        working-directory: repo
+        shell: msys2 {0}
+        env:
+          BUNDLE_NAME: circom_circuits-${{ env.OS }}-${{ env.ARCH }}
+          WITNESS_GENERATOR_DIR: circom_circuits/Mantle/pol_cpp
+          RAPIDSNARK_DIR: circom_circuits/rapidsnark/package
+        run: |
+          BUNDLE_DIR_WITNESS_GENERATOR="${BUNDLE_NAME}/witness-generator"
+          BUNDLE_DIR_RAPIDSNARK="${BUNDLE_NAME}/rapidsnark"
+          MINGW_BASE_DIR="/${MSYSTEM,,}"
+          MINGW_DLL_DIR="$MINGW_BASE_DIR/bin"
+      
+          mkdir -p "$BUNDLE_DIR_WITNESS_GENERATOR" "$BUNDLE_DIR_RAPIDSNARK"
+      
+          cp "$MINGW_DLL_DIR"/{libgcc_s_seh-1.dll,libwinpthread-1.dll,libstdc++-6.dll,libgmp-10.dll} "$BUNDLE_DIR_WITNESS_GENERATOR/"
+          mv "${WITNESS_GENERATOR_DIR}/pol" "$BUNDLE_DIR_WITNESS_GENERATOR/pol.exe"
+          mv "${WITNESS_GENERATOR_DIR}/pol.dat" "$BUNDLE_DIR_WITNESS_GENERATOR/pol.exe.dat"
+      
+          cp "$MINGW_DLL_DIR"/{libgcc_s_seh-1.dll,libwinpthread-1.dll,libstdc++-6.dll} "$BUNDLE_DIR_RAPIDSNARK/"
+          mv "${RAPIDSNARK_DIR}"/bin/{prover.exe,verifier.exe} "$BUNDLE_DIR_RAPIDSNARK/"
+      
+          tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
+
+      - name: Upload Bundle
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
+        with:
+          name: circom_circuits-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          path: repo/circom_circuits-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+
+  build-macos:
+    name: Build MacOS Binaries (Native)
+    runs-on: macos-latest
+    needs:
+      - setup
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+      ARCH: arm64
+      OS: macos
+    steps:
+      - name: Install Rust Toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48
+        with:
+          toolchain: stable
+          cache: false
+
+      - name: Install Circom
+        run: |
+          git clone https://github.com/iden3/circom.git
+          cd circom
+          RUSTFLAGS="-A dead_code" cargo build --release
+          RUSTFLAGS="-A dead_code" cargo install --path circom
+          circom --version
+
+      - name: Checkout
+        uses: actions/checkout@8edcb1bdb4e267140fa742c62e395cd74f332709
+        with:
+          path: repo
+
+      - name: Initialise Submodules
+        working-directory: repo
+        run: git submodule update --init --recursive
+
+      - name: Setup Dependencies
+        run: mkdir include
+
+      - name: Install Dependencies [Witness Generator]
+        run: brew install nlohmann-json
+
+      - name: Install Dependencies [Prover]
+        run: brew install cmake nasm m4
+
+      - name: Compile Prover
+        working-directory: repo/circom_circuits/rapidsnark
+        run: |
+          ./build_gmp.sh macos_arm64
+          make macos_arm64
+
+      - name: Generate Witness Generator's C++ Circuit
+        working-directory: repo/circom_circuits/Mantle
+        run: circom --c --r1cs --no_asm --O2 pol.circom
+
+      - name: Replace Witness Generator's Makefile # TODO: Make a fork generate the appropriate MacOS Makefile
+        working-directory: repo
+        run: cp .github/resources/witness-generator/${{ env.OS }}.Makefile circom_circuits/Mantle/pol_cpp/Makefile
+
+      - name: Patch MacOS GMP # TODO: Maybe not needed?
+        working-directory: repo
+        run: cp .github/resources/witness-generator/${{ env.OS }}.gmp_patch.hpp circom_circuits/Mantle/pol_cpp/gmp_patch.hpp
+
+      - name: Compile Witness Generator
+        working-directory: repo/circom_circuits/Mantle/pol_cpp
+        run: make pol
+
+      - name: Bundle
+        working-directory: repo
+        env:
+          BUNDLE_NAME: circom_circuits-${{ env.OS }}-${{ env.ARCH }}
+          WITNESS_GENERATOR_DIR: circom_circuits/Mantle/pol_cpp
+          RAPIDSNARK_DIR: circom_circuits/rapidsnark/package_macos_arm64
+        run: |
+          BUNDLE_DIR_WITNESS_GENERATOR="${BUNDLE_NAME}/witness-generator"
+          BUNDLE_DIR_RAPIDSNARK="${BUNDLE_NAME}/rapidsnark"
+      
+          mkdir -p "$BUNDLE_DIR_WITNESS_GENERATOR" "$BUNDLE_DIR_RAPIDSNARK"
+      
+          mv "${WITNESS_GENERATOR_DIR}/pol" "$BUNDLE_DIR_WITNESS_GENERATOR/"
+          mv "${WITNESS_GENERATOR_DIR}/pol.dat" "$BUNDLE_DIR_WITNESS_GENERATOR/"
+      
+          mv "${RAPIDSNARK_DIR}"/bin/{prover,verifier} "$BUNDLE_DIR_RAPIDSNARK/"
+      
+          tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
+
+      - name: Upload Bundle
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
+        with:
+          name: circom_circuits-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          path: repo/circom_circuits-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+
+  publish-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs:
+      - setup
+      - build-linux
+      - build-windows
+      - build-macos
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Create Release
+        uses: actions/create-release@4c11c9fe1dcd9636620a16455165783b20fc7ea0
+        id: create_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.VERSION }}
+          release_name: Circom Circuits ${{ env.VERSION }}
+          body: |
+            This is a release of Circom Circuits ${{ env.VERSION }}.
+            ## Changelog
+            - feature(X): new feature
+            - fix(Y): bug description
+            - feature: performance improvement on Z
+            ## Checklist
+            Before publishing please ensure:
+            - [ ] Description is complete
+            - [ ] Changelog is correct
+            - [ ] Assets for all platforms exist
+            - [ ] Pre-release is checked if necessary
+            - [ ] Remove this checklist before publishing the release.
+          draft: true
+          prerelease: true
+
+  upload-artifacts:
+    name: Upload Artifacts to Release
+    runs-on: ubuntu-latest
+    needs: 
+      - setup
+      - publish-release
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - os: linux
+            arch: x86_64
+          - os: macos
+            arch: arm64
+          - os: windows
+            arch: x86_64
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+      UPLOAD_URL: ${{ needs.publish-release.outputs.upload_url }}
+      ARTIFACT_NAME: circom_circuits-${{ matrix.platform.os }}-${{ matrix.platform.arch }}.tar.gz
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@448e3f862ab3ef47aa50ff917776823c9946035b
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+
+      - name: Upload Artifacts to Release
+        uses: actions/upload-release-asset@ef2adfe8cb8ebfa540930c452c576b3819990faa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ env.UPLOAD_URL }}
+          asset_path: ${{ env.ARTIFACT_NAME }}
+          asset_name: ${{ env.ARTIFACT_NAME }}
+          asset_content_type: application/octet-stream
