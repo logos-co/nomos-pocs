@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 50px;
+        }
+        .calculator-container {
+            display: flex; /* Use flexbox for side-by-side layout */
+            max-width: 800px; /* Adjust the width as needed */
+            margin: 0 auto;
+            gap: 20px; /* Space between input and output sections */
+        }
+        .input-section, .output-section {
+            flex: 1; /* Take up 50% of the container */
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            background-color: #f9f9f9;
+        }
+        .input-group, .output-group {
+            display: flex;
+            align-items: center;
+            gap: 10px; /* Space between label and input/output */
+            margin: 10px 0;
+        }
+        .input-group label, .output-group label {
+            font-weight: bold;
+            min-width: 50px; /* Ensure labels have consistent width */
+        }
+        input[type="number"], .output-value, button {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            flex: 1; /* Take up remaining space */
+            background-color: white; /* Match input field background */
+        }
+        .output-value {
+            background-color: #f0f0f0; /* Slightly different background for output */
+            cursor: not-allowed; /* Indicate that output is not editable */
+        }
+        .button-group {
+            display: flex;
+            gap: 10px; /* Space between buttons */
+        }
+        .button-group button {
+            flex: 1; /* Make buttons take equal space */
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator-container">
+        <!-- Input Section -->
+        <div class="input-section">
+            <h1>Calculator</h1>
+            <form method="post" id="calculator-form">
+                {% csrf_token %}
+                <div class="input-group">
+                    <label for="qF">qF:</label>
+                    <input type="number" step="any" name="qF" id="qF" placeholder="0 ≤ qF ≤ 1" value="{{ qF }}" required>
+                </div>
+                <div class="input-group">
+                    <label for="qA">qA:</label>
+                    <input type="number" step="any" name="qA" id="qA" placeholder="0 ≤ qA ≤ 1" value="{{ qA }}" required>
+                </div>
+                <div class="input-group">
+                    <label for="L">L:</label>
+                    <input type="number" step="1" min="2" name="L" id="L" placeholder="L ≥ 2" value="{{ L }}" required>
+                </div>
+                <div class="input-group">
+                    <label for="K">K:</label>
+                    <input type="number" step="1" min="1" name="K" id="K" placeholder="K ≥ 1" value="{{ K }}" required>
+                </div>
+                <div class="button-group">
+                    <button type="submit">Calculate</button>
+                    <button type="button" id="clear-button">Clear</button>
+                </div>
+            </form>
+            {% if error_message %}
+            <div class="error">
+                {{ error_message }}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Output Section -->
+        <div class="output-section">
+            <h1>Results</h1>
+            <div class="output-group">
+                <label>Prob. of broadcast fail.:</label>
+                <div class="output-value">
+                    {% if result2 is not None %}{{ result2 }}{% endif %}
+                </div>
+            </div>
+            <div class="output-group">
+                <label>Prob. of adver. broadcast-fail.:</label>
+                <div class="output-value">
+                    {% if result1 is not None %}{{ result1 }}{% endif %}
+                </div>
+            </div>
+            <div class="output-group">
+                <label>Prob. of adv. success:</label>
+                <div class="output-value">
+                    {% if result3 is not None %}{{ result3 }}{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript to handle the Clear button -->
+    <script>
+        document.getElementById('clear-button').addEventListener('click', function() {
+            // Clear input fields
+            document.getElementById('calculator-form').reset();
+
+            // Clear results
+            const results = document.querySelectorAll('.output-value');
+            results.forEach(result => result.textContent = '');
+
+            // Clear error message
+            const error = document.querySelector('.error');
+            if (error) {
+                error.textContent = '';
+            }
+        });
+    </script>
+</body>
+</html>
