@@ -253,8 +253,8 @@ jobs:
         run: circom --c --r1cs --no_asm pol.circom
 
       - name: Replace Witness Generator Makefile # TODO: Make a fork generate the appropriate Windows Makefile
-        working-directory: repo
         shell: msys2 {0}
+        working-directory: repo
         run: cp .github/resources/witness-generator/${{ env.OS }}.Makefile circom_circuits/Mantle/pol_cpp/Makefile
 
       - name: Compile Witness Generator
@@ -263,6 +263,7 @@ jobs:
         run: make pol.exe
 
       - name: Bundle Rapidsnark Prover
+        shell: msys2 {0}
         working-directory: repo
         env:
           BINARY_NAME: prover
@@ -281,6 +282,7 @@ jobs:
           tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
 
       - name: Bundle Rapidsnark Verifier
+        shell: msys2 {0}
         working-directory: repo
         env:
           BINARY_NAME: verifier
@@ -299,6 +301,7 @@ jobs:
           tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
 
       - name: Bundle Pol Witness Generator
+        shell: msys2 {0}
         working-directory: repo
         env:
           BUNDLE_NAME: pol-${{ env.OS }}-${{ env.ARCH }}
@@ -408,7 +411,7 @@ jobs:
           BUNDLE_DIR="${BUNDLE_NAME}/${BINARY_NAME}"
           mkdir -p "$BUNDLE_DIR"
 
-          mv "${RAPIDSNARK_DIR}"/bin/${BINARY_NAME} "$BUNDLE_DIR/"
+          mv "${RAPIDSNARK_DIR}/bin/${BINARY_NAME}" "$BUNDLE_DIR/"
 
           tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
 
@@ -422,7 +425,7 @@ jobs:
           BUNDLE_DIR="${BUNDLE_NAME}/${BINARY_NAME}"
           mkdir -p "$BUNDLE_DIR"
 
-          mv "${RAPIDSNARK_DIR}"/bin/${BINARY_NAME} "$BUNDLE_DIR/"
+          mv "${RAPIDSNARK_DIR}/bin/${BINARY_NAME}" "$BUNDLE_DIR/"
 
           tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
 
