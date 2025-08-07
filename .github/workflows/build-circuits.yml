@@ -519,9 +519,8 @@ jobs:
           - verifier
           - pol
     env:
-      VERSION: ${{ needs.setup.outputs.version }}
       UPLOAD_URL: ${{ needs.publish-release.outputs.upload_url }}
-      ARTIFACT_NAME: ${{ matrix.artifact }}-${{ env.VERSION }}-${{ matrix.platform.os }}-${{ matrix.platform.arch }}.tar.gz
+      ARTIFACT_NAME: ${{ matrix.artifact }}-${{ needs.setup.outputs.version }}-${{ matrix.platform.os }}-${{ matrix.platform.arch }}.tar.gz
     steps:
       - name: Download Artifacts
         uses: actions/download-artifact@448e3f862ab3ef47aa50ff917776823c9946035b
@@ -537,3 +536,4 @@ jobs:
           asset_path: ${{ env.ARTIFACT_NAME }}
           asset_name: ${{ env.ARTIFACT_NAME }}
           asset_content_type: application/octet-stream
+
