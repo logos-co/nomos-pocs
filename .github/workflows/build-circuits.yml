@@ -406,7 +406,7 @@ jobs:
         env:
           BINARY_NAME: prover
           BUNDLE_NAME: prover-${{ env.OS }}-${{ env.ARCH }}
-          RAPIDSNARK_DIR: circom_circuits/rapidsnark/package
+          RAPIDSNARK_DIR: circom_circuits/rapidsnark/package_macos_arm64
         run: |
           BUNDLE_DIR="${BUNDLE_NAME}/${BINARY_NAME}"
           mkdir -p "$BUNDLE_DIR"
@@ -420,7 +420,7 @@ jobs:
         env:
           BINARY_NAME: verifier
           BUNDLE_NAME: verifier-${{ env.OS }}-${{ env.ARCH }}
-          RAPIDSNARK_DIR: circom_circuits/rapidsnark/package
+          RAPIDSNARK_DIR: circom_circuits/rapidsnark/package_macos_arm64
         run: |
           BUNDLE_DIR="${BUNDLE_NAME}/${BINARY_NAME}"
           mkdir -p "$BUNDLE_DIR"
