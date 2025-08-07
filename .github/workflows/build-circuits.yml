@@ -6,8 +6,8 @@ on:
       - "circom_circuits-v*.*.*"
   workflow_dispatch:
     inputs:
-      version:
-        description: "Version to release. Must follow the format of 'circom_circuits-vX.Y.Z'."
+      tag:
+        description: "Tag to release. Must follow the format of 'circom_circuits-vX.Y.Z'."
         required: true
   pull_request: # For testing purposes
 
@@ -17,26 +17,28 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.define-version.outputs.version }}
+      tag: ${{ steps.define-version.outputs.tag }}
     steps:
       - name: Define version
         id: define-version
         env:
           # Use the tag name if it is available, otherwise use the input version.
           # If neither is available, default to the commit hash.
-          VERSION: ${{ github.event.release.tag_name || inputs.version || 'circom_circuits-v0.0.0' }}
+          TAG: ${{ github.events.release.tag_name || inputs.tag || 'circom_circuits-v0.0.0' }}
         run: |
-          if [ -z "$VERSION" ]; then
-            echo "Could not determine version."
+          if [ -z "$TAG" ]; then
+            echo "Could not determine tag."
             exit 1
-          elif [[ ! "$VERSION" =~ ^circom_circuits-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "VERSION must follow the format of 'circom_circuits-vX.Y.Z'. Value: '$VERSION'."
+          elif [[ ! "$TAG" =~ ^circom_circuits-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "TAG must follow the format of 'circom_circuits-vX.Y.Z'. Value: '$VERSION'."
             exit 2
           fi
 
           # Parse Version: Take only the vX.Y.Z part.
-          VERSION=$(echo $VERSION | cut -d'-' -f2)
+          VERSION=$(echo $TAG | cut -d'-' -f2)
 
-          # Export the version to be used in the following jobs.
+          # Export the tag and version.
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
   build-linux:
@@ -470,6 +472,7 @@ jobs:
       - build-windows
       - build-macos
     env:
+      TAG: ${{ needs.setup.outputs.tag }}
       VERSION: ${{ needs.setup.outputs.version }}
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
@@ -480,7 +483,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ env.VERSION }}
+          tag_name: ${{ env.TAG }}
           release_name: Circom Circuits ${{ env.VERSION }}
           body: |
             This is a release of Circom Circuits ${{ env.VERSION }}.
