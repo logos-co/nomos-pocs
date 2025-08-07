@@ -21,10 +21,13 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
     signal input Ql;            // leadership quota Q_L
     signal input pk_root;       // Merkle root of registered core-node public keys
     signal input aged_root;     // PoL: aged notes root
-    signal input K;  // Blend: one-time signature public key
+    signal input K_part_one;  // Blend: one-time signature public key
+    signal input K_part_two;  // Blend: one-time signature public key
 
-    signal dummy;
-    dummy <== K * K;
+    signal dummy_one;
+    dummy_one <== K_part_one * K_part_one;
+    signal dummy_two;
+    dummy_two <== K_part_two * K_part_two;
 
     signal output nullifier;    //key_nullifier
 
@@ -129,5 +132,5 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
 }
 
 // Instantiate with chosen depths: 20 for core PK tree, 25 for PoL slot tree
-component main { public [ session, Qc, Ql, pk_root, aged_root, K ] }
+component main { public [ session, Qc, Ql, pk_root, aged_root, K_part_one, K_part_two ] }
     = ProofOfQuota(20, 25, 20);

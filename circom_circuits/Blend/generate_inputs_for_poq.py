@@ -284,7 +284,8 @@ for i in range(32):
 index    = randrange(0, Ql if core_or_leader else Qc,1)
 
 # 4) One‐time key
-K = F(randrange(0,p,1))
+K_one = F(randrange(0,p,1))
+K_two = F(randrange(0,p,1))
 
 # 5) Assemble JSON
 inp = {
@@ -293,7 +294,8 @@ inp = {
   "Ql":               str(Ql),
   "pk_root":          str(core_root),
   "aged_root":        str(aged_root),
-  "K":                str(K),
+  "K_part_one":       str(K_one),
+  "K_part_two":       str(K_two),
   "selector":         str(core_or_leader),
   "index":            str(index),
   "core_sk":          str(core_sk),
