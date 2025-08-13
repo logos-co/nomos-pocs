@@ -232,7 +232,7 @@ for i in range(20):
 
 #pk_root, core_path, core_selectors = merkle_root_and_path(pk_core, 20)
 
-# 2) PoL inputs (broadened from your pol script)
+# 2) PoL inputs (broadened from pol script)
 epoch_nonce   = F(randrange(0, p,1))
 slot_number   = F(randrange(0, 2**32,1))
 total_stake   = F(5000)

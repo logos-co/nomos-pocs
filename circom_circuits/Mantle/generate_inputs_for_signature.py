@@ -212,18 +212,19 @@ sk = [F(randrange(0,p,1))  for i in range(nInput)]
 data_msg = F(randrange(0,p,1))
 
 if nInput == 1:
-    with open("input.json", "w") as file:
-        file.write('{\n\t"secret_key" :\t\t\t\t\t\t"'+str(sk[0])+'",')
-        file.write('\n\t"attached_data" :\t\t\t\t\t\t"'+str(data_msg)+'"}')
+    inp = {
+        "secret_key": str(sk[0]),
+        "attached_data": str(data_msg)
+    }
 else:
-    with open("input.json", "w") as file:
-        file.write('{\n\t"secret_key" :\t\t\t\t\t[')
-        for i in range(nInput):
-            file.write('"')
-            file.write(str(sk[i]))
-            file.write('"')
-            if i == nInput - 1:
-                file.write('],')
-            else:
-                file.write(',')
-        file.write('\n\t"attached_data" :\t\t\t\t\t\t"'+str(data_msg)+'"}')
+    inp = {
+        "secret_key": [str(x) for x in sk],
+        "attached_data": str(data_msg)
+    }
+
+import json
+
+with open("input.json","w") as f:
+    json.dump(inp, f, indent=2)
+
+print("Wrote input of ZkSignature")

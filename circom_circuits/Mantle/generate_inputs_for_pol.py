@@ -272,63 +272,35 @@ for i in range(32):
     else:
         latest_root = poseidon2_hash([unspent_nodes[i],latest_root])
    
-with open("input.json", "w") as file:
-    file.write('{\n\t"slot":\t\t\t\t\t\t"'+str(slot_number)+'",')
-    file.write('\n\t"epoch_nonce":\t\t\t\t\t\t"'+str(epoch_nonce)+'",')
-    file.write('\n\t"t0" :\t\t\t\t\t\t"'+str(t0)+'",')
-    file.write('\n\t"t1" :\t\t\t\t\t\t"'+str(t1)+'",')
-    file.write('\n\t"slot_secret" :\t\t\t\t\t\t"'+str(slot_secret)+'",')
-    file.write('\n\t"one_time_key_part_one" :\t\t\t\t\t\t"'+str(F(123456))+'",')
-    file.write('\n\t"one_time_key_part_two" :\t\t\t\t\t\t"'+str(F(654321))+'",')
-    file.write('\n\t"slot_secret_path" :\t\t\t\t\t[')
-    for i in range(25):
-        file.write('"')
-        file.write(str(slot_secret_path[i]))
-        file.write('"')
-        if i == 24:
-            file.write('],')
-        else:
-            file.write(',')
-    file.write('\n\t"aged_nodes" :\t\t\t\t\t[')
-    for i in range(32):
-        file.write('"')
-        file.write(str(aged_nodes[i]))
-        file.write('"')
-        if i == 31:
-            file.write('],')
-        else:
-            file.write(',')
-    file.write('\n\t"aged_selectors" :\t\t\t\t\t[')
-    for i in range(32):
-        file.write('"')
-        file.write(str(aged_selectors[i]))
-        file.write('"')
-        if i == 31:
-            file.write('],')
-        else:
-            file.write(',')
-    file.write('\n\t"aged_root" :\t\t\t\t"'+str(aged_root)+'",')
-    file.write('\n\t"transaction_hash" :\t\t\t\t"'+str(tx_hash)+'",')
-    file.write('\n\t"output_number" :\t\t\t\t"'+str(output_number)+'",')
-    file.write('\n\t"latest_nodes" :\t\t\t\t\t[')
-    for i in range(32):
-        file.write('"')
-        file.write(str(unspent_nodes[i]))
-        file.write('"')
-        if i == 31:
-            file.write('],')
-        else:
-            file.write(',')
-    file.write('\n\t"latest_selectors" :\t\t\t\t\t[')
-    for i in range(32):
-        file.write('"')
-        file.write(str(unspent_selectors[i]))
-        file.write('"')
-        if i == 31:
-            file.write('],')
-        else:
-            file.write(',')
-    file.write('\n\t"latest_root" :\t\t\t\t"'+str(latest_root)+'",')
-    file.write('\n\t"starting_slot" :\t\t\t\t"'+str(starting_slot)+'",')
-    file.write('\n\t"secrets_root" :\t\t\t\t"'+str(secret_root)+'",')
-    file.write('\n\t"value" :\t\t\t\t"'+str(value)+'"}')
+
+
+
+# 5) Assemble JSON
+inp = {
+  "slot":                       str(slot_number),
+  "epoch_nonce":                str(epoch_nonce),
+  "t0":                         str(t0),
+  "t1":                         str(t1),
+  "slot_secret":                str(slot_secret),
+  "one_time_key_part_one":      str(F(123456)),
+  "one_time_key_part_two":      str(F(654321)),
+  "slot_secret_path":           [str(x) for x in slot_secret_path],
+  "aged_nodes":                 [str(x) for x in aged_nodes],
+  "aged_selectors":             [str(x) for x in aged_selectors],
+  "aged_root":                  str(aged_root),
+  "transaction_hash":           str(tx_hash),
+  "output_number":              str(output_number),
+  "latest_nodes":               [str(x) for x in unspent_nodes],
+  "latest_selectors":           [str(x) for x in unspent_selectors],
+  "latest_root":                str(latest_root),
+  "starting_slot":              str(starting_slot),
+  "secrets_root":               str(secret_root) ,
+  "value":                      str(value)
+}
+
+import json
+
+with open("input.json","w") as f:
+    json.dump(inp, f, indent=2)
+
+print("Wrote input of pol")
