@@ -42,7 +42,12 @@ template proof_of_claim(){
     component reward_voucher = derive_reward_voucher();
     reward_voucher.secret_voucher <== secret_voucher;
 
-    //verify reward voucher membership
+    //Check reward voucher membership
+            //First check selectors are indeed bits
+    for(var i = 0; i < 32; i++){
+        selectors[i] * (1 - selectors[i]) === 0;
+    }
+            //Then check the proof of membership
     component reward_membership = proof_of_membership(32);
     for(var i = 0; i < 32; i++){
         reward_membership.nodes[i] <== merkle_nodes[i];
