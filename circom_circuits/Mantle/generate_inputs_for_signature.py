@@ -178,7 +178,7 @@ def PoseidonSponge(data, capacity, output_len):
     for i in range(len(data)+1,padded_len):
         padded.append(F(0))
         
-    civ = F(2**64 + 256*3 + rate)
+    civ = F(0)
 
     state = [F(0),F(0),F(civ)]
     sorbed = [F(0) for j in range(rate)]

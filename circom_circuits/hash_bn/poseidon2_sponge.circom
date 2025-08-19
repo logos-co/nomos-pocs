@@ -52,13 +52,9 @@ template PoseidonSponge(t, capacity, input_len, output_len) {
 
   signal state [nblocks+nout][t   ];
   signal sorbed[nblocks     ][rate];
- 
-  // domain separation, capacity IV:
-  var civ = 2**64 + 256*t + rate;
 
   // initialize state
-  for(var i=0; i<t-1; i++) { state[0][i] <== 0; }
-  state[0][t-1] <== civ;
+  for(var i=0; i<t; i++) { state[0][i] <== 0; }
 
   component absorb [nblocks];
   component squeeze[nout-1];
