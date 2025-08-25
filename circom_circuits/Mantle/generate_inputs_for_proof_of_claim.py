@@ -224,9 +224,9 @@ data_msg = F(randrange(0,p,1))
 
 inp = {
   "secret_voucher":     str(secret_voucher),
-  "merkle_nodes":       [str(x) for x in merkle_nodes],
-  "selectors":          [str(x) for x in selectors],
-  "attached_data":      str(data_msg),
+  "voucher_merkle_path":[str(x) for x in merkle_nodes],
+  "voucher_merkle_path_selectors":          [str(x) for x in selectors],
+  "mantle_tx_hash":      str(data_msg),
   "voucher_root":       str(voucher_root)
 }
 

@@ -172,37 +172,37 @@ template would_win_leadership(secret_depth){
 
 
 template proof_of_leadership(secret_depth){
-    signal input slot;
-    signal input epoch_nonce;
+    signal input sl;
+    signal input epoch_nonce;  // the epoch nonce eta
     signal input t0;
     signal input t1;
-    signal input slot_secret;
+    signal input slot_secret;  // This is r_sl
     signal input slot_secret_path[secret_depth];
 
     //Part of the note id proof of membership to prove aged
-    signal input aged_nodes[32];
-    signal input aged_selectors[32];         // must be bits
-    signal input aged_root;
+    signal input noteid_aged_path[32];
+    signal input noteid_aged_selectors[32];         // must be bits
+    signal input ledger_aged;
 
     //Used to derive the note identifier
-    signal input transaction_hash;
-    signal input output_number;
+    signal input note_tx_hash;
+    signal input note_output_number;
     
     //Part of the note id proof of membership to prove it's unspent
-    signal input latest_nodes[32];
-    signal input latest_selectors[32];         // must be bits
-    signal input latest_root;
+    signal input noteid_latest_path[32];
+    signal input noteid_latest_selectors[32];         // must be bits
+    signal input ledger_latest;
 
     //Part of the secret key
     signal input starting_slot;
-    signal input secrets_root;
+    signal input secrets_root;   // THIS NEEDS TO BE REMOVED
 
     // The winning note. The unit is supposed to be NMO and the ZoneID is MANTLE
-    signal input value;
+    signal input v;  // value of the note
 
     // Verify the note is winning the lottery
     component lottery_checker = would_win_leadership(secret_depth);
-    lottery_checker.slot <== slot;
+    lottery_checker.slot <== sl;
     lottery_checker.epoch_nonce <== epoch_nonce;
     lottery_checker.t0 <== t0;
     lottery_checker.t1 <== t1;
@@ -211,42 +211,42 @@ template proof_of_leadership(secret_depth){
         lottery_checker.slot_secret_path[i] <== slot_secret_path[i];
     }
     for(var i = 0; i < 32; i++){
-        lottery_checker.aged_nodes[i] <== aged_nodes[i];
-        lottery_checker.aged_selectors[i] <== aged_selectors[i];
+        lottery_checker.aged_nodes[i] <== noteid_aged_path[i];
+        lottery_checker.aged_selectors[i] <== noteid_aged_selectors[i];
     }
-    lottery_checker.aged_root <== aged_root;
-    lottery_checker.transaction_hash <== transaction_hash;
-    lottery_checker.output_number <== output_number;
+    lottery_checker.aged_root <== ledger_aged;
+    lottery_checker.transaction_hash <== note_tx_hash;
+    lottery_checker.output_number <== note_output_number;
     lottery_checker.starting_slot <== starting_slot;
     lottery_checker.secrets_root <== secrets_root;
-    lottery_checker.value <== value;
+    lottery_checker.value <== v;
 
 
     // One time signing key used to sign the block proposal and the block
-    signal input one_time_key_part_one;
-    signal input one_time_key_part_two;
+    signal input P_lead_part_one;
+    signal input P_lead_part_two;
 
     //Avoid the circom optimisation that removes unused public input
     signal dummy_one;
     signal dummy_two;
-    dummy_one <== one_time_key_part_one * one_time_key_part_one;
-    dummy_two <== one_time_key_part_two * one_time_key_part_two;
+    dummy_one <== P_lead_part_one * P_lead_part_one;
+    dummy_two <== P_lead_part_two * P_lead_part_two;
 
-    signal output entropy_contrib;
+    signal output entropy_contribution; // This is rho_lead
 
 
     // Check that the note is unspent
             //First check selectors are indeed bits
     for(var i = 0; i < 32; i++){
-        latest_selectors[i] * (1 - latest_selectors[i]) === 0;
+        noteid_latest_selectors[i] * (1 - noteid_latest_selectors[i]) === 0;
     }
             //Then check the note id is in the latest ledger state
     component unspent_membership = proof_of_membership(32);
     for(var i = 0; i < 32; i++){
-        unspent_membership.nodes[i] <== latest_nodes[i];
-        unspent_membership.selector[i] <== latest_selectors[i];
+        unspent_membership.nodes[i] <== noteid_latest_path[i];
+        unspent_membership.selector[i] <== noteid_latest_selectors[i];
     }
-    unspent_membership.root <== latest_root;
+    unspent_membership.root <== ledger_latest;
     unspent_membership.leaf <== lottery_checker.note_identifier;
 
     lottery_checker.out * unspent_membership.out === 1;
@@ -254,12 +254,12 @@ template proof_of_leadership(secret_depth){
 
     // Compute the entropy contribution
     component entropy = derive_entropy();
-    entropy.slot <== slot;
+    entropy.slot <== sl;
     entropy.note_id <== lottery_checker.note_identifier;
     entropy.secret_key <== lottery_checker.secret_key;
 
-    entropy_contrib <== entropy.out;
+    entropy_contribution <== entropy.out;
 }
 
 
-component main {public [slot,epoch_nonce,t0,t1,aged_root,latest_root,one_time_key_part_one,one_time_key_part_two]}= proof_of_leadership(25);
+//component main {public [sl,epoch_nonce,t0,t1,ledger_aged,ledger_latest,P_lead_part_one,P_lead_part_two]}= proof_of_leadership(25);

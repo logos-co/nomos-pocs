@@ -292,36 +292,36 @@ K_two = F(randrange(0,p,1))
 # 5) Assemble JSON
 inp = {
   "session":          str(session),
-  "Qc":               str(Qc),
-  "Ql":               str(Ql),
-  "pk_root":          str(core_root),
-  "aged_root":        str(aged_root),
+  "core_quota":               str(Qc),
+  "leader_quota":               str(Ql),
+  "core_root":          str(core_root),
+  "pol_ledger_aged":        str(aged_root),
   "K_part_one":       str(K_one),
   "K_part_two":       str(K_two),
   "selector":         str(core_or_leader),
   "index":            str(index),
   "core_sk":          str(core_sk),
   "core_path":        [str(x) for x in core_nodes],
-  "core_selectors":   [str(x) for x in core_selectors],
-  "slot":             str(slot_number),
-  "epoch_nonce":      str(epoch_nonce),
-  "t0":               str(t0),
-  "t1":               str(t1),
-  "slot_secret":      str(slot_secret),
-  "slot_secret_path": [str(x) for x in slot_secret_path],
-  "aged_nodes":       [str(x) for x in aged_nodes],
-  "aged_selectors":   [str(x) for x in aged_selectors],
-  "transaction_hash": str(tx_hash),
-  "output_number":    str(output_number),
-  "starting_slot":    str(starting_slot),
-  "secrets_root":     str(secret_root),
-  "value":            str(value)
+  "core_path_selectors":   [str(x) for x in core_selectors],
+  "pol_sl":             str(slot_number),
+  "pol_epoch_nonce":      str(epoch_nonce),
+  "pol_t0":               str(t0),
+  "pol_t1":               str(t1),
+  "pol_slot_secret":      str(slot_secret),
+  "pol_slot_secret_path": [str(x) for x in slot_secret_path],
+  "pol_noteid_path":       [str(x) for x in aged_nodes],
+  "pol_noteid_path_selectors":   [str(x) for x in aged_selectors],
+  "pol_note_tx_hash": str(tx_hash),
+  "pol_note_output_number":    str(output_number),
+  "pol_sk_starting_slot":    str(starting_slot),
+  "secrets_root":     str(secret_root),   # THIS NEEDS TO BE REMOVED
+  "pol_note_value":            str(value)
 }
 
 if core_or_leader == 0:
-    inp["aged_root"] = randrange(0,p,1)
+    inp["pol_ledger_aged"] = randrange(0,p,1)
 else:
-    inp["pk_root"] = randrange(0,p,1)
+    inp["core_root"] = randrange(0,p,1)
 
 import json
 

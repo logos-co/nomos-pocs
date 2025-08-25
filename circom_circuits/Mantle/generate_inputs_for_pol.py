@@ -278,25 +278,25 @@ for i in range(32):
 
 # 5) Assemble JSON
 inp = {
-  "slot":                       str(slot_number),
+  "sl":                       str(slot_number),
   "epoch_nonce":                str(epoch_nonce),
   "t0":                         str(t0),
   "t1":                         str(t1),
   "slot_secret":                str(slot_secret),
-  "one_time_key_part_one":      str(F(123456)),
-  "one_time_key_part_two":      str(F(654321)),
+  "P_lead_part_one":            str(F(123456)),
+  "P_lead_part_two":            str(F(654321)),
   "slot_secret_path":           [str(x) for x in slot_secret_path],
-  "aged_nodes":                 [str(x) for x in aged_nodes],
-  "aged_selectors":             [str(x) for x in aged_selectors],
-  "aged_root":                  str(aged_root),
-  "transaction_hash":           str(tx_hash),
-  "output_number":              str(output_number),
-  "latest_nodes":               [str(x) for x in unspent_nodes],
-  "latest_selectors":           [str(x) for x in unspent_selectors],
-  "latest_root":                str(latest_root),
+  "noteid_aged_path":           [str(x) for x in aged_nodes],
+  "noteid_aged_selectors":      [str(x) for x in aged_selectors],
+  "ledger_aged":                str(aged_root),
+  "note_tx_hash":               str(tx_hash),
+  "note_output_number":         str(output_number),
+  "noteid_latest_path":         [str(x) for x in unspent_nodes],
+  "noteid_latest_selectors":    [str(x) for x in unspent_selectors],
+  "ledger_latest":              str(latest_root),
   "starting_slot":              str(starting_slot),
   "secrets_root":               str(secret_root) ,
-  "value":                      str(value)
+  "v":                          str(value)
 }
 
 import json

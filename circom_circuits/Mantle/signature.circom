@@ -5,22 +5,20 @@ include "../ledger/notes.circom";
 include "../misc/constants.circom";
 
 template zkSignature(maxInput){
-    signal input secret_key[maxInput];
-
-    signal input attached_data;
-
-    signal output public_key[maxInput];
+    signal input secret_keys[maxInput];
+    signal input msg;
+    signal output public_keys[maxInput];
 
     component pk[maxInput];
     for(var i =0; i<maxInput; i++){
         pk[i] = derive_public_key();
-        pk[i].secret_key <== secret_key[i];
-        public_key[i] <== pk[i].out;
+        pk[i].secret_key <== secret_keys[i];
+        public_keys[i] <== pk[i].out;
     }
 
     // dummy constraint to avoid unused public input to be erased after compilation optimisation
     signal dummy;
-    dummy <== attached_data * attached_data;
+    dummy <== msg * msg;
 }
 
-component main {public [attached_data]}= zkSignature(32);
+component main {public [msg]}= zkSignature(32);

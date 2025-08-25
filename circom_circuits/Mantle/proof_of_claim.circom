@@ -31,9 +31,9 @@ template derive_reward_voucher(){
 
 template proof_of_claim(){
     signal input secret_voucher;
-    signal input merkle_nodes[32];
-    signal input selectors[32];
-    signal input attached_data;
+    signal input voucher_merkle_path[32];
+    signal input voucher_merkle_path_selectors[32];
+    signal input mantle_tx_hash;
     signal input voucher_root;
 
     signal output voucher_nullifier;
@@ -45,13 +45,13 @@ template proof_of_claim(){
     //Check reward voucher membership
             //First check selectors are indeed bits
     for(var i = 0; i < 32; i++){
-        selectors[i] * (1 - selectors[i]) === 0;
+        voucher_merkle_path_selectors[i] * (1 - voucher_merkle_path_selectors[i]) === 0;
     }
             //Then check the proof of membership
     component reward_membership = proof_of_membership(32);
     for(var i = 0; i < 32; i++){
-        reward_membership.nodes[i] <== merkle_nodes[i];
-        reward_membership.selector[i] <== selectors[i];
+        reward_membership.nodes[i] <== voucher_merkle_path[i];
+        reward_membership.selector[i] <== voucher_merkle_path_selectors[i];
     }
     reward_membership.root <== voucher_root;
     reward_membership.leaf <== reward_voucher.out;
@@ -68,7 +68,7 @@ template proof_of_claim(){
 
     // dummy constraint to avoid unused public input to be erased after compilation optimisation
     signal dummy;
-    dummy <== attached_data * attached_data;
+    dummy <== mantle_tx_hash * mantle_tx_hash;
 }
 
-component main {public [voucher_root,attached_data]}= proof_of_claim();
+component main {public [voucher_root,mantle_tx_hash]}= proof_of_claim();

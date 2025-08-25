@@ -1,5 +1,5 @@
 //
-pragma circom 2.0.0;
+pragma circom 2.1.9;
 
 //
 // The Poseidon2 permutation for bn128 and t=3 

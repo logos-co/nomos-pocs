@@ -215,13 +215,13 @@ data_msg = F(randrange(0,p,1))
 
 if nInput == 1:
     inp = {
-        "secret_key": str(sk[0]),
-        "attached_data": str(data_msg)
+        "secret_keys": str(sk[0]),
+        "msg": str(data_msg)
     }
 else:
     inp = {
-        "secret_key": [str(x) for x in sk],
-        "attached_data": str(data_msg)
+        "secret_keys": [str(x) for x in sk],
+        "msg": str(data_msg)
     }
 
 import json
