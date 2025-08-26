@@ -6,6 +6,7 @@ include "../misc/constants.circom";         // defines NOMOS_KDF, SELECTION_RAND
 include "../misc/comparator.circom";        
 include "../circomlib/circuits/bitify.circom";
 include "../Mantle/pol.circom";      // defines proof_of_leadership
+include "../ledger/notes.circom";
 
 /**
  * ProofOfQuota(nLevelsPK, nLevelsPol)
@@ -61,24 +62,29 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
     selector * (1 - selector) === 0;
 
 
-    // derive pk_core = Poseidon(NOMOS_KDF || core_sk)
-    component kdf = Poseidon2_hash(2);
-    component dstKdf = NOMOS_KDF_V1();
-    kdf.inp[0] <== dstKdf.out;
-    kdf.inp[1] <== core_sk;
-    signal pk_core;
-    pk_core <== kdf.out;
+    // Quota check: index < core_quota if core, index < leader_quota if leader
+    component cmp = SafeLessThan(bitsQuota);
+    cmp.in[0] <== index;
+    cmp.in[1] <== selector * (leader_quota - core_quota) + core_quota;
+    cmp.out === 1;
 
 
-    // Merkle‐verify pk_core in core_root
-    component coreReg = proof_of_membership(nLevelsPK);
+    // derive zk_id
+    component zk_id = derive_public_key();
+    zk_id.secret_key <== core_sk;
+
+
+    // Merkle‐verify zk_id in core_root
+    component is_registered = proof_of_membership(nLevelsPK);
     for (var i = 0; i < nLevelsPK; i++) {
+        //check that the selectors are indeed bits
         core_path_selectors[i] * (1 - core_path_selectors[i]) === 0;
-        coreReg.nodes[i]    <== core_path[i];
-        coreReg.selector[i] <== core_path_selectors[i];
+        //call the merkle proof checker
+        is_registered.nodes[i]    <== core_path[i];
+        is_registered.selector[i] <== core_path_selectors[i];
     }
-    coreReg.root <== core_root;
-    coreReg.leaf <== pk_core;
+    is_registered.root <== core_root;
+    is_registered.leaf <== zk_id.out;
 
 
     // enforce potential PoL (without verification that the note is unspent)
@@ -103,31 +109,24 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
     would_win.value          <== pol_note_value;
 
     // Enforce the selected role is correct
-    selector * (would_win.out - coreReg.out) + coreReg.out === 1;
-
-
-    // Quota check: index < core_quota if core, index < leader_quota if leader
-    component cmp = SafeLessThan(bitsQuota);
-    cmp.in[0] <== index;
-    cmp.in[1] <== selector * (leader_quota - core_quota) + core_quota;
-    cmp.out === 1;
+    selector * (would_win.out - is_registered.out) + is_registered.out === 1;
 
 
     // Derive selection_randomness
-    component randomness = Poseidon2_hash(4);
+    component selection_randomness = Poseidon2_hash(4);
     component dstSel = SELECTION_RANDOMNESS_V1();
-    randomness.inp[0] <== dstSel.out;
+    selection_randomness.inp[0] <== dstSel.out;
     // choose core_sk or pol.secret_key:
-    randomness.inp[1] <== selector * (would_win.secret_key - core_sk ) + core_sk;
-    randomness.inp[2] <== index;
-    randomness.inp[3] <== session;
+    selection_randomness.inp[1] <== selector * (would_win.secret_key - core_sk ) + core_sk;
+    selection_randomness.inp[2] <== index;
+    selection_randomness.inp[3] <== session;
 
 
     // Derive key_nullifier
     component nf = Poseidon2_hash(2);
     component dstNF = KEY_NULLIFIER_V1();
     nf.inp[0] <== dstNF.out;
-    nf.inp[1] <== randomness.out;
+    nf.inp[1] <== selection_randomness.out;
     key_nullifier <== nf.out;
 }
 

@@ -27,20 +27,6 @@ template ticket_calculator(){
     out <== hash.out;
 }
 
-template derive_secret_key(){
-    signal input starting_slot;
-    signal input secrets_root;
-    signal output out;
-
-    component hash = Poseidon2_hash(3);
-    component dst = NOMOS_POL_SK_V1();
-    hash.inp[0] <== dst.out;
-    hash.inp[1] <== starting_slot;
-    hash.inp[2] <== secrets_root;
-
-    out <== hash.out;
-}
-
 template derive_entropy(){
     signal input slot;
     signal input note_id;
@@ -85,7 +71,7 @@ template would_win_leadership(secret_depth){
     signal output secret_key;
 
 
-    // Check the knowledge of the slot secret at position slot - starting_slot
+    // Derivation of the secrets root from the slot secret at position slot - starting_slot
             // Verify that the substraction wont underflow (starting_slot < slot)
     component checker = SafeLessEqThan(252);
     checker.in[0] <== starting_slot;
