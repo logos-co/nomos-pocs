@@ -220,8 +220,8 @@ if total_stake >= p:
     print("total stake must be less than p")
     exit()
     
-t0 = F(int((((- ln(R(0.95))) * R(p))) / R(total_stake) ))
-t1 = F(int((((- ln(R(0.95))**2) * R(p))) / (R(2) * R(total_stake)**2 )))
+t0 = F(0x27b6fe27507ca57ca369280400c79b5d2f58ff94d87cb0fbfc8294eb69eb1ea)
+t1 = F(0x104bfd09ebdd0a57772289d0973489b62662a4dc6f09da8b4af3c5cfb1dcdd)
 
 
 value = F(50)
@@ -243,7 +243,7 @@ for i in range(25):
     else:
         secret_root = poseidon2_hash([slot_secret_path[i],secret_root])
 sk = poseidon2_hash([F(368578955381705904513968556094561791019140317213076864424136877504260737058),starting_slot,secret_root])
-pk = poseidon2_hash([F(71828171600713765359243601848789410494517675262904677980449468236927732106),sk])
+pk = poseidon2_hash([F(212459341846278437262234987091558730706084889692483733611934435194121904625),sk])
 
 note_id = poseidon2_hash([F(103012852986292465873069134523609422197952925946768565674230228608985708879),tx_hash,output_number,value,pk])
 ticket = poseidon2_hash([F(328840406439552832830196247813274442341678919395186087927998764150429312516),F(epoch_nonce),F(slot_number),note_id,sk])

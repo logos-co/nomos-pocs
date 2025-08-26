@@ -5,6 +5,7 @@ include "../circomlib/circuits/bitify.circom";
 include "../circomlib/circuits/comparators.circom";
 
 // If a or b isn't guaranteed to be less than p use SafeFullComparator
+// See https://www.notion.so/nomos-tech/Comparisons-1fd261aa09df81feae1ff3e6612b92a0
 template FullLessThan() {
     signal input a;
     signal input b;
@@ -25,8 +26,8 @@ template FullLessThan() {
     }
 
     component A = LessThan(252);
-    A.in[0] <== numifier_a.out;
-    A.in[1] <== numifier_b.out;
+    A.in[0] <== numifier_b.out;
+    A.in[1] <== numifier_a.out;
 
     component B = IsEqual();
     B.in[0] <== numifier_a.out;
@@ -48,14 +49,13 @@ template FullLessThan() {
     F.in[0] <== bitifier_a.out[0];
     F.in[1] <== 1;
 
-    signal intermediate_results[5];
-    intermediate_results[0] <== (1 - A.out) * B.out;
-    intermediate_results[1] <== C.out * (1-E.out);
-    intermediate_results[2] <== intermediate_results[1] * F.out;
-    intermediate_results[3] <== (1-C.out) * D.out;
-    intermediate_results[4] <== A.out * (1-B.out);
+    signal intermediate_results[4];
+    intermediate_results[0] <== (1 - C.out) * (1-D.out);
+    intermediate_results[1] <== (1 - C.out) * (1-E.out);
+    intermediate_results[2] <== intermediate_results[1] * (1- F.out);
+    intermediate_results[3] <== B.out * (intermediate_results[0] + intermediate_results[2]);
 
-    out <== intermediate_results[0] * (intermediate_results[2] + intermediate_results[3]) + intermediate_results[4];
+    out <== (1 - A.out) * ((1 - B.out) + intermediate_results[3]);
 
 }
 
@@ -79,8 +79,8 @@ template SafeFullLessThan() {
     }
 
     component A = LessThan(252);
-    A.in[0] <== numifier_a.out;
-    A.in[1] <== numifier_b.out;
+    A.in[0] <== numifier_b.out;
+    A.in[1] <== numifier_a.out;
 
     component B = IsEqual();
     B.in[0] <== numifier_a.out;
@@ -102,15 +102,13 @@ template SafeFullLessThan() {
     F.in[0] <== bitifier_a.out[0];
     F.in[1] <== 1;
 
-    signal intermediate_results[5];
-    intermediate_results[0] <== (1 - A.out) * B.out;
-    intermediate_results[1] <== C.out * (1-E.out);
-    intermediate_results[2] <== intermediate_results[1] * F.out;
-    intermediate_results[3] <== (1-C.out) * D.out;
-    intermediate_results[4] <== A.out * (1-B.out);
+    signal intermediate_results[4];
+    intermediate_results[0] <== (1 - C.out) * (1-D.out);
+    intermediate_results[1] <== (1 - C.out) * (1-E.out);
+    intermediate_results[2] <== intermediate_results[1] * (1- F.out);
+    intermediate_results[3] <== B.out * (intermediate_results[0] + intermediate_results[2]);
 
-    out <== intermediate_results[0] * (intermediate_results[2] + intermediate_results[3]) + intermediate_results[4];
-
+    out <== (1 - A.out) * ((1 - B.out) + intermediate_results[3]);
 }
 
 // Safely compare two n-bit numbers 

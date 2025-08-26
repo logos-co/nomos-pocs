@@ -221,7 +221,7 @@ if not core_or_leader in [0,1]:
 # 1) Core‐node registry Merkle‐proof
 # pick a random core_sk and derive its public key
 core_sk   = F(randrange(0,p,1))
-pk_core   = poseidon2_hash([ F(71828171600713765359243601848789410494517675262904677980449468236927732106), core_sk ])
+pk_core   = poseidon2_hash([ F(212459341846278437262234987091558730706084889692483733611934435194121904625), core_sk ])
 core_selectors = randrange(0,2**20,1)
 core_selectors = format(int(core_selectors),'020b')
 core_nodes = [F(randrange(0,p,1)) for i in range(20)]
@@ -263,7 +263,7 @@ for i in range(25):
     else:
         secret_root = poseidon2_hash([slot_secret_path[i],secret_root])
 sk = poseidon2_hash([F(368578955381705904513968556094561791019140317213076864424136877504260737058),starting_slot,secret_root])
-pk = poseidon2_hash([F(71828171600713765359243601848789410494517675262904677980449468236927732106),sk])
+pk = poseidon2_hash([F(212459341846278437262234987091558730706084889692483733611934435194121904625),sk])
 
 note_id = poseidon2_hash([F(103012852986292465873069134523609422197952925946768565674230228608985708879),tx_hash,output_number,value,pk])
 ticket = poseidon2_hash([F(328840406439552832830196247813274442341678919395186087927998764150429312516),F(epoch_nonce),F(slot_number),note_id,sk])
