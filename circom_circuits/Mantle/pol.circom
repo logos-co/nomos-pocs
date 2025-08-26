@@ -73,11 +73,11 @@ template would_win_leadership(secret_depth){
 
     // Derivation of the secrets root from the slot secret at position slot - starting_slot
             // Verify that the substraction wont underflow (starting_slot < slot)
-    component checker = SafeLessEqThan(252);
-    checker.in[0] <== starting_slot;
-    checker.in[1] <== slot;
+    component checker = SafeFullLessThan();
+    checker.a <== starting_slot;
+    checker.b <== slot;
 
-            // Compute the positions related to slot - starting_slot (and make sure secret_depth = 25 bits)
+            // Compute the positions related to slot - starting_slot and make sure slot - starting_slot is a 25 bits number
     component bits = Num2Bits(secret_depth);
     bits.in <== slot - starting_slot;
 
@@ -142,7 +142,7 @@ template would_win_leadership(secret_depth){
 
 
     // Check that the ticket is winning
-    component winning = FullLessThan();
+    component winning = SafeFullLessThan();
     winning.a <== ticket.out;
     winning.b <== threshold;
 
