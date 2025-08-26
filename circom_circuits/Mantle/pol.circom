@@ -3,7 +3,7 @@ pragma circom 2.1.9;
 
 include "../hash_bn/poseidon2_hash.circom";
 include "../ledger/notes.circom";
-include "../ledger/merkle.circom";
+include "../hash_bn/merkle.circom";
 include "../misc/comparator.circom";
 include "../circomlib/circuits/bitify.circom";
 include "../misc/constants.circom";
@@ -76,7 +76,6 @@ template would_win_leadership(secret_depth){
 
     //Part of the secret key
     signal input starting_slot;
-    signal input secrets_root;
 
     // The winning note value
     signal input value;
@@ -86,10 +85,29 @@ template would_win_leadership(secret_depth){
     signal output secret_key;
 
 
+    // Check the knowledge of the slot secret at position slot - starting_slot
+            // Verify that the substraction wont underflow (starting_slot < slot)
+    component checker = SafeLessEqThan(252);
+    checker.in[0] <== starting_slot;
+    checker.in[1] <== slot;
+
+            // Compute the positions related to slot - starting_slot (and make sure secret_depth = 25 bits)
+    component bits = Num2Bits(secret_depth);
+    bits.in <== slot - starting_slot;
+
+            // Derive the secrets root
+    component secrets_root = compute_merkle_root(secret_depth);
+    for(var i=0; i<secret_depth; i++){
+        secrets_root.nodes[i] <== slot_secret_path[i];
+        secrets_root.selector[i] <== bits.out[secret_depth-1-i];
+    }
+    secrets_root.leaf <== slot_secret;
+
+
     // Derive the secret key
     component sk = derive_secret_key();
     sk.starting_slot <== starting_slot;
-    sk.secrets_root <== secrets_root;
+    sk.secrets_root <== secrets_root.root;
 
 
     // Derive the public key from the secret key
@@ -142,29 +160,10 @@ template would_win_leadership(secret_depth){
     winning.a <== ticket.out;
     winning.b <== threshold;
 
-
-    // Check the knowledge of the secret at position slot - starting_slot
-            // Verify that the substraction wont underflow (starting_slot < slot)
-    component checker = SafeLessEqThan(252);
-    checker.in[0] <== starting_slot;
-    checker.in[1] <== slot;
-            // Compute the positions related to slot - starting_slot (and make sure it's 25 bits)
-    component bits = Num2Bits(secret_depth);
-    bits.in <== slot - starting_slot;
-            // Check the membership of the secret_slot against the secrets_root
-    component secret_membership = proof_of_membership(secret_depth);
-    for(var i =0; i<secret_depth; i++){
-        secret_membership.nodes[i] <== slot_secret_path[i];
-        secret_membership.selector[i] <== bits.out[secret_depth-1-i];
-    }
-    secret_membership.root <== secrets_root;
-    secret_membership.leaf <== slot_secret;
-
     // Check that every constraint holds
-    signal intermediate_out[2];
-    intermediate_out[0] <== aged_membership.out * winning.out;
-    intermediate_out[1] <== checker.out * secret_membership.out;
-    out <==  intermediate_out[0] * intermediate_out[1];
+    signal intermediate_out;
+    intermediate_out <== aged_membership.out * winning.out;
+    out <==  intermediate_out * checker.out;
 
     note_identifier <== note_id.out;
     secret_key <== sk.out;
@@ -195,10 +194,10 @@ template proof_of_leadership(secret_depth){
 
     //Part of the secret key
     signal input starting_slot;
-    signal input secrets_root;   // THIS NEEDS TO BE REMOVED
 
     // The winning note. The unit is supposed to be NMO and the ZoneID is MANTLE
     signal input v;  // value of the note
+
 
     // Verify the note is winning the lottery
     component lottery_checker = would_win_leadership(secret_depth);
@@ -218,13 +217,13 @@ template proof_of_leadership(secret_depth){
     lottery_checker.transaction_hash <== note_tx_hash;
     lottery_checker.output_number <== note_output_number;
     lottery_checker.starting_slot <== starting_slot;
-    lottery_checker.secrets_root <== secrets_root;
     lottery_checker.value <== v;
 
 
     // One time signing key used to sign the block proposal and the block
     signal input P_lead_part_one;
     signal input P_lead_part_two;
+
 
     //Avoid the circom optimisation that removes unused public input
     signal dummy_one;

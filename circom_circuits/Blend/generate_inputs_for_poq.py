@@ -207,7 +207,7 @@ def PoseidonSponge(data, capacity, output_len):
 # Main
 # ———————————————————————
 if len(sys.argv) != 5:
-    print("Usage: python3 generate_inputs_for_poq.py <session> <Qc> <Ql> <core (0) or leader (1)>")
+    print("Usage: python3 generate_inputs_for_poq.py <session> <core_quota> <leader_quota> <core (0) or leader (1)>")
     sys.exit(1)
 
 session   = int(sys.argv[1])
@@ -314,7 +314,6 @@ inp = {
   "pol_note_tx_hash": str(tx_hash),
   "pol_note_output_number":    str(output_number),
   "pol_sk_starting_slot":    str(starting_slot),
-  "secrets_root":     str(secret_root),   # THIS NEEDS TO BE REMOVED
   "pol_note_value":            str(value)
 }
 

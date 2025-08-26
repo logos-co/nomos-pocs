@@ -54,13 +54,12 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
     signal input pol_note_output_number;
 
     signal input pol_sk_starting_slot;
-    signal input secrets_root;    // THIS NEEDS TO BE REMOVED
     signal input pol_note_value;
 
 
-
-    // Constraints
+    // Constraint the selector to be a bit
     selector * (1 - selector) === 0;
+
 
     // derive pk_core = Poseidon(NOMOS_KDF || core_sk)
     component kdf = Poseidon2_hash(2);
@@ -69,6 +68,7 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
     kdf.inp[1] <== core_sk;
     signal pk_core;
     pk_core <== kdf.out;
+
 
     // Merkle‐verify pk_core in core_root
     component coreReg = proof_of_membership(nLevelsPK);
@@ -79,6 +79,7 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
     }
     coreReg.root <== core_root;
     coreReg.leaf <== pk_core;
+
 
     // enforce potential PoL (without verification that the note is unspent)
     // (All constraints inside pol ensure LeadershipVerify)
@@ -99,13 +100,10 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
     would_win.transaction_hash <== pol_note_tx_hash;
     would_win.output_number    <== pol_note_output_number;
     would_win.starting_slot  <== pol_sk_starting_slot;
-    would_win.secrets_root   <== secrets_root;
     would_win.value          <== pol_note_value;
 
     // Enforce the selected role is correct
     selector * (would_win.out - coreReg.out) + coreReg.out === 1;
-
-
 
 
     // Quota check: index < core_quota if core, index < leader_quota if leader
@@ -113,6 +111,7 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
     cmp.in[0] <== index;
     cmp.in[1] <== selector * (leader_quota - core_quota) + core_quota;
     cmp.out === 1;
+
 
     // Derive selection_randomness
     component randomness = Poseidon2_hash(4);
@@ -123,9 +122,10 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
     randomness.inp[2] <== index;
     randomness.inp[3] <== session;
 
+
     // Derive key_nullifier
     component nf = Poseidon2_hash(2);
-    component dstNF = PROOF_NULLIFIER_V1();         // THIS NEEDS TO BE UPDATED
+    component dstNF = KEY_NULLIFIER_V1();
     nf.inp[0] <== dstNF.out;
     nf.inp[1] <== randomness.out;
     key_nullifier <== nf.out;

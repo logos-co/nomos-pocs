@@ -295,7 +295,6 @@ inp = {
   "noteid_latest_selectors":    [str(x) for x in unspent_selectors],
   "ledger_latest":              str(latest_root),
   "starting_slot":              str(starting_slot),
-  "secrets_root":               str(secret_root) ,
   "v":                          str(value)
 }
 
