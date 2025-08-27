@@ -208,7 +208,7 @@ def PoseidonSponge(data, capacity, output_len):
 
 
 secret_voucher = F(randrange(0,p,1))
-reward_voucher = poseidon2_hash([F(220700623067091879569340598814410483038955857088532228155209730029981553361),secret_voucher])
+reward_voucher = poseidon2_hash([F(204531649764949789513498796261435013892205118946219834864707175174206065125),secret_voucher])
 
 merkle_nodes = [F(randrange(0,p,1)) for i in range(32)]
 selectors = randrange(0,2**32,1)
