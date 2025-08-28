@@ -25,6 +25,8 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
     signal input K_part_one;  // Blend: one-time signature public key
     signal input K_part_two;  // Blend: one-time signature public key
 
+
+    // dummy constraints to avoid unused public input to be erased after compilation optimisation
     signal dummy_one;
     dummy_one <== K_part_one * K_part_one;
     signal dummy_two;
