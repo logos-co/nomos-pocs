@@ -221,7 +221,7 @@ if not core_or_leader in [0,1]:
 # 1) Core‐node registry Merkle‐proof
 # pick a random core_sk and derive its public key
 core_sk   = F(randrange(0,p,1))
-pk_core   = poseidon2_hash([ F(21826764258320138600520923299986619104225513357324915648346315894686032813), core_sk ])
+pk_core   = poseidon2_hash([ F(1296193216988918402894), core_sk ])
 core_selectors = randrange(0,2**20,1)
 core_selectors = format(int(core_selectors),'020b')
 core_nodes = [F(randrange(0,p,1)) for i in range(20)]
@@ -238,13 +238,11 @@ for i in range(20):
 epoch_nonce   = F(randrange(0, p,1))
 slot_number   = F(randrange(0, 2**32,1))
 total_stake   = F(5000)
-# compute t0,t1 via Taylor approx as before
-R = RealField(500)
-t0 = F(int((((- ln(R(0.95))) * R(p))) / R(total_stake) ))
-t1 = F(int((((- ln(R(0.95))**2) * R(p))) / ( R(2) * R(total_stake)**2 )))
 
+t0 = F(0x27b6fe27507ca57ca369280400c79b5d2f58ff94d87cb0fbfc8294eb69eb1ea)
+t1 = F(0x104bfd09ebdd0a57772289d0973489b62662a4dc6f09da8b4af3c5cfb1dcdd)
 
-value = F(50)
+value =  F(total_stake / 100)
 threshold = (t0 + t1 * value) * value
 starting_slot = randrange(max(0,slot_number-2**25+1),slot_number,1)
 
@@ -262,15 +260,15 @@ for i in range(25):
         secret_root = poseidon2_hash([secret_root,slot_secret_path[i]])
     else:
         secret_root = poseidon2_hash([slot_secret_path[i],secret_root])
-sk = poseidon2_hash([F(11150412648077803043426715895344850926617969336834792805313291817007615912),starting_slot,secret_root])
-pk = poseidon2_hash([F(21826764258320138600520923299986619104225513357324915648346315894686032813),sk])
+sk = poseidon2_hash([F(256174383281726064679014503048630094),starting_slot,secret_root])
+pk = poseidon2_hash([F(1296193216988918402894),sk])
 
-note_id = poseidon2_hash([F(103428471183212854509245604687159503481714203314000316436981831193757668857),tx_hash,output_number,value,pk])
-ticket = poseidon2_hash([F(153089612725445249076651564403687387970929622326972008703737063484757842721),F(epoch_nonce),F(slot_number),note_id,sk])
+note_id = poseidon2_hash([F(65580641562429851895355409762135920462),tx_hash,output_number,value,pk])
+ticket = poseidon2_hash([F(13887241025832268),F(epoch_nonce),F(slot_number),note_id,sk])
 while(ticket > threshold):
     output_number += 1
-    note_id = poseidon2_hash([F(103428471183212854509245604687159503481714203314000316436981831193757668857),tx_hash,output_number,value,pk])
-    ticket = poseidon2_hash([F(153089612725445249076651564403687387970929622326972008703737063484757842721),F(epoch_nonce),F(slot_number),note_id,sk])
+    note_id = poseidon2_hash([F(65580641562429851895355409762135920462),tx_hash,output_number,value,pk])
+    ticket = poseidon2_hash([F(13887241025832268),F(epoch_nonce),F(slot_number),note_id,sk])
  
 aged_nodes = [F(randrange(0,p,1)) for i in range(32)]
 aged_selectors = randrange(0,2**32,1)
