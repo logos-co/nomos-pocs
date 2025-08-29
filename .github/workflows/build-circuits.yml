@@ -84,11 +84,19 @@ jobs:
       - name: Install Dependencies [Witness Generator]
         run: sudo apt install nlohmann-json3-dev
 
+      - name: Replace Prover Makefile # TODO: Make a fork generate the appropriate Linux Makefile
+        working-directory: repo
+        run: cp .github/resources/prover/${{ env.OS }}.Makefile circom_circuits/rapidsnark/Makefile
+
       - name: Compile Prover and Verifier
         working-directory: repo/circom_circuits/rapidsnark
         run: |
           ./build_gmp.sh host
-          make host
+          GOMP_A="$(g++ --print-file-name=libgomp.a)"
+
+          PKG_CONFIG_STATIC=1 \
+          LDFLAGS= \
+          make host EXTRA_CMAKE_FLAGS='-DCMAKE_EXE_LINKER_FLAGS="-static -static-libstdc++ -static-libgcc -no-pie" -DOpenMP_gomp_LIBRARY='"$GOMP_A -DCMAKE_PREFIX_PATH=depends/gmp/package"
 
       - name: Generate Witness Generator's C++ Circuit
         working-directory: repo/circom_circuits/Mantle
@@ -248,7 +256,7 @@ jobs:
         working-directory: repo
         run: cp .github/resources/prover/${{ env.OS }}.build_gmp.sh circom_circuits/rapidsnark/build_gmp.sh
 
-      - name: Compile Prover
+      - name: Compile Prover and Verifier
         shell: msys2 {0}
         working-directory: repo/circom_circuits/rapidsnark
         run: |
@@ -280,10 +288,6 @@ jobs:
           BUNDLE_DIR="${BUNDLE_NAME}/${BINARY_NAME}"
           mkdir -p "$BUNDLE_DIR"
 
-          #MINGW_BASE_DIR="/${MSYSTEM,,}"
-          #MINGW_DLL_DIR="$MINGW_BASE_DIR/bin"
-          #cp "$MINGW_DLL_DIR"/{libgcc_s_seh-1.dll,libwinpthread-1.dll,libstdc++-6.dll} "$BUNDLE_DIR/"
-
           mv "${RAPIDSNARK_DIR}"/bin/${BINARY_NAME}.exe "$BUNDLE_DIR/"
 
           tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
@@ -299,10 +303,6 @@ jobs:
           BUNDLE_DIR="${BUNDLE_NAME}/${BINARY_NAME}"
           mkdir -p "$BUNDLE_DIR"
 
-          MINGW_BASE_DIR="/${MSYSTEM,,}"
-          MINGW_DLL_DIR="$MINGW_BASE_DIR/bin"
-          cp "$MINGW_DLL_DIR"/{libgcc_s_seh-1.dll,libwinpthread-1.dll,libstdc++-6.dll} "$BUNDLE_DIR/"
-
           mv "${RAPIDSNARK_DIR}"/bin/${BINARY_NAME}.exe "$BUNDLE_DIR/"
 
           tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
@@ -316,10 +316,6 @@ jobs:
         run: |
           BUNDLE_DIR="${BUNDLE_NAME}/witness-generator"
           mkdir -p "$BUNDLE_DIR"
-
-          MINGW_BASE_DIR="/${MSYSTEM,,}"
-          MINGW_DLL_DIR="$MINGW_BASE_DIR/bin"
-          cp "$MINGW_DLL_DIR"/{libgcc_s_seh-1.dll,libwinpthread-1.dll,libstdc++-6.dll,libgmp-10.dll} "$BUNDLE_DIR/"
       
           mv "${WITNESS_GENERATOR_DIR}/pol" "$BUNDLE_DIR/pol.exe"
           mv "${WITNESS_GENERATOR_DIR}/pol.dat" "$BUNDLE_DIR/pol.exe.dat"
@@ -386,7 +382,7 @@ jobs:
       - name: Install Dependencies [Prover]
         run: brew install cmake nasm m4
 
-      - name: Compile Prover
+      - name: Compile Prover and Verifier
         working-directory: repo/circom_circuits/rapidsnark
         run: |
           ./build_gmp.sh macos_arm64
