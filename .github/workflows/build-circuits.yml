@@ -86,17 +86,13 @@ jobs:
 
       - name: Replace Prover Makefile # TODO: Make a fork generate the appropriate Linux Makefile
         working-directory: repo
-        run: cp .github/resources/prover/${{ env.OS }}.Makefile circom_circuits/rapidsnark/Makefile
+        run: cp .github/resources/prover/Makefile circom_circuits/rapidsnark/Makefile
 
       - name: Compile Prover and Verifier
         working-directory: repo/circom_circuits/rapidsnark
         run: |
           ./build_gmp.sh host
-          GOMP_A="$(g++ --print-file-name=libgomp.a)"
-
-          PKG_CONFIG_STATIC=1 \
-          LDFLAGS= \
-          make host EXTRA_CMAKE_FLAGS='-DCMAKE_EXE_LINKER_FLAGS="-static -static-libstdc++ -static-libgcc -no-pie" -DOpenMP_gomp_LIBRARY='"$GOMP_A -DCMAKE_PREFIX_PATH=depends/gmp/package"
+          make host_linux_x86_64_static
 
       - name: Generate Witness Generator's C++ Circuit
         working-directory: repo/circom_circuits/Mantle
@@ -234,7 +230,7 @@ jobs:
       - name: Replace Prover Makefile # TODO: Make a fork generate the appropriate Windows Makefile
         shell: msys2 {0}
         working-directory: repo
-        run: cp .github/resources/prover/${{ env.OS }}.Makefile circom_circuits/rapidsnark/Makefile
+        run: cp .github/resources/prover/Makefile circom_circuits/rapidsnark/Makefile
 
       - name: Replace Prover CMakeLists
         shell: msys2 {0}
@@ -261,7 +257,7 @@ jobs:
         working-directory: repo/circom_circuits/rapidsnark
         run: |
           ./build_gmp.sh host
-          make host_windows_x86_64
+          make host_windows_x86_64_static
 
       - name: Generate Witness Generator's C++ Circuit
         working-directory: repo/circom_circuits/Mantle
