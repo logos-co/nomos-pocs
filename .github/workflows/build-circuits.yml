@@ -23,7 +23,7 @@ jobs:
         env:
           # Use the tag name if it is available, otherwise use the input version.
           # If neither is available, default to the commit hash.
-          TAG: ${{ github.events.release.tag_name || inputs.tag || 'circom_circuits-v0.0.0' }}
+          TAG: ${{ (github.ref_type == 'tag' && github.ref_name) || inputs.tag || '' }}
         run: |
           if [ -z "$TAG" ]; then
             echo "Could not determine tag."
