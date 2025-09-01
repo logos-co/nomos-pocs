@@ -1,23 +1,36 @@
 ###
 
+EXTRA_CMAKE_FLAGS ?=
+LIBGOMP_A := $(shell $(CXX) --print-file-name=libgomp.a)
+
 #Build targets
+# Add EXTRA_CMAKE_FLAGS
 host:
 	rm -rf build_prover && mkdir build_prover && cd build_prover && \
 	cmake .. \
-	    -DCMAKE_BUILD_TYPE=Release
-	    -DCMAKE_INSTALL_PREFIX=../package && \
+	    -DCMAKE_BUILD_TYPE=Release \
+	    -DCMAKE_INSTALL_PREFIX=../package \
+	    $(EXTRA_CMAKE_FLAGS) && \
 	make -j$(nproc) -vvv && make install
 
-# Copy of the original host target, with specific flags for Windows x86_64 to add patches, missing libraries and
-# include paths
-host_windows_x86_64:
+host_linux_x86_64_static:
 	rm -rf build_prover && mkdir build_prover && cd build_prover && \
 	cmake .. \
-			-DUSE_ASM=OFF \
-			-DCMAKE_BUILD_TYPE=Release \
+	    -DCMAKE_BUILD_TYPE=Release \
 	    -DCMAKE_INSTALL_PREFIX=../package \
-      -DCMAKE_EXE_LINKER_FLAGS="-static -static-libstdc++ -static-libgcc -L/lib -lmman" \
-	    -DCMAKE_CXX_FLAGS="-I/include -include mman_patch.hpp -include cstdint -Duint=unsigned\ int -Du_int32_t=uint32_t -Du_int64_t=uint64_t" && \
+	    -DCMAKE_EXE_LINKER_FLAGS="-static -static-libstdc++ -static-libgcc -no-pie" \
+	    -DOpenMP_gomp_LIBRARY=$(LIBGOMP_A) \
+	    -DCMAKE_PREFIX_PATH=depends/gmp/package && \
+	make -j$(nproc) -vvv && make install
+
+host_windows_x86_64_static:
+	rm -rf build_prover && mkdir build_prover && cd build_prover && \
+	cmake .. \
+		-DUSE_ASM=OFF \
+		-DCMAKE_BUILD_TYPE=Release \
+    	-DCMAKE_INSTALL_PREFIX=../package \
+  		-DCMAKE_EXE_LINKER_FLAGS="-static -static-libstdc++ -static-libgcc -L/lib -lmman" \
+    	-DCMAKE_CXX_FLAGS="-I/include -include mman_patch.hpp -include cstdint -Duint=unsigned\ int -Du_int32_t=uint32_t -Du_int64_t=uint64_t" && \
 	make -j$(nproc) -vvv && make install
 
 host_noasm:
@@ -102,3 +115,4 @@ clean:
 		depends/gmp/package_android_x86_64 \
 		depends/gmp/package_ios_arm64 \
 		depends/gmp/package_iphone_simulator
+
