@@ -9,7 +9,6 @@ on:
       tag:
         description: "Tag to release. Must follow the format of 'circom_circuits-vX.Y.Z'."
         required: true
-  pull_request: # For testing purposes
 
 jobs:
   setup:
