@@ -239,8 +239,11 @@ epoch_nonce   = F(randrange(0, p,1))
 slot_number   = F(randrange(0, 2**32,1))
 total_stake   = F(5000)
 
-t0 = F(0x27b6fe27507ca57ca369280400c79b5d2f58ff94d87cb0fbfc8294eb69eb1ea)
-t1 = F(0x104bfd09ebdd0a57772289d0973489b62662a4dc6f09da8b4af3c5cfb1dcdd)
+t0_constant = F(0x27b6fe27507ca57ca369280400c79b5d2f58ff94d87cb0fbfc8294eb69eb1ea)
+t1_constant = F(0x104bfd09ebdd0a57772289d0973489b62662a4dc6f09da8b4af3c5cfb1dcdd)
+
+t0 = F(int(t0_constant) / total_stake)
+t1 = F(p- (int(t1_constant) / total_stake**2))
 
 value =  F(total_stake / 100)
 threshold = (t0 + t1 * value) * value
