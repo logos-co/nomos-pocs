@@ -287,8 +287,8 @@ for i in range(32):
 index    = randrange(0, Ql if core_or_leader else Qc,1)
 
 # 4) One‐time key
-K_one = F(randrange(0,p,1))
-K_two = F(randrange(0,p,1))
+K_one = F(123456)
+K_two = F(654321)
 
 # 5) Assemble JSON
 inp = {
