@@ -319,9 +319,9 @@ inp = {
 }
 
 if core_or_leader == 0:
-    inp["pol_ledger_aged"] = randrange(0,p,1)
+    inp["pol_ledger_aged"] = str(randrange(0,p,1))
 else:
-    inp["core_root"] = randrange(0,p,1)
+    inp["core_root"] = str(randrange(0,p,1))
 
 import json
 
