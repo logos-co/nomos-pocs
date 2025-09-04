@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "circom_circuits-v*.*.*"
+  pull_request: # TODO: Testing only. Remove.
   workflow_dispatch:
     inputs:
       tag:
@@ -12,7 +13,7 @@ on:
 
 jobs:
   setup:
-    name: Configure Environment 
+    name: Configure Environment
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.define-version.outputs.version }}
@@ -23,7 +24,8 @@ jobs:
         env:
           # Use the tag name if it is available, otherwise use the input version.
           # If neither is available, default to the commit hash.
-          TAG: ${{ (github.ref_type == 'tag' && github.ref_name) || inputs.tag || '' }}
+          # TAG: ${{ (github.ref_type == 'tag' && github.ref_name) || inputs.tag || '' }}
+          TAG: ${{ (github.ref_type == 'tag' && github.ref_name) || inputs.tag || 'circom_circuits-v0.0.0' }} # TODO: Testing only. Remove.
         run: |
           if [ -z "$TAG" ]; then
             echo "Could not determine tag."
@@ -93,17 +95,29 @@ jobs:
           ./build_gmp.sh host
           make host_linux_x86_64_static
 
-      - name: Generate Witness Generator's C++ Circuit
+      - name: Generate PoL
         working-directory: repo/circom_circuits/Mantle
         run: circom --c --r1cs --no_asm --O2 pol.circom
 
-      - name: Replace Witness Generator Makefile # TODO: Make a fork generate the appropriate Linux Makefile
+      - name: Replace PoL Makefile # TODO: Make a fork generate the appropriate Linux Makefile
         working-directory: repo
         run: cp .github/resources/witness-generator/Makefile circom_circuits/Mantle/pol_cpp/Makefile
 
-      - name: Compile Witness Generator
+      - name: Compile PoL
         working-directory: repo/circom_circuits/Mantle/pol_cpp
-        run: make linux
+        run: make PROJECT=pol linux
+
+      - name: Generate PoQ
+        working-directory: repo/circom_circuits/Blend
+        run: circom --c --r1cs --no_asm --O2 poq.circom
+
+      - name: Replace PoQ Makefile # TODO: Make a fork generate the appropriate Linux Makefile
+        working-directory: repo
+        run: cp .github/resources/witness-generator/Makefile circom_circuits/Blend/poq_cpp/Makefile
+
+      - name: Compile PoQ
+        working-directory: repo/circom_circuits/Blend/poq_cpp
+        run: make PROJECT=poq linux
 
       - name: Bundle Rapidsnark Prover
         working-directory: repo
@@ -133,36 +147,62 @@ jobs:
 
           tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
 
-      - name: Bundle Pol Witness Generator
+      - name: Bundle PoL Witness Generator
         working-directory: repo
         env:
+          CIRCUIT_NAME: pol
+          PLATFORM_BINARY_NAME: pol
           BUNDLE_NAME: pol-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}
           WITNESS_GENERATOR_DIR: circom_circuits/Mantle/pol_cpp
         run: |
           BUNDLE_DIR="${BUNDLE_NAME}/witness-generator"
           mkdir -p "$BUNDLE_DIR"
-      
-          mv "${WITNESS_GENERATOR_DIR}"/{pol,pol.dat} "$BUNDLE_DIR/"
-      
+
+          ls -la ${WITNESS_GENERATOR_DIR} 
+          mv "${WITNESS_GENERATOR_DIR}/${CIRCUIT_NAME}" "$BUNDLE_DIR/${PLATFORM_BINARY_NAME}"
+          mv "${WITNESS_GENERATOR_DIR}/${CIRCUIT_NAME}.dat" "$BUNDLE_DIR/${PLATFORM_BINARY_NAME}.dat"
+
+          tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
+
+      - name: Bundle PoQ Witness Generator
+        working-directory: repo
+        env:
+          CIRCUIT_NAME: poq
+          PLATFORM_BINARY_NAME: poq
+          BUNDLE_NAME: poq-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}
+          WITNESS_GENERATOR_DIR: circom_circuits/Blend/poq_cpp
+        run: |
+          BUNDLE_DIR="${BUNDLE_NAME}/witness-generator"
+          mkdir -p "$BUNDLE_DIR"
+
+          mv "${WITNESS_GENERATOR_DIR}/${CIRCUIT_NAME}" "$BUNDLE_DIR/${PLATFORM_BINARY_NAME}"
+          mv "${WITNESS_GENERATOR_DIR}/${CIRCUIT_NAME}.dat" "$BUNDLE_DIR/${PLATFORM_BINARY_NAME}.dat"
+
           tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
 
       - name: Upload Rapidsnark Prover
-        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8 
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
         with:
           name: prover-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
           path: repo/prover-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
       - name: Upload Rapidsnark Verifier
-        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8 
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
         with:
           name: verifier-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
           path: repo/verifier-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
-      - name: Upload Pol Witness Generator
-        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8 
+      - name: Upload PoL Witness Generator
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
         with:
           name: pol-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
           path: repo/pol-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+
+      - name: Upload PoQ Witness Generator
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
+        with:
+          name: poq-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          path: repo/poq-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
   build-windows:
     name: Build Windows Binaries (Native)
@@ -235,7 +275,7 @@ jobs:
         shell: msys2 {0}
         working-directory: repo
         run: cp .github/resources/prover/${{ env.OS }}.src-CMakeLists.txt circom_circuits/rapidsnark/src/CMakeLists.txt
- 
+
       - name: Patch Windows mman
         shell: msys2 {0}
         working-directory: repo
@@ -258,19 +298,33 @@ jobs:
           ./build_gmp.sh host
           make host_windows_x86_64_static
 
-      - name: Generate Witness Generator's C++ Circuit
+      - name: Generate PoL
         working-directory: repo/circom_circuits/Mantle
         run: circom --c --r1cs --no_asm pol.circom
 
-      - name: Replace Witness Generator Makefile # TODO: Make a fork generate the appropriate Windows Makefile
+      - name: Replace PoL Makefile # TODO: Make a fork generate the appropriate Windows Makefile
         shell: msys2 {0}
         working-directory: repo
         run: cp .github/resources/witness-generator/Makefile circom_circuits/Mantle/pol_cpp/Makefile
 
-      - name: Compile Witness Generator
+      - name: Compile PoL
         shell: msys2 {0}
         working-directory: repo/circom_circuits/Mantle/pol_cpp
-        run: make windows
+        run: make PROJECT=pol windows
+
+      - name: Generate PoQ
+        working-directory: repo/circom_circuits/Blend
+        run: circom --c --r1cs --no_asm poq.circom
+
+      - name: Replace PoQ Makefile # TODO: Make a fork generate the appropriate Windows Makefile
+        shell: msys2 {0}
+        working-directory: repo
+        run: cp .github/resources/witness-generator/Makefile circom_circuits/Blend/poq_cpp/Makefile
+
+      - name: Compile PoQ
+        shell: msys2 {0}
+        working-directory: repo/circom_circuits/Blend/poq_cpp
+        run: make PROJECT=poq windows
 
       - name: Bundle Rapidsnark Prover
         shell: msys2 {0}
@@ -302,38 +356,63 @@ jobs:
 
           tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
 
-      - name: Bundle Pol Witness Generator
+      - name: Bundle PoL Witness Generator
         shell: msys2 {0}
         working-directory: repo
         env:
+          CIRCUIT_NAME: pol
+          PLATFORM_BINARY_NAME: pol.exe
           BUNDLE_NAME: pol-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}
           WITNESS_GENERATOR_DIR: circom_circuits/Mantle/pol_cpp
         run: |
           BUNDLE_DIR="${BUNDLE_NAME}/witness-generator"
           mkdir -p "$BUNDLE_DIR"
-      
-          mv "${WITNESS_GENERATOR_DIR}/pol" "$BUNDLE_DIR/pol.exe"
-          mv "${WITNESS_GENERATOR_DIR}/pol.dat" "$BUNDLE_DIR/pol.exe.dat"
-      
+
+          mv "${WITNESS_GENERATOR_DIR}/${CIRCUIT_NAME}" "$BUNDLE_DIR/${PLATFORM_BINARY_NAME}"
+          mv "${WITNESS_GENERATOR_DIR}/${CIRCUIT_NAME}.dat" "$BUNDLE_DIR/${PLATFORM_BINARY_NAME}.dat"
+
+          tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
+
+      - name: Bundle PoQ Witness Generator
+        shell: msys2 {0}
+        working-directory: repo
+        env:
+          CIRCUIT_NAME: poq
+          PLATFORM_BINARY_NAME: poq.exe
+          BUNDLE_NAME: poq-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}
+          WITNESS_GENERATOR_DIR: circom_circuits/Blend/poq_cpp
+        run: |
+          BUNDLE_DIR="${BUNDLE_NAME}/witness-generator"
+          mkdir -p "$BUNDLE_DIR"
+
+          mv "${WITNESS_GENERATOR_DIR}/${CIRCUIT_NAME}" "$BUNDLE_DIR/${PLATFORM_BINARY_NAME}"
+          mv "${WITNESS_GENERATOR_DIR}/${CIRCUIT_NAME}.dat" "$BUNDLE_DIR/${PLATFORM_BINARY_NAME}.dat"
+
           tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
 
       - name: Upload Rapidsnark Prover
-        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8 
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
         with:
           name: prover-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
           path: repo/prover-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
       - name: Upload Rapidsnark Verifier
-        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8 
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
         with:
           name: verifier-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
           path: repo/verifier-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
-      - name: Upload Pol Witness Generator
-        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8 
+      - name: Upload PoL Witness Generator
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
         with:
           name: pol-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
           path: repo/pol-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+
+      - name: Upload PoQ Witness Generator
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
+        with:
+          name: poq-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          path: repo/poq-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
   build-macos:
     name: Build MacOS Binaries (Native)
@@ -383,11 +462,11 @@ jobs:
           ./build_gmp.sh macos_arm64
           make macos_arm64
 
-      - name: Generate Witness Generator's C++ Circuit
+      - name: Generate PoL
         working-directory: repo/circom_circuits/Mantle
         run: circom --c --r1cs --no_asm --O2 pol.circom
 
-      - name: Replace Witness Generator's Makefile # TODO: Make a fork generate the appropriate MacOS Makefile
+      - name: Replace PoL's Makefile # TODO: Make a fork generate the appropriate MacOS Makefile
         working-directory: repo
         run: cp .github/resources/witness-generator/Makefile circom_circuits/Mantle/pol_cpp/Makefile
 
@@ -395,9 +474,25 @@ jobs:
         working-directory: repo
         run: cp .github/resources/witness-generator/${{ env.OS }}.gmp_patch.hpp circom_circuits/Mantle/pol_cpp/gmp_patch.hpp
 
-      - name: Compile Witness Generator
+      - name: Compile PoL
         working-directory: repo/circom_circuits/Mantle/pol_cpp
-        run: make macos
+        run: make PROJECT=pol macos
+
+      - name: Generate PoQ
+        working-directory: repo/circom_circuits/Blend
+        run: circom --c --r1cs --no_asm --O2 poq.circom
+
+      - name: Replace PoQ's Makefile # TODO: Make a fork generate the appropriate MacOS Makefile
+        working-directory: repo
+        run: cp .github/resources/witness-generator/Makefile circom_circuits/Blend/poq_cpp/Makefile
+
+      - name: Patch MacOS GMP
+        working-directory: repo
+        run: cp .github/resources/witness-generator/${{ env.OS }}.gmp_patch.hpp circom_circuits/Blend/poq_cpp/gmp_patch.hpp
+
+      - name: Compile PoQ
+        working-directory: repo/circom_circuits/Blend/poq_cpp
+        run: make PROJECT=poq macos
 
       - name: Bundle Rapidsnark Prover
         working-directory: repo
@@ -427,36 +522,62 @@ jobs:
 
           tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
 
-      - name: Bundle Pol Witness Generator
+      - name: Bundle PoL Witness Generator
         working-directory: repo
         env:
+          CIRCUIT_NAME: pol
+          PLATFORM_BINARY_NAME: pol
           BUNDLE_NAME: pol-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}
           WITNESS_GENERATOR_DIR: circom_circuits/Mantle/pol_cpp
         run: |
           BUNDLE_DIR="${BUNDLE_NAME}/witness-generator"
           mkdir -p "$BUNDLE_DIR"
-      
-          mv "${WITNESS_GENERATOR_DIR}"/{pol,pol.dat} "$BUNDLE_DIR/"
-      
+
+          ls -la ${WITNESS_GENERATOR_DIR}
+          mv "${WITNESS_GENERATOR_DIR}/${CIRCUIT_NAME}" "$BUNDLE_DIR/${PLATFORM_BINARY_NAME}"
+          mv "${WITNESS_GENERATOR_DIR}/${CIRCUIT_NAME}.dat" "$BUNDLE_DIR/${PLATFORM_BINARY_NAME}.dat"
+
+          tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
+
+      - name: Bundle PoQ Witness Generator
+        working-directory: repo
+        env:
+          CIRCUIT_NAME: poq
+          PLATFORM_BINARY_NAME: poq
+          BUNDLE_NAME: poq-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}
+          WITNESS_GENERATOR_DIR: circom_circuits/Blend/poq_cpp
+        run: |
+          BUNDLE_DIR="${BUNDLE_NAME}/witness-generator"
+          mkdir -p "$BUNDLE_DIR"
+
+          mv "${WITNESS_GENERATOR_DIR}/${CIRCUIT_NAME}" "$BUNDLE_DIR/${PLATFORM_BINARY_NAME}"
+          mv "${WITNESS_GENERATOR_DIR}/${CIRCUIT_NAME}.dat" "$BUNDLE_DIR/${PLATFORM_BINARY_NAME}.dat"
+
           tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
 
       - name: Upload Rapidsnark Prover
-        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8 
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
         with:
           name: prover-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
           path: repo/prover-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
       - name: Upload Rapidsnark Verifier
-        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8 
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
         with:
           name: verifier-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
           path: repo/verifier-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
-      - name: Upload Pol Witness Generator
-        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8 
+      - name: Upload PoL Witness Generator
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
         with:
           name: pol-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
           path: repo/pol-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+
+      - name: Upload PoQ Witness Generator
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
+        with:
+          name: poq-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          path: repo/poq-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
   publish-release:
     name: Create Release
@@ -499,7 +620,7 @@ jobs:
   upload-artifacts:
     name: Upload Artifacts to Release
     runs-on: ubuntu-latest
-    needs: 
+    needs:
       - setup
       - publish-release
     strategy:
@@ -516,6 +637,7 @@ jobs:
           - prover
           - verifier
           - pol
+          - poq
     env:
       UPLOAD_URL: ${{ needs.publish-release.outputs.upload_url }}
       ARTIFACT_NAME: ${{ matrix.artifact }}-${{ needs.setup.outputs.version }}-${{ matrix.platform.os }}-${{ matrix.platform.arch }}.tar.gz
