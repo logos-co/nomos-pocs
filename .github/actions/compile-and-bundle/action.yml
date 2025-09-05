@@ -88,7 +88,17 @@ runs:
       run: cp "${WITNESS_GENERATOR_RESOURCES_PATH}/${{ env.OS }}.gmp_patch.hpp" "${CIRCUIT_CPP_PATH}/gmp_patch.hpp"
 
     - name: Compile ${{ inputs.circuit-name-display }}
+      if: ${{ inputs.os != 'windows' }}
       shell: bash
+      working-directory: ${{ steps.parse-circuit-path.outputs.CIRCUIT_CPP_PATH }}
+      env:
+        CIRCUIT_FILESTEM: ${{ steps.parse-circuit-path.outputs.CIRCUIT_FILESTEM }}
+        OS: ${{ inputs.os }}
+      run: make PROJECT="${CIRCUIT_FILESTEM}" "${OS}"
+
+    - name: Compile ${{ inputs.circuit-name-display }}
+      if: ${{ inputs.os == 'windows' }}
+      shell: msys2 {0}
       working-directory: ${{ steps.parse-circuit-path.outputs.CIRCUIT_CPP_PATH }}
       env:
         CIRCUIT_FILESTEM: ${{ steps.parse-circuit-path.outputs.CIRCUIT_FILESTEM }}
