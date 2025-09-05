@@ -29,6 +29,7 @@ runs:
   steps:
     - name: Parse Circuit Path
       id: parse-circuit-path
+      shell: bash
       env:
         CIRCUIT_PATH: ${{ inputs.circuit-path }}
         BUNDLE_TRIPLET: ${{ inputs.version }}-${{ inputs.os }}-${{ inputs.arch }}
@@ -58,6 +59,7 @@ runs:
         } >> "${GITHUB_OUTPUT}"
 
     - name: Generate ${{ inputs.circuit-name-display }}
+      shell: bash
       working-directory: ${{ steps.parse-circuit-path.outputs.CIRCUIT_DIRECTORY }}
       env:
         CIRCUIT_FILENAME: ${{ steps.parse-circuit-path.outputs.CIRCUIT_FILENAME }}
@@ -65,6 +67,7 @@ runs:
 
     # TODO: Instead of replace, make a fork that generates the appropriate Makefile
     - name: Replace ${{ inputs.circuit-name-display }}'s Makefile
+      shell: bash
       env:
         WITNESS_GENERATOR_RESOURCES_PATH: ${{ steps.parse-circuit-path.outputs.WITNESS_GENERATOR_RESOURCES_PATH }}
         CIRCUIT_CPP_PATH: ${{ steps.parse-circuit-path.outputs.CIRCUIT_CPP_PATH }}
@@ -72,6 +75,7 @@ runs:
 
     # TODO: Instead of insertion, make a fork that includes the appropriate patch (or the actual fix)
     - name: Patch MacOS GMP
+      shell: bash
       if: ${{ inputs.os == 'macos' }}
       env:
         WITNESS_GENERATOR_RESOURCES_PATH: ${{ steps.parse-circuit-path.outputs.WITNESS_GENERATOR_RESOURCES_PATH }}
@@ -80,6 +84,7 @@ runs:
       run: cp "${WITNESS_GENERATOR_RESOURCES_PATH}/${{ env.OS }}.gmp_patch.hpp" "${CIRCUIT_CPP_PATH}/gmp_patch.hpp"
 
     - name: Compile ${{ inputs.circuit-name-display }}
+      shell: bash
       working-directory: ${{ steps.parse-circuit-path.outputs.CIRCUIT_CPP_PATH }}
       env:
         CIRCUIT_FILESTEM: ${{ steps.parse-circuit-path.outputs.CIRCUIT_FILESTEM }}
@@ -87,6 +92,7 @@ runs:
       run: make PROJECT="${CIRCUIT_FILESTEM}" "${OS}"
 
     - name: Bundle ${{ inputs.circuit-name-display }}
+      shell: bash
       env:
         CIRCUIT_NAME: ${{ steps.parse-circuit-path.outputs.CIRCUIT_FILESTEM }}
         PLATFORM_BINARY_NAME: ${{ steps.parse-circuit-path.outputs.PLATFORM_BINARY_NAME }}
