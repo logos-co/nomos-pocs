@@ -11,10 +11,7 @@ inputs:
   circuit-name-binary:
     description: "The final name of the compiled binary. The name should be extensionless."
     required: true
-  repository-root-path:
-    description: "The path to the repository root containing the Circom circuit."
-    required: true
-  repository-circuit-path:
+  circuit-path:
     description: "The path to the Circom circuit file relative to the repository root."
     required: true
   version:
@@ -28,19 +25,16 @@ inputs:
     required: true
 
 runs:
-  name: Compile and Bundle ${{ inputs.circuit-name-display }}
   using: "composite"
   steps:
     - name: Parse Circuit Path
       id: parse-circuit-path
       env:
-        REPOSITORY_ROOT_PATH: ${{ inputs.repository-root-path }}
-        REPOSITORY_CIRCUIT_PATH: ${{ inputs.repository-circuit-path }}
+        CIRCUIT_PATH: ${{ inputs.circuit-path }}
         BUNDLE_TRIPLET: ${{ inputs.version }}-${{ inputs.os }}-${{ inputs.arch }}
         CIRCUIT_NAME_BINARY: ${{ inputs.circuit-name-binary }}
         OS: ${{ inputs.os }}
       run: |
-        CIRCUIT_PATH="${REPOSITORY_ROOT_PATH}/${REPOSITORY_CIRCUIT_PATH}"
         CIRCUIT_DIRECTORY="$(dirname ${CIRCUIT_PATH})"
         CIRCUIT_FILENAME="$(basename ${CIRCUIT_PATH})"
         CIRCUIT_FILESTEM="${CIRCUIT_FILENAME%.circom}"
@@ -81,7 +75,7 @@ runs:
       if: ${{ inputs.os == 'macos' }}
       env:
         WITNESS_GENERATOR_RESOURCES_PATH: ${{ steps.parse-circuit-path.outputs.WITNESS_GENERATOR_RESOURCES_PATH }}
-        CIRCUIT_CPP_PATH: ${{ steps.parse-circuit-path.outputs.CIRCUIT
+        CIRCUIT_CPP_PATH: ${{ steps.parse-circuit-path.outputs.CIRCUIT }}
         OS: ${{ inputs.os }}
       run: cp "${WITNESS_GENERATOR_RESOURCES_PATH}/${{ env.OS }}.gmp_patch.hpp" "${CIRCUIT_CPP_PATH}/gmp_patch.hpp"
 
@@ -93,7 +87,6 @@ runs:
       run: make PROJECT="${CIRCUIT_FILESTEM}" "${OS}"
 
     - name: Bundle ${{ inputs.circuit-name-display }}
-      working-directory: ${{ inputs.repository-root-path }}
       env:
         CIRCUIT_NAME: ${{ steps.parse-circuit-path.outputs.CIRCUIT_FILESTEM }}
         PLATFORM_BINARY_NAME: ${{ steps.parse-circuit-path.outputs.PLATFORM_BINARY_NAME }}
@@ -112,4 +105,4 @@ runs:
       uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
       with:
         name: ${{ inputs.circuit-name-binary }}-${{ steps.parse-circuit-path.outputs.BUNDLE_TRIPLET }}.tar.gz
-        path: ${{ inputs.repository-root-path }}/${{ inputs.circuit-name-binary }}-${{ steps.parse-circuit-path.outputs.BUNDLE_TRIPLET }}.tar.gz
+        path: ${{ inputs.circuit-name-binary }}-${{ steps.parse-circuit-path.outputs.BUNDLE_TRIPLET }}.tar.gz
