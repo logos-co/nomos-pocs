@@ -119,6 +119,18 @@ jobs:
         working-directory: repo/circom_circuits/Blend/poq_cpp
         run: make PROJECT=poq linux
 
+      - name: Generate ZKSign
+        working-directory: repo/circom_circuits/Mantle
+        run: circom --c --r1cs --no_asm --O2 signature.circom
+
+      - name: Replace ZKSign Makefile # TODO: Make a fork generate the appropriate Linux Makefile
+        working-directory: repo
+        run: cp .github/resources/witness-generator/Makefile circom_circuits/Mantle/signature_cpp/Makefile
+
+      - name: Compile ZKSign
+        working-directory: repo/circom_circuits/Mantle/signature_cpp
+        run: make PROJECT=signature linux
+
       - name: Bundle Rapidsnark Prover
         working-directory: repo
         env:
@@ -180,6 +192,22 @@ jobs:
 
           tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
 
+      - name: Bundle ZKSign Witness Generator
+        working-directory: repo
+        env:
+          CIRCUIT_NAME: signature
+          PLATFORM_BINARY_NAME: zksign
+          BUNDLE_NAME: zksign-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}
+          WITNESS_GENERATOR_DIR: circom_circuits/Mantle/signature_cpp
+        run: |
+          BUNDLE_DIR="${BUNDLE_NAME}/witness-generator"
+          mkdir -p "$BUNDLE_DIR"
+
+          mv "${WITNESS_GENERATOR_DIR}/${CIRCUIT_NAME}" "$BUNDLE_DIR/${PLATFORM_BINARY_NAME}"
+          mv "${WITNESS_GENERATOR_DIR}/${CIRCUIT_NAME}.dat" "$BUNDLE_DIR/${PLATFORM_BINARY_NAME}.dat"
+
+          tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
+
       - name: Upload Rapidsnark Prover
         uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
         with:
@@ -203,6 +231,12 @@ jobs:
         with:
           name: poq-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
           path: repo/poq-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+
+      - name: Upload ZKSign Witness Generator
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
+        with:
+          name: zksign-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          path: repo/zksign-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
   build-windows:
     name: Build Windows Binaries (Native)
@@ -326,6 +360,20 @@ jobs:
         working-directory: repo/circom_circuits/Blend/poq_cpp
         run: make PROJECT=poq windows
 
+      - name: Generate ZKSign
+        working-directory: repo/circom_circuits/Mantle
+        run: circom --c --r1cs --no_asm signature.circom
+
+      - name: Replace ZKSign Makefile # TODO: Make a fork generate the appropriate Windows Makefile
+        shell: msys2 {0}
+        working-directory: repo
+        run: cp .github/resources/witness-generator/Makefile circom_circuits/Mantle/signature_cpp/Makefile
+
+      - name: Compile ZKSign
+        shell: msys2 {0}
+        working-directory: repo/circom_circuits/Mantle/signature_cpp
+        run: make PROJECT=signature windows
+
       - name: Bundle Rapidsnark Prover
         shell: msys2 {0}
         working-directory: repo
@@ -390,6 +438,23 @@ jobs:
 
           tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
 
+      - name: Bundle ZKSign Witness Generator
+        shell: msys2 {0}
+        working-directory: repo
+        env:
+          CIRCUIT_NAME: signature
+          PLATFORM_BINARY_NAME: zksign.exe
+          BUNDLE_NAME: zksign-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}
+          WITNESS_GENERATOR_DIR: circom_circuits/Mantle/signature_cpp
+        run: |
+          BUNDLE_DIR="${BUNDLE_NAME}/witness-generator"
+          mkdir -p "$BUNDLE_DIR"
+
+          mv "${WITNESS_GENERATOR_DIR}/${CIRCUIT_NAME}" "$BUNDLE_DIR/${PLATFORM_BINARY_NAME}"
+          mv "${WITNESS_GENERATOR_DIR}/${CIRCUIT_NAME}.dat" "$BUNDLE_DIR/${PLATFORM_BINARY_NAME}.dat"
+
+          tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
+
       - name: Upload Rapidsnark Prover
         uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
         with:
@@ -413,6 +478,12 @@ jobs:
         with:
           name: poq-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
           path: repo/poq-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+
+      - name: Upload ZKSign Witness Generator
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
+        with:
+          name: zksign-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          path: repo/zksign-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
   build-macos:
     name: Build MacOS Binaries (Native)
@@ -494,6 +565,22 @@ jobs:
         working-directory: repo/circom_circuits/Blend/poq_cpp
         run: make PROJECT=poq macos
 
+      - name: Generate ZKSign
+        working-directory: repo/circom_circuits/Mantle
+        run: circom --c --r1cs --no_asm --O2 signature.circom
+
+      - name: Replace ZKSign's Makefile # TODO: Make a fork generate the appropriate MacOS Makefile
+        working-directory: repo
+        run: cp .github/resources/witness-generator/Makefile circom_circuits/Mantle/signature_cpp/Makefile
+
+      - name: Patch MacOS GMP
+        working-directory: repo
+        run: cp .github/resources/witness-generator/${{ env.OS }}.gmp_patch.hpp circom_circuits/Mantle/signature_cpp/gmp_patch.hpp
+
+      - name: Compile ZKSign
+        working-directory: repo/circom_circuits/Mantle/signature_cpp
+        run: make PROJECT=signature macos
+
       - name: Bundle Rapidsnark Prover
         working-directory: repo
         env:
@@ -555,6 +642,22 @@ jobs:
 
           tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
 
+      - name: Bundle ZKSign Witness Generator
+        working-directory: repo
+        env:
+          CIRCUIT_NAME: signature
+          PLATFORM_BINARY_NAME: zksign
+          BUNDLE_NAME: zksign-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}
+          WITNESS_GENERATOR_DIR: circom_circuits/Mantle/signature_cpp
+        run: |
+          BUNDLE_DIR="${BUNDLE_NAME}/witness-generator"
+          mkdir -p "$BUNDLE_DIR"
+
+          mv "${WITNESS_GENERATOR_DIR}/${CIRCUIT_NAME}" "$BUNDLE_DIR/${PLATFORM_BINARY_NAME}"
+          mv "${WITNESS_GENERATOR_DIR}/${CIRCUIT_NAME}.dat" "$BUNDLE_DIR/${PLATFORM_BINARY_NAME}.dat"
+
+          tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
+
       - name: Upload Rapidsnark Prover
         uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
         with:
@@ -578,6 +681,12 @@ jobs:
         with:
           name: poq-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
           path: repo/poq-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+
+      - name: Upload ZKSign Witness Generator
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
+        with:
+          name: zksign-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          path: repo/zksign-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
   publish-release:
     name: Create Release
@@ -638,6 +747,7 @@ jobs:
           - verifier
           - pol
           - poq
+          - zksign
     env:
       UPLOAD_URL: ${{ needs.publish-release.outputs.upload_url }}
       ARTIFACT_NAME: ${{ matrix.artifact }}-${{ needs.setup.outputs.version }}-${{ matrix.platform.os }}-${{ matrix.platform.arch }}.tar.gz
