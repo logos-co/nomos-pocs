@@ -40,7 +40,7 @@ runs:
         CIRCUIT_FILENAME="$(basename ${CIRCUIT_PATH})"
         CIRCUIT_FILESTEM="${CIRCUIT_FILENAME%.circom}"
         CIRCUIT_CPP_DIRNAME="${CIRCUIT_FILESTEM}_cpp"
-        RESOURCES_PATH="${REPOSITORY_ROOT_PATH}/.github/resources/"
+        RESOURCES_PATH="${REPOSITORY_ROOT_PATH}/.github/resources"
         
         platform_binary_name="${CIRCUIT_NAME_BINARY}"
         if [ "${OS}" = "windows" ]; then
