@@ -133,5 +133,5 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
 }
 
 // Instantiate with chosen depths: 20 for core PK tree, 25 for PoL secret slot tree
-component main { public [ session, core_quota, leader_quota, core_root, pol_ledger_aged, K_part_one, K_part_two ] }
+component main { public [ session, core_quota, leader_quota, core_root, K_part_one, K_part_two, pol_epoch_nonce, pol_t0, pol_t1, pol_ledger_aged ] }
     = ProofOfQuota(20, 25, 20);
