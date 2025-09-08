@@ -162,7 +162,7 @@ jobs:
         with:
           circuit-name-display: "PoC"
           circuit-name-binary: "poc"
-          circuit-path: "circom_circuits/Mantle/proof_of_claim.circom"
+          circuit-path: "circom_circuits/Mantle/poc.circom"
           version: ${{ env.VERSION }}
           os: ${{ env.OS }}
           arch: ${{ env.ARCH }}
@@ -328,7 +328,7 @@ jobs:
         with:
           circuit-name-display: "PoC"
           circuit-name-binary: "poc"
-          circuit-path: "circom_circuits/Mantle/proof_of_claim.circom"
+          circuit-path: "circom_circuits/Mantle/poc.circom"
           version: ${{ env.VERSION }}
           os: ${{ env.OS }}
           arch: ${{ env.ARCH }}
@@ -451,7 +451,7 @@ jobs:
         with:
           circuit-name-display: "PoC"
           circuit-name-binary: "poc"
-          circuit-path: "circom_circuits/Mantle/proof_of_claim.circom"
+          circuit-path: "circom_circuits/Mantle/poc.circom"
           version: ${{ env.VERSION }}
           os: ${{ env.OS }}
           arch: ${{ env.ARCH }}
@@ -516,6 +516,7 @@ jobs:
           - pol
           - poq
           - zksign
+          - poc
     env:
       UPLOAD_URL: ${{ needs.publish-release.outputs.upload_url }}
       ARTIFACT_NAME: ${{ matrix.artifact }}-${{ needs.setup.outputs.version }}-${{ matrix.platform.os }}-${{ matrix.platform.arch }}.tar.gz
