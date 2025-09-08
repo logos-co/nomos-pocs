@@ -2,40 +2,42 @@ name: Build Circuits
 
 on:
   push:
-    branches:
-      - main
     tags:
-      - "v*.*.*"
+      - "circom_circuits-v*.*.*"
   workflow_dispatch:
     inputs:
-      version:
-        description: "Version to release. Must follow the format of 'vX.Y.Z'."
+      tag:
+        description: "Tag to release. Must follow the format of 'circom_circuits-vX.Y.Z'."
         required: true
-  pull_request: # For testing purposes
 
 jobs:
   setup:
-    name: Configure Environment 
+    name: Configure Environment
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.define-version.outputs.version }}
+      tag: ${{ steps.define-version.outputs.tag }}
     steps:
       - name: Define version
         id: define-version
         env:
           # Use the tag name if it is available, otherwise use the input version.
           # If neither is available, default to the commit hash.
-          VERSION: ${{ github.event.release.tag_name || inputs.version }}
+          TAG: ${{ (github.ref_type == 'tag' && github.ref_name) || inputs.tag || '' }}
         run: |
-          if [ -z "$VERSION" ]; then
-            echo "No version tag found. Defaulting to commit hash."
-            VERSION=$GITHUB_SHA
-          elif [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "VERSION must follow the format of 'vX.Y.Z'. Value: '$VERSION'."
+          if [ -z "$TAG" ]; then
+            echo "Could not determine tag."
             exit 1
+          elif [[ ! "$TAG" =~ ^circom_circuits-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "TAG must follow the format of 'circom_circuits-vX.Y.Z'. Value: '$VERSION'."
+            exit 2
           fi
 
-          # Export the version to be used in the following jobs.
+          # Parse Version: Take only the vX.Y.Z part.
+          VERSION=$(echo $TAG | cut -d'-' -f2)
+
+          # Export the tag and version.
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
   build-linux:
@@ -64,15 +66,12 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@8edcb1bdb4e267140fa742c62e395cd74f332709
-        with:
-          path: repo
 
       - name: Initialise Submodules
-        working-directory: repo
         run: git submodule update --init --recursive
 
       - name: Setup Dependencies
-        working-directory: repo/circom_circuits/rapidsnark
+        working-directory: circom_circuits/rapidsnark
         run: sudo apt update -y
 
       - name: Install Dependencies [Prover]
@@ -81,25 +80,19 @@ jobs:
       - name: Install Dependencies [Witness Generator]
         run: sudo apt install nlohmann-json3-dev
 
+      - name: Replace Prover Makefile # TODO: Make a fork generate the appropriate Linux Makefile
+        run: cp .github/resources/prover/Makefile circom_circuits/rapidsnark/Makefile
+
       - name: Compile Prover and Verifier
-        working-directory: repo/circom_circuits/rapidsnark
+        working-directory: circom_circuits/rapidsnark
         run: |
           ./build_gmp.sh host
-          make host
-
-      - name: Generate Witness Generator's C++ Circuit
-        working-directory: repo/circom_circuits/Mantle
-        run: circom --c --r1cs --no_asm --O2 pol.circom
-
-      - name: Compile Witness Generator
-        working-directory: repo/circom_circuits/Mantle/pol_cpp
-        run: make pol
+          make host_linux_x86_64_static
 
       - name: Bundle Rapidsnark Prover
-        working-directory: repo
         env:
           BINARY_NAME: prover
-          BUNDLE_NAME: prover-${{ env.OS }}-${{ env.ARCH }}
+          BUNDLE_NAME: prover-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}
           RAPIDSNARK_DIR: circom_circuits/rapidsnark/package
         run: |
           BUNDLE_DIR="${BUNDLE_NAME}/${BINARY_NAME}"
@@ -110,10 +103,9 @@ jobs:
           tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
 
       - name: Bundle Rapidsnark Verifier
-        working-directory: repo
         env:
           BINARY_NAME: verifier
-          BUNDLE_NAME: verifier-${{ env.OS }}-${{ env.ARCH }}
+          BUNDLE_NAME: verifier-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}
           RAPIDSNARK_DIR: circom_circuits/rapidsnark/package
         run: |
           BUNDLE_DIR="${BUNDLE_NAME}/${BINARY_NAME}"
@@ -123,36 +115,47 @@ jobs:
 
           tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
 
-      - name: Bundle Pol Witness Generator
-        working-directory: repo
-        env:
-          BUNDLE_NAME: pol-${{ env.OS }}-${{ env.ARCH }}
-          WITNESS_GENERATOR_DIR: circom_circuits/Mantle/pol_cpp
-        run: |
-          BUNDLE_DIR="${BUNDLE_NAME}/witness-generator"
-          mkdir -p "$BUNDLE_DIR"
-      
-          mv "${WITNESS_GENERATOR_DIR}"/{pol,pol.dat} "$BUNDLE_DIR/"
-      
-          tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
-
       - name: Upload Rapidsnark Prover
-        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8 
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
         with:
-          name: prover-${{ env.OS }}-${{ env.ARCH }}.tar.gz
-          path: repo/prover-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          name: prover-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          path: prover-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
       - name: Upload Rapidsnark Verifier
-        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8 
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
         with:
-          name: verifier-${{ env.OS }}-${{ env.ARCH }}.tar.gz
-          path: repo/verifier-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          name: verifier-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          path: verifier-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
-      - name: Upload Pol Witness Generator
-        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8 
+      - name: Compile and Bundle PoL
+        uses: ./.github/actions/compile-and-bundle
         with:
-          name: pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz
-          path: repo/pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          circuit-name-display: "PoL"
+          circuit-name-binary: "pol"
+          circuit-path: "circom_circuits/Mantle/pol.circom"
+          version: ${{ env.VERSION }}
+          os: ${{ env.OS }}
+          arch: ${{ env.ARCH }}
+
+      - name: Compile and Bundle PoQ
+        uses: ./.github/actions/compile-and-bundle
+        with:
+          circuit-name-display: "PoQ"
+          circuit-name-binary: "poq"
+          circuit-path: "circom_circuits/Blend/poq.circom"
+          version: ${{ env.VERSION }}
+          os: ${{ env.OS }}
+          arch: ${{ env.ARCH }}
+
+      - name: Compile and Bundle ZKSign
+        uses: ./.github/actions/compile-and-bundle
+        with:
+          circuit-name-display: "ZKSign"
+          circuit-name-binary: "zksign"
+          circuit-path: "circom_circuits/Mantle/signature.circom"
+          version: ${{ env.VERSION }}
+          os: ${{ env.OS }}
+          arch: ${{ env.ARCH }}
 
   build-windows:
     name: Build Windows Binaries (Native)
@@ -190,11 +193,8 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@8edcb1bdb4e267140fa742c62e395cd74f332709
-        with:
-          path: repo
 
       - name: Initialise Submodules
-        working-directory: repo
         run: git submodule update --init --recursive
 
       - name: Install Dependencies [Witness Generator]
@@ -218,64 +218,40 @@ jobs:
 
       - name: Replace Prover Makefile # TODO: Make a fork generate the appropriate Windows Makefile
         shell: msys2 {0}
-        working-directory: repo
-        run: cp .github/resources/prover/${{ env.OS }}.Makefile circom_circuits/rapidsnark/Makefile
+        run: cp .github/resources/prover/Makefile circom_circuits/rapidsnark/Makefile
 
       - name: Replace Prover CMakeLists
         shell: msys2 {0}
-        working-directory: repo
         run: cp .github/resources/prover/${{ env.OS }}.src-CMakeLists.txt circom_circuits/rapidsnark/src/CMakeLists.txt
- 
+
       - name: Patch Windows mman
         shell: msys2 {0}
-        working-directory: repo
         run: cp .github/resources/prover/${{ env.OS }}.mman_patch.hpp /include/mman_patch.hpp
 
       - name: Add uio.h headers
         shell: msys2 {0}
-        working-directory: repo
         run: cp .github/resources/prover/${{ env.OS }}.uio.h /include/sys/uio.h
 
       - name: Replace build_gmp
         shell: msys2 {0}
-        working-directory: repo
         run: cp .github/resources/prover/${{ env.OS }}.build_gmp.sh circom_circuits/rapidsnark/build_gmp.sh
 
-      - name: Compile Prover
+      - name: Compile Prover and Verifier
         shell: msys2 {0}
-        working-directory: repo/circom_circuits/rapidsnark
+        working-directory: circom_circuits/rapidsnark
         run: |
           ./build_gmp.sh host
-          make host_windows_x86_64
-
-      - name: Generate Witness Generator's C++ Circuit
-        working-directory: repo/circom_circuits/Mantle
-        run: circom --c --r1cs --no_asm pol.circom
-
-      - name: Replace Witness Generator Makefile # TODO: Make a fork generate the appropriate Windows Makefile
-        shell: msys2 {0}
-        working-directory: repo
-        run: cp .github/resources/witness-generator/${{ env.OS }}.Makefile circom_circuits/Mantle/pol_cpp/Makefile
-
-      - name: Compile Witness Generator
-        shell: msys2 {0}
-        working-directory: repo/circom_circuits/Mantle/pol_cpp
-        run: make pol.exe
+          make host_windows_x86_64_static
 
       - name: Bundle Rapidsnark Prover
         shell: msys2 {0}
-        working-directory: repo
         env:
           BINARY_NAME: prover
-          BUNDLE_NAME: prover-${{ env.OS }}-${{ env.ARCH }}
+          BUNDLE_NAME: prover-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}
           RAPIDSNARK_DIR: circom_circuits/rapidsnark/package
         run: |
           BUNDLE_DIR="${BUNDLE_NAME}/${BINARY_NAME}"
           mkdir -p "$BUNDLE_DIR"
-
-          MINGW_BASE_DIR="/${MSYSTEM,,}"
-          MINGW_DLL_DIR="$MINGW_BASE_DIR/bin"
-          cp "$MINGW_DLL_DIR"/{libgcc_s_seh-1.dll,libwinpthread-1.dll,libstdc++-6.dll} "$BUNDLE_DIR/"
 
           mv "${RAPIDSNARK_DIR}"/bin/${BINARY_NAME}.exe "$BUNDLE_DIR/"
 
@@ -283,59 +259,59 @@ jobs:
 
       - name: Bundle Rapidsnark Verifier
         shell: msys2 {0}
-        working-directory: repo
         env:
           BINARY_NAME: verifier
-          BUNDLE_NAME: verifier-${{ env.OS }}-${{ env.ARCH }}
+          BUNDLE_NAME: verifier-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}
           RAPIDSNARK_DIR: circom_circuits/rapidsnark/package
         run: |
           BUNDLE_DIR="${BUNDLE_NAME}/${BINARY_NAME}"
           mkdir -p "$BUNDLE_DIR"
 
-          MINGW_BASE_DIR="/${MSYSTEM,,}"
-          MINGW_DLL_DIR="$MINGW_BASE_DIR/bin"
-          cp "$MINGW_DLL_DIR"/{libgcc_s_seh-1.dll,libwinpthread-1.dll,libstdc++-6.dll} "$BUNDLE_DIR/"
-
           mv "${RAPIDSNARK_DIR}"/bin/${BINARY_NAME}.exe "$BUNDLE_DIR/"
 
           tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
 
-      - name: Bundle Pol Witness Generator
-        shell: msys2 {0}
-        working-directory: repo
-        env:
-          BUNDLE_NAME: pol-${{ env.OS }}-${{ env.ARCH }}
-          WITNESS_GENERATOR_DIR: circom_circuits/Mantle/pol_cpp
-        run: |
-          BUNDLE_DIR="${BUNDLE_NAME}/witness-generator"
-          mkdir -p "$BUNDLE_DIR"
-
-          MINGW_BASE_DIR="/${MSYSTEM,,}"
-          MINGW_DLL_DIR="$MINGW_BASE_DIR/bin"
-          cp "$MINGW_DLL_DIR"/{libgcc_s_seh-1.dll,libwinpthread-1.dll,libstdc++-6.dll,libgmp-10.dll} "$BUNDLE_DIR/"
-      
-          mv "${WITNESS_GENERATOR_DIR}/pol" "$BUNDLE_DIR/pol.exe"
-          mv "${WITNESS_GENERATOR_DIR}/pol.dat" "$BUNDLE_DIR/pol.exe.dat"
-      
-          tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
-
       - name: Upload Rapidsnark Prover
-        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8 
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
         with:
-          name: prover-${{ env.OS }}-${{ env.ARCH }}.tar.gz
-          path: repo/prover-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          name: prover-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          path: prover-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
       - name: Upload Rapidsnark Verifier
-        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8 
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
         with:
-          name: verifier-${{ env.OS }}-${{ env.ARCH }}.tar.gz
-          path: repo/verifier-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          name: verifier-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          path: verifier-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
-      - name: Upload Pol Witness Generator
-        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8 
+      - name: Compile and Bundle PoL
+        uses: ./.github/actions/compile-and-bundle
         with:
-          name: pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz
-          path: repo/pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          circuit-name-display: "PoL"
+          circuit-name-binary: "pol"
+          circuit-path: "circom_circuits/Mantle/pol.circom"
+          version: ${{ env.VERSION }}
+          os: ${{ env.OS }}
+          arch: ${{ env.ARCH }}
+
+      - name: Compile and Bundle PoQ
+        uses: ./.github/actions/compile-and-bundle
+        with:
+          circuit-name-display: "PoQ"
+          circuit-name-binary: "poq"
+          circuit-path: "circom_circuits/Blend/poq.circom"
+          version: ${{ env.VERSION }}
+          os: ${{ env.OS }}
+          arch: ${{ env.ARCH }}
+
+      - name: Compile and Bundle ZKSign
+        uses: ./.github/actions/compile-and-bundle
+        with:
+          circuit-name-display: "ZKSign"
+          circuit-name-binary: "zksign"
+          circuit-path: "circom_circuits/Mantle/signature.circom"
+          version: ${{ env.VERSION }}
+          os: ${{ env.OS }}
+          arch: ${{ env.ARCH }}
 
   build-macos:
     name: Build MacOS Binaries (Native)
@@ -344,7 +320,7 @@ jobs:
       - setup
     env:
       VERSION: ${{ needs.setup.outputs.version }}
-      ARCH: arm64
+      ARCH: aarch64
       OS: macos
     steps:
       - name: Install Rust Toolchain
@@ -363,11 +339,8 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@8edcb1bdb4e267140fa742c62e395cd74f332709
-        with:
-          path: repo
 
       - name: Initialise Submodules
-        working-directory: repo
         run: git submodule update --init --recursive
 
       - name: Setup Dependencies
@@ -377,35 +350,18 @@ jobs:
         run: brew install nlohmann-json
 
       - name: Install Dependencies [Prover]
-        run: brew install cmake nasm m4
+        run: brew install nasm m4
 
-      - name: Compile Prover
-        working-directory: repo/circom_circuits/rapidsnark
+      - name: Compile Prover and Verifier
+        working-directory: circom_circuits/rapidsnark
         run: |
           ./build_gmp.sh macos_arm64
           make macos_arm64
 
-      - name: Generate Witness Generator's C++ Circuit
-        working-directory: repo/circom_circuits/Mantle
-        run: circom --c --r1cs --no_asm --O2 pol.circom
-
-      - name: Replace Witness Generator's Makefile # TODO: Make a fork generate the appropriate MacOS Makefile
-        working-directory: repo
-        run: cp .github/resources/witness-generator/${{ env.OS }}.Makefile circom_circuits/Mantle/pol_cpp/Makefile
-
-      - name: Patch MacOS GMP
-        working-directory: repo
-        run: cp .github/resources/witness-generator/${{ env.OS }}.gmp_patch.hpp circom_circuits/Mantle/pol_cpp/gmp_patch.hpp
-
-      - name: Compile Witness Generator
-        working-directory: repo/circom_circuits/Mantle/pol_cpp
-        run: make pol
-
       - name: Bundle Rapidsnark Prover
-        working-directory: repo
         env:
           BINARY_NAME: prover
-          BUNDLE_NAME: prover-${{ env.OS }}-${{ env.ARCH }}
+          BUNDLE_NAME: prover-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}
           RAPIDSNARK_DIR: circom_circuits/rapidsnark/package_macos_arm64
         run: |
           BUNDLE_DIR="${BUNDLE_NAME}/${BINARY_NAME}"
@@ -416,10 +372,9 @@ jobs:
           tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
 
       - name: Bundle Rapidsnark Verifier
-        working-directory: repo
         env:
           BINARY_NAME: verifier
-          BUNDLE_NAME: verifier-${{ env.OS }}-${{ env.ARCH }}
+          BUNDLE_NAME: verifier-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}
           RAPIDSNARK_DIR: circom_circuits/rapidsnark/package_macos_arm64
         run: |
           BUNDLE_DIR="${BUNDLE_NAME}/${BINARY_NAME}"
@@ -429,36 +384,47 @@ jobs:
 
           tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
 
-      - name: Bundle Pol Witness Generator
-        working-directory: repo
-        env:
-          BUNDLE_NAME: pol-${{ env.OS }}-${{ env.ARCH }}
-          WITNESS_GENERATOR_DIR: circom_circuits/Mantle/pol_cpp
-        run: |
-          BUNDLE_DIR="${BUNDLE_NAME}/witness-generator"
-          mkdir -p "$BUNDLE_DIR"
-      
-          mv "${WITNESS_GENERATOR_DIR}"/{pol,pol.dat} "$BUNDLE_DIR/"
-      
-          tar -czf "${BUNDLE_NAME}.tar.gz" "${BUNDLE_NAME}"
-
       - name: Upload Rapidsnark Prover
-        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8 
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
         with:
-          name: prover-${{ env.OS }}-${{ env.ARCH }}.tar.gz
-          path: repo/prover-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          name: prover-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          path: prover-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
       - name: Upload Rapidsnark Verifier
-        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8 
+        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8
         with:
-          name: verifier-${{ env.OS }}-${{ env.ARCH }}.tar.gz
-          path: repo/verifier-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          name: verifier-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          path: verifier-${{ env.VERSION }}-${{ env.OS }}-${{ env.ARCH }}.tar.gz
 
-      - name: Upload Pol Witness Generator
-        uses: actions/upload-artifact@de65e23aa2b7e23d713bb51fbfcb6d502f8667d8 
+      - name: Compile and Bundle PoL
+        uses: ./.github/actions/compile-and-bundle
         with:
-          name: pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz
-          path: repo/pol-${{ env.OS }}-${{ env.ARCH }}.tar.gz
+          circuit-name-display: "PoL"
+          circuit-name-binary: "pol"
+          circuit-path: "circom_circuits/Mantle/pol.circom"
+          version: ${{ env.VERSION }}
+          os: ${{ env.OS }}
+          arch: ${{ env.ARCH }}
+
+      - name: Compile and Bundle PoQ
+        uses: ./.github/actions/compile-and-bundle
+        with:
+          circuit-name-display: "PoQ"
+          circuit-name-binary: "poq"
+          circuit-path: "circom_circuits/Blend/poq.circom"
+          version: ${{ env.VERSION }}
+          os: ${{ env.OS }}
+          arch: ${{ env.ARCH }}
+
+      - name: Compile and Bundle ZKSign
+        uses: ./.github/actions/compile-and-bundle
+        with:
+          circuit-name-display: "ZKSign"
+          circuit-name-binary: "zksign"
+          circuit-path: "circom_circuits/Mantle/signature.circom"
+          version: ${{ env.VERSION }}
+          os: ${{ env.OS }}
+          arch: ${{ env.ARCH }}
 
   publish-release:
     name: Create Release
@@ -469,6 +435,7 @@ jobs:
       - build-windows
       - build-macos
     env:
+      TAG: ${{ needs.setup.outputs.tag }}
       VERSION: ${{ needs.setup.outputs.version }}
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
@@ -479,7 +446,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ env.VERSION }}
+          tag_name: ${{ env.TAG }}
           release_name: Circom Circuits ${{ env.VERSION }}
           body: |
             This is a release of Circom Circuits ${{ env.VERSION }}.
@@ -500,7 +467,7 @@ jobs:
   upload-artifacts:
     name: Upload Artifacts to Release
     runs-on: ubuntu-latest
-    needs: 
+    needs:
       - setup
       - publish-release
     strategy:
@@ -510,17 +477,18 @@ jobs:
           - os: linux
             arch: x86_64
           - os: macos
-            arch: arm64
+            arch: aarch64
           - os: windows
             arch: x86_64
         artifact:
           - prover
           - verifier
           - pol
+          - poq
+          - zksign
     env:
-      VERSION: ${{ needs.setup.outputs.version }}
       UPLOAD_URL: ${{ needs.publish-release.outputs.upload_url }}
-      ARTIFACT_NAME: ${{ matrix.artifact }}-${{ matrix.platform.os }}-${{ matrix.platform.arch }}.tar.gz
+      ARTIFACT_NAME: ${{ matrix.artifact }}-${{ needs.setup.outputs.version }}-${{ matrix.platform.os }}-${{ matrix.platform.arch }}.tar.gz
     steps:
       - name: Download Artifacts
         uses: actions/download-artifact@448e3f862ab3ef47aa50ff917776823c9946035b
