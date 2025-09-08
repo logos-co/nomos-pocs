@@ -157,6 +157,16 @@ jobs:
           os: ${{ env.OS }}
           arch: ${{ env.ARCH }}
 
+      - name: Compile and Bundle PoC
+        uses: ./.github/actions/compile-and-bundle
+        with:
+          circuit-name-display: "PoC"
+          circuit-name-binary: "poc"
+          circuit-path: "circom_circuits/Mantle/proof_of_claim.circom"
+          version: ${{ env.VERSION }}
+          os: ${{ env.OS }}
+          arch: ${{ env.ARCH }}
+
   build-windows:
     name: Build Windows Binaries (Native)
     runs-on: windows-latest
@@ -313,6 +323,16 @@ jobs:
           os: ${{ env.OS }}
           arch: ${{ env.ARCH }}
 
+      - name: Compile and Bundle PoC
+        uses: ./.github/actions/compile-and-bundle
+        with:
+          circuit-name-display: "PoC"
+          circuit-name-binary: "poc"
+          circuit-path: "circom_circuits/Mantle/proof_of_claim.circom"
+          version: ${{ env.VERSION }}
+          os: ${{ env.OS }}
+          arch: ${{ env.ARCH }}
+
   build-macos:
     name: Build MacOS Binaries (Native)
     runs-on: macos-latest
@@ -422,6 +442,16 @@ jobs:
           circuit-name-display: "ZKSign"
           circuit-name-binary: "zksign"
           circuit-path: "circom_circuits/Mantle/signature.circom"
+          version: ${{ env.VERSION }}
+          os: ${{ env.OS }}
+          arch: ${{ env.ARCH }}
+
+      - name: Compile and Bundle PoC
+        uses: ./.github/actions/compile-and-bundle
+        with:
+          circuit-name-display: "PoC"
+          circuit-name-binary: "poc"
+          circuit-path: "circom_circuits/Mantle/proof_of_claim.circom"
           version: ${{ env.VERSION }}
           os: ${{ env.OS }}
           arch: ${{ env.ARCH }}
