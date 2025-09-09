@@ -219,8 +219,8 @@ if total_stake >= p:
     print("total stake must be less than p")
     exit()
     
-t0_constant = F(0x27b6fe27507ca57ca369280400c79b5d2f58ff94d87cb0fbfc8294eb69eb1ea)
-t1_constant = F(0x104bfd09ebdd0a57772289d0973489b62662a4dc6f09da8b4af3c5cfb1dcdd)
+t0_constant = F(0x1a3fb997fd58374772808c13d1c2ddacb5ab3ea77413f86fd6e0d3d978e5438)
+t1_constant = F(0x71e790b41991052e30c93934b5612412e7958837bac8b1c524c24d84cc7d0)
 
 t0 = F(int(t0_constant) // total_stake)
 t1 = F(p- (int(t1_constant) // total_stake**2))
