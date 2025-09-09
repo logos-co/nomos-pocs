@@ -225,8 +225,6 @@ t1_constant = F(0x71e790b41991052e30c93934b5612412e7958837bac8b1c524c24d84cc7d0)
 t0 = F(int(t0_constant) // total_stake)
 t1 = F(p- (int(t1_constant) // total_stake**2))
 
-print(t0)
-
 
 value = F(total_stake / 100)
 threshold = (t0 + t1 * value) * value
