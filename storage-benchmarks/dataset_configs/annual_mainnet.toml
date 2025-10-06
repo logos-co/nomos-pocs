@@ -1,0 +1,19 @@
+[dataset]
+block_time_seconds = 30
+days               = 365
+name               = "annual_mainnet_conservative"
+
+[network]
+blobs_per_block = 50
+load_name       = "annual_mainnet"
+total_subnets   = 2048
+
+[validator]
+assigned_subnets = 10
+
+[blocks]
+size_bytes = 34371
+
+[da]
+commitment_size_bytes = 220000
+share_size_bytes      = 1024

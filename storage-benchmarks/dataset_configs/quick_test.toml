@@ -1,0 +1,19 @@
+[dataset]
+days = 1
+block_time_seconds = 30
+name = "quick_test"
+
+[network]
+load_name = "light_testnet"
+blobs_per_block = 2
+total_subnets = 2048
+
+[validator]
+assigned_subnets = 1
+
+[blocks]
+size_bytes = 10000
+
+[da]
+share_size_bytes = 512
+commitment_size_bytes = 50000

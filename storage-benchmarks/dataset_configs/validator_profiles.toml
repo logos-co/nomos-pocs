@@ -1,0 +1,55 @@
+# Spec-accurate validator operation profiles
+
+[light]
+name = "light"
+description = "Light validator with minimal resources and spec-accurate patterns"
+# Read frequencies
+block_read_rate_hz = 2.0              # Block validation reads
+da_share_read_rate_hz = 0.67          # DA sampling reads (20 samples per 30s block)
+range_scan_rate_hz = 0.01             # Occasional sync serving
+# Write frequencies
+block_write_rate_hz = 0.033           # New block finalization (30s blocks)
+da_share_write_rate_hz = 0.5          # New DA share storage
+commitment_write_rate_hz = 0.5        # New commitments
+# Access patterns (spec-accurate temporal distribution)
+recent_access_ratio = 0.80            # 80% reads from recent data (Zipfian)
+historical_access_ratio = 0.20        # 20% reads from historical data (uniform)
+# Network scaling
+total_validators = 100                 # Small testnet
+assigned_subnets = 20                  # High subnet assignment for small network
+
+[mainnet]
+name = "mainnet"  
+description = "Mainnet validator with high activity and spec-accurate patterns"
+# Read frequencies (higher validation load)
+block_read_rate_hz = 10.0             # High block validation rate
+da_share_read_rate_hz = 5.0           # Higher DA sampling frequency
+range_scan_rate_hz = 0.1              # More frequent sync serving
+# Write frequencies (mainnet load)
+block_write_rate_hz = 0.033           # Same block time
+da_share_write_rate_hz = 5.0          # High DA write activity
+commitment_write_rate_hz = 5.0        # Matching commitment writes
+# Access patterns (more recent focus)
+recent_access_ratio = 0.90            # 90% recent access (heavy tip bias)
+historical_access_ratio = 0.10        # 10% historical access
+# Network scaling  
+total_validators = 2000                # Mainnet scale
+assigned_subnets = 10                  # Medium subnet assignment
+
+[testnet]
+name = "testnet"
+description = "Testnet network with heavy sync activity and range scanning"
+# Read frequencies (sync serving dominates)
+block_read_rate_hz = 50.0             # Heavy block serving for sync
+da_share_read_rate_hz = 10.0          # Moderate DA validation
+range_scan_rate_hz = 10.0             # Continuous range scans for sync
+# Write frequencies (reduced during sync)
+block_write_rate_hz = 0.01            # Minimal new blocks
+da_share_write_rate_hz = 0.1          # Reduced DA writes
+commitment_write_rate_hz = 0.1        # Reduced commitments
+# Access patterns (historical focus for sync)
+recent_access_ratio = 0.20            # Mostly historical data
+historical_access_ratio = 0.80        # Heavy historical access
+# Network scaling
+total_validators = 1000                # Medium network during sync
+assigned_subnets = 10                  # Standard subnet assignment

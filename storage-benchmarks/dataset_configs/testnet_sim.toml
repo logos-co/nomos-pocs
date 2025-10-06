@@ -1,0 +1,19 @@
+[dataset]
+days = 7
+block_time_seconds = 30
+name = "testnet_simulation"
+
+[network]
+load_name = "medium_testnet"
+blobs_per_block = 15
+total_subnets = 2048
+
+[validator]
+assigned_subnets = 5
+
+[blocks]
+size_bytes = 34371
+
+[da]
+share_size_bytes = 1024
+commitment_size_bytes = 220000
