@@ -356,7 +356,7 @@ mod test {
             assert!(x_mmr.verify_proof(&x, &x_pf));
 
             for (y, _, y_mmr) in proofs.iter() {
-                x_pf.update(&x, x_mmr.folds(y));
+                x_pf.update(&x, &x_mmr.folds(y));
                 assert!(y_mmr.verify_proof(&x, &x_pf));
 
                 x_mmr.push(y);
