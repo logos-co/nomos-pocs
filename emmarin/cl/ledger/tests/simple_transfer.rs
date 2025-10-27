@@ -1,7 +1,7 @@
 use cl::{
     crust::{
         balance::{UnitWitness, NOP_COVENANT},
-        BundleWitness, InputWitness, NoteCommitment, Nullifier, NullifierCommitment,
+        InputWitness, NoteCommitment, Nullifier, NullifierCommitment,
         NullifierSecret, OutputWitness, TxWitness,
     },
     ds::mmr::{MMRProof, MMR},
