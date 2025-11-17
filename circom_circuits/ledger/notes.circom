@@ -3,7 +3,6 @@ pragma circom 2.1.9;
 
 include "../hash_bn/poseidon2_hash.circom";
 include "../misc/constants.circom";
-include "../hash_bn/poseidon2_perm.circom";
 
 template derive_secret_key(){
     signal input starting_slot;
@@ -23,7 +22,7 @@ template derive_public_key(){
     signal input secret_key;
     signal output out;
 
-    component hash = Compression();
+    component hash = Poseidon2_hash(2);
     component dst = NOMOS_KDF();
     hash.inp[0] <== dst.out;
     hash.inp[1] <== secret_key;
