@@ -221,7 +221,7 @@ if not core_or_leader in [0,1]:
 # 1) Core‐node registry Merkle‐proof
 # pick a random core_sk and derive its public key
 core_sk   = F(randrange(0,p,1))
-pk_core   = Compression([ F(1296193216988918402894), core_sk ])
+pk_core   = poseidon2_hash([ F(1296193216988918402894), core_sk ])
 core_selectors = randrange(0,2**20,1)
 core_selectors = format(int(core_selectors),'020b')
 core_nodes = [F(randrange(0,p,1)) for i in range(20)]
@@ -260,11 +260,11 @@ slot_secret_path = [F(randrange(0,p,1)) for i in range(25)]
 secret_root = slot_secret
 for i in range(25):
     if int(slot_secret_indexes[24-i]) == 0:
-        secret_root = poseidon2_hash([secret_root,slot_secret_path[i]])
+        secret_root = Compression([secret_root,slot_secret_path[i]])
     else:
         secret_root = Compression([slot_secret_path[i],secret_root])
 sk = poseidon2_hash([F(256174383281726064679014503048630094),starting_slot,secret_root])
-pk = Compression([F(1296193216988918402894),sk])
+pk = poseidon2_hash([F(1296193216988918402894),sk])
 
 note_id = poseidon2_hash([F(65580641562429851895355409762135920462),tx_hash,output_number,value,pk])
 ticket = poseidon2_hash([F(13887241025832268),F(epoch_nonce),F(slot_number),note_id,sk])
