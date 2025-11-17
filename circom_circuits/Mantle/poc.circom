@@ -1,7 +1,7 @@
 //test
 pragma circom 2.1.9;
 
-include "../hash_bn/poseidon2_hash.circom";
+include "../hash_bn/poseidon2_perm.circom";
 include "../hash_bn/merkle.circom";
 include "../misc/constants.circom";
 
@@ -9,7 +9,7 @@ template derive_voucher_nullifier(){
     signal input secret_voucher;
     signal output out;
 
-    component hash = Poseidon2_hash(2);
+    component hash = Compression();
     component dst = VOUCHER_NF();
     hash.inp[0] <== dst.out;
     hash.inp[1] <== secret_voucher;
@@ -21,7 +21,7 @@ template derive_reward_voucher(){
     signal input secret_voucher;
     signal output out;
 
-    component hash = Poseidon2_hash(2);
+    component hash = Compression();
     component dst = REWARD_VOUCHER();
     hash.inp[0] <== dst.out;
     hash.inp[1] <== secret_voucher;

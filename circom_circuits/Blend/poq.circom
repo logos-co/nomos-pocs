@@ -1,7 +1,7 @@
 // PoQ.circom
 pragma circom 2.1.9;
 
-include "../hash_bn/poseidon2_hash.circom";
+include "../hash_bn/poseidon2_perm.circom";
 include "../misc/constants.circom";         // defines NOMOS_KDF, SELECTION_RANDOMNESS, PROOF_NULLIFIER
 include "../misc/comparator.circom";        
 include "../circomlib/circuits/bitify.circom";
@@ -125,7 +125,7 @@ template ProofOfQuota(nLevelsPK, nLevelsPol, bitsQuota) {
 
 
     // Derive key_nullifier
-    component nf = Poseidon2_hash(2);
+    component nf = Compression();
     component dstNF = KEY_NULLIFIER_V1();
     nf.inp[0] <== dstNF.out;
     nf.inp[1] <== selection_randomness.out;

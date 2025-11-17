@@ -156,7 +156,7 @@ def Permutation(inp):
     return state
 
 def Compression(inp):
-    return Permutation([inp[0],inp[1],F(0)])
+    return Permutation([inp[0],inp[1],F(0)])[0]
 
 def PoseidonSponge(data, capacity, output_len):
     rate = 3 - capacity;
@@ -208,7 +208,7 @@ def PoseidonSponge(data, capacity, output_len):
 
 
 secret_voucher = F(randrange(0,p,1))
-reward_voucher = poseidon2_hash([F(1668646695034522932676805048878418),secret_voucher])
+reward_voucher = Compression([F(1668646695034522932676805048878418),secret_voucher])
 
 merkle_nodes = [F(randrange(0,p,1)) for i in range(32)]
 selectors = randrange(0,2**32,1)
@@ -216,9 +216,9 @@ selectors = format(selectors,'032b')
 voucher_root = reward_voucher
 for i in range(32):
     if int(selectors[31-i]) == 0:
-        voucher_root = poseidon2_hash([voucher_root,merkle_nodes[i]])
+        voucher_root = Compression([voucher_root,merkle_nodes[i]])
     else:
-        voucher_root = poseidon2_hash([merkle_nodes[i],voucher_root])
+        voucher_root = Compression([merkle_nodes[i],voucher_root])
 
 data_msg = F(randrange(0,p,1))
 
