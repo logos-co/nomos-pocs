@@ -1,7 +1,7 @@
 // PoQ.circom
 pragma circom 2.1.9;
 
-include "../hash_bn/poseidon2_perm.circom";
+include "../hash_bn/poseidon2_hash.circom";
 include "../misc/constants.circom";         // defines NOMOS_KDF, SELECTION_RANDOMNESS, PROOF_NULLIFIER
 include "../misc/comparator.circom";        
 include "../circomlib/circuits/bitify.circom";
